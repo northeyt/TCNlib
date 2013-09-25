@@ -1,0 +1,23 @@
+ok 1 - use pdb;
+ok 2 - atom object created ok isa atom
+ok 3 - pdb object created ok isa pdb
+ok 4 - chain object created ok isa chain
+ok 5 - Radius read from xmas2pdb object
+ok 6 - Multimer ASA read from xmas2pdb object
+ok 7 - Monomer ASA read from xmas2pdb object
+ok 8 - Dies if ASAm has not been set for chain
+ok 9 - patch_centres modified for chain object
+   0$VAR1 = bless( {
+                 'serial' => '3321',
+                 'name' => 'N',
+                 'ATOM_line' => 'ATOM   3321  N   GLU C   0       7.507  62.997  68.722  1.00 77.43           N',
+                 'x' => '7.507',
+                 'resName' => 'GLU',
+                 'occupancy' => '1.00',
+                 'y' => '62.997',
+                 'chainID' => 'C',
+                 'tempFactor' => '77.43',
+                 'z' => '68.722',
+                 'resSeq' => '0'
+               }, 'atom' );
+1..9
