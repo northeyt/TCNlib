@@ -506,6 +506,8 @@ sub _stringify {
     my $string = sprintf(  '%-6.4s%5.5s %4.4s%1.1s%3.3s %1.1s%4.4s%1.1s   '
                           .'%8.3f' x 3 .  '%6.2f' x 2 . '%2.2s' x 2 ,
                            @ordered_attr );
+
+    $string .= "\n";
     
     return $string;
 }

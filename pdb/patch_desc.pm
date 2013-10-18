@@ -4,14 +4,14 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use types;
 
-with 'MooseX::Clone';
-
 use Math::Trig;
 use Math::VectorReal qw(:all);
 use Math::MatrixReal;
 
 use Statistics::PCA;
 use pdb::xmas2pdb;
+use pdb::rotate2pc qw(:all);
+
 use TCNPerlVars;
 use Data::Dumper;
 
@@ -68,12 +68,29 @@ sub patch_order {
 
     print Dumper $all_atom{ $self->patch->central_atom->serial };
 
-    # Move all atoms so that patch central atom is at origin
-    $self->_centralatom2origin(\%all_atom);
-    
-    # Rotate all atoms so that x and y axis correspond to patch PC1 and PC2
-    $self->_orientate2patch(values %patch_surf_atom);
+    # Set central atom to origin
 
+    my $cent_atom = $self->patch->central_atom;
+    
+    foreach my $atom (values %all_atom) {
+        foreach my $coord ( 'x', 'y', 'z') {
+            $atom->$coord( $atom->$coord - $cent_atom->$coord ); 
+        }
+    }
+
+    # Get rot matrix for transform  x and y ->  patch PC1 and PC2
+    my $RM = rotate2pc::rotate2pc( map { vector($_->x, $_->y, $_->z) }
+                            values %patch_surf_atom );
+
+    # Transform all atoms
+    foreach my $atom (values %all_atom) {
+        my $rVect = vector($atom->x, $atom->y, $atom->z) * $RM;
+        
+        foreach my $coord ('x', 'y', 'z') {
+            $atom->$coord($rVect->$coord);
+        }
+    }
+    
     # Determine number of atomic contacts on either side of patch
     my($posz_contacts, $negz_contacts)
         = $self->_surface_sides( \%patch_atom, \%nonpatch_atom );
@@ -81,29 +98,11 @@ sub patch_order {
     my $contact_threshold = 35;
     if ( $posz_contacts < $contact_threshold )  {
         print "Positive z face:\n";
-        $self->_residue_order(1);
+        $self->_residue_order;
     }
 
-    if ( $negz_contacts < $contact_threshold ) {
-        print "Negative z face:\n";
-        foreach my $atom (values %patch_atom) {
+    # Negative face, switch residue order
 
-            # Rotate pi rad around y then determine res order
-            my $vector = [ $atom->x, $atom->y, $atom->z ];
-
-            #if ($atom->name eq 'CA') {
-            #    print $atom->resSeq . Dumper $vector;
-            #}
-            
-            #my $newvector
-            #    = _rotate( $vector, _rotation_matrix( pi , 'y' ) );
-            
-            #$atom->x( $newvector->[0] );
-            #$atom->y( $newvector->[1] );
-            #$atom->z( $newvector->[2] );
-        }
-        $self->_residue_order(-1);    
-    }   
 }
 
 sub _surface_atoms {
