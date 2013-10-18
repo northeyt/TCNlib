@@ -59,6 +59,10 @@ $pdb->atom_array();
 
 $pdb->atom_index();
 
+ok($pdb->resid_index, "resid_index ok" );
+
+print Dumper $pdb->resid_index;
+
 # chain object
 
 my $chain_id = 'A';
@@ -121,3 +125,5 @@ $chain->read_ASA($mono_x2p);
 
 ok( $chain->patch_centres( %pc_arg),
     "patch_centres modified for chain object" );
+
+print $atom;

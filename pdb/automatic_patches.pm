@@ -64,6 +64,14 @@ has 'chain_id' => (
     predicate => 'has_chain_id'
 );
 
+# Minimum absolute accessibility an atom must have if it is to be considered
+# surface
+has surf_min => (
+    is => 'rw',
+    isa => 'Num',
+    default => 0,
+);
+
 for my $name ( 'pdb', 'xmas' ) {
     my $att_name = $name . '_file';
     my $builder = "_build_$name" . "_fname";
@@ -209,6 +217,7 @@ sub get_patches {
                 pdb_file       => $tmp_pdb_file,
                 pdb_code       => $pdb_code,
                 central_atom   => $cent_atom,
+                surf_min       => $self->surf_min,
             );
 
         my $mkp_obj = makepatch->new(%mkp_arg);

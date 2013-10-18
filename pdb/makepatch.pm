@@ -47,6 +47,12 @@ has 'pdb_file' => (
     required => 1,
 );
 
+has 'pdb_code' => (
+    is  => 'rw',
+    isa => 'Str',
+    default => '????'
+);
+
 has 'output' => (
     is => 'ro',
     isa => 'ArrayRef[Str]',
@@ -54,6 +60,15 @@ has 'output' => (
     builder => '_run_makepatch',
 );
 
+
+# Minimum absolute accessibility an atom must have if it is to be considered
+# surface
+has 'surf_min' => (
+    is => 'rw',
+    isa => 'Num',
+    lazy => 1,
+    default => 0,
+);
 
 # methods
 
@@ -72,8 +87,10 @@ sub _run_makepatch {
     my $atomname = $self->central_atom->name();
     my $resspec
         = $self->central_atom->chainID() . $self->central_atom->resSeq();
+    my $surf_min = $self->surf_min;
     
-    my $cmd = "$makepatch -s -r $radius $patch_type $resspec $atomname $pdb";
+    my $cmd = "$makepatch -s -r $radius -m $surf_min"
+              . " $patch_type $resspec $atomname $pdb";
 
     my @output = `$cmd`;
 

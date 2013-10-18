@@ -42,12 +42,21 @@ has 'atom_array' => (
     builder => '_parse_atoms',
 );
 
-# Index is form of chain -> resSeq -> name -> index for atom_array
+# Index is form of chain -> resSeq -> atom_name -> index for atom_array
 has 'atom_index' => (
     isa => 'HashRef',
     is => 'ro',
     lazy => 1,
     builder => '_build_atom_index',
+);
+
+# Index in form of resid -> atom_name -> index for atom_array
+# Resid = chainResSeq
+has 'resid_index' => (
+    isa => 'HashRef',
+    is => 'ro',
+    lazy => 1,
+    builder => '_build_resid_index',
 );
 
 # Consume antigen role
@@ -128,6 +137,26 @@ sub _build_atom_index {
 
     return { %hash };
     
+}
+
+sub _build_resid_index {
+    my $self = shift;
+
+    my %hash = ();
+
+    foreach my $chain (keys %{ $self->atom_index } ) {
+        my %chain_h = %{ $self->atom_index->{$chain} };
+        
+        foreach my $resSeq (keys %chain_h) {
+            my $resid = $chain . $resSeq;
+            $hash{$resid} = $chain_h{$resSeq};
+        }
+    }
+
+    croak "Nothing indexed while attempting to index by resid"
+        if ! %hash;
+
+    return {%hash};
 }
 
 sub read_ASA {
@@ -367,8 +396,10 @@ around BUILDARGS => sub {
         my %arg
             = ( central_atom => $makepatch->central_atom,
                 pdb_file     => $makepatch->output,
-                summary      => rm_trail( $makepatch->output->[-1] )
+                summary      => rm_trail( $makepatch->output->[-1] ),
+                pdb_code     => $makepatch->pdb_code,
             );
+        
         $class->$orig(%arg);
     }
     else {
@@ -438,7 +469,8 @@ has 'ATOM_line' => (
     is  => 'rw',
 );
 
-has [ 'name', 'resName', 'charge' ] => ( is => 'rw', isa => 'Str' );
+has [ 'name', 'resName', 'element', 'charge' ]
+    => ( is => 'rw', isa => 'Str' );
 
 has [ 'altLoc', 'chainID', 'iCode', ] => ( is => 'rw', isa => 'Character' );
 
@@ -452,6 +484,32 @@ foreach my $name ( 'radius', 'ASAm', 'ASAc' ) {
 
 has [ 'x', 'y', 'z', 'occupancy', 'tempFactor' ]
     => ( is => 'rw', isa => 'Num');
+
+use overload '""' => \&_stringify, fallback => 1;
+
+sub _stringify {
+    my $self = shift;
+
+    my @ordered_attr
+        = eval { my @ar = ( 'ATOM', $self->serial, $self->name, $self->altLoc,
+            $self->resName, $self->chainID, $self->resSeq, $self->iCode,
+            $self->x, $self->y, $self->z, $self->occupancy,
+            $self->tempFactor, $self->element, $self->charge ) }; 
+
+    for my $i ( 0 .. @ordered_attr) {
+        if ( ! defined $ordered_attr[$i] ) {
+            $ordered_attr[$i] = '';
+            
+        }
+    }
+    
+    my $string = sprintf(  '%-6.4s%5.5s %4.4s%1.1s%3.3s %1.1s%4.4s%1.1s   '
+                          .'%8.3f' x 3 .  '%6.2f' x 2 . '%2.2s' x 2 ,
+                           @ordered_attr );
+    
+    return $string;
+}
+
 
 # Methods
 sub BUILD {
@@ -481,6 +539,7 @@ sub BUILD {
             z => rm_trail( substr($ATOM_line, 46, 8) ),
             occupancy => rm_trail( substr($ATOM_line, 54, 6) ),
             tempFactor => rm_trail( substr($ATOM_line, 60, 6) ),
+            element => rm_trail( substr($ATOM_line, 76, 2 ) ),
             charge => rm_trail( substr($ATOM_line, 78, 2) ),
         );
 
