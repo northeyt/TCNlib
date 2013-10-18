@@ -3,6 +3,17 @@ package rotate2pc;
 use strict; 
 use warnings;
 
+use Exporter;
+
+our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
+
+$VERSION = 1.00;
+@ISA     = qw(Exporter);
+@EXPORT  = ();
+@EXPORT_OK = qw(rotate2pc xyzmean);
+
+
+
 use Math::MatrixReal;
 use Math::VectorReal qw(:all);
 use Math::Trig;
