@@ -16,7 +16,6 @@ use strict;
 use Data::Dumper;
 
 use lib ( '..' );
-use pdb;
 
 use Test::More qw( no_plan );
 BEGIN { use_ok( 'makepatch' ); }
@@ -46,17 +45,11 @@ my $makepatch = makepatch->new( makepatch_file => $makepatch_file,
 
 my $output = $makepatch->output;
 
-print Dumper $output;
-
 my $patch = new_ok( 'patch' => [ central_atom => $makepatch->central_atom,
-                                 pdb_file => $makepatch->output ] );
+                                 pdb_data => $makepatch->output ] );
 
 print "patch->new() okay when passed a makepatch object directly?\n";
 
 my $dir_patch = new_ok( 'patch' => [ $makepatch ] );
-
-print Dumper $dir_patch->atom_array();
-
-print $dir_patch->summary();
 
 $dir_patch->run_PatchOrder;

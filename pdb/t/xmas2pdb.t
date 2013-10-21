@@ -45,5 +45,3 @@ my $xmas2pdb = new_ok( 'xmas2pdb' => \@arg );
 
 can_ok( $xmas2pdb, ('output') );
 can_ok( $xmas2pdb, ('output_file') );
-
-print $xmas2pdb->output_file;

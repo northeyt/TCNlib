@@ -26,8 +26,6 @@ coerce 'FileReadable',
     via { my %arg = ( data => $_,
                       dir  => $TCNPerlVars::tmpdir, );
 
-          #my $parent = ( caller(10) )[3];
-          #print "$parent\n";
           my $tmp = write2tmp->new(%arg);
           
           return $tmp->file_name; 

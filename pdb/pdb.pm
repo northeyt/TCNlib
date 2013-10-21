@@ -1,5 +1,8 @@
 package pdb;
 
+use FileHandle;
+use Tie::File;
+
 use Moose;
 use Moose::Util::TypeConstraints;
 use types;
@@ -20,20 +23,60 @@ has 'pdb_code' => (
                        # from pdb_file, if has_pdb_file ?
 );
 
-has 'pdb_file' => (
-    isa => 'FileReadable',
-    coerce => 1, # See types.pm for FileReadable coercion from ArrayRef[Str]
-    is => 'rw',
-    required => 1,
-    predicate => 'has_pdb_file',
-);
+for my $name ( 'pdb', 'xmas' ) {
+    
+    my $att_file = $name . '_file';
+    my $att_data   = $name . '_data'  ;
+    
+    has $att_file => (
+        isa => 'FileReadable',
+        coerce => 1,
+        # See types.pm for FileReadable coercion from ArrayRef[Str]
+        is => 'rw',
+        predicate => 'has_' . $att_file,
+    );
 
-has 'xmas_file' => (
-    isa => 'FileReadable',
-    is => 'rw',
-    predicate => 'has_xmas_file',
-);
+    has $att_data => (
+        isa => 'ArrayRef',
+        is => 'rw',
+        lazy => 1,
+        builder => '_build_' . $att_data,
+    );
+}
 
+sub _build_pdb_data {
+    my $self = shift;
+    return $self->_build_data('pdb');
+}
+sub _build_xmas_data {
+    my $self = shift;
+    return $self->_build_data('xmas');
+}
+
+
+sub _build_data {
+    my($self, $att) = @_;
+
+    my $att_file = $att . '_file';
+    
+    my $predicate = $self . '->'. $att . '_file';
+    
+    croak "Cannot get file data from $att file - no file specified"
+        if ! $predicate;
+
+    my $file = $self->$att_file;
+    
+    open(my $fh, '<', $file) or die "Cannot open file $file, $!";
+
+    my @array = ();
+
+    tie @array, 'Tie::File', $file, mode => O_RDONLY
+        or die "Cannot tie array to file $file, $!"; 
+
+    croak "No lines found in file $file" if ! @array;
+   
+    return \@array;
+}
 
 has 'atom_array' => (
     isa => 'ArrayRef[atom]',
@@ -66,9 +109,6 @@ with 'pdb::antigen';
 
 sub _parse_atoms {
     my $self = shift;
-
-    croak "pdb_file attribute must be assigned before atoms can be parsed"
-        if ! $self->has_pdb_file();
     
     my @ATOM_lines = $self->_parse_ATOM_lines();
   
@@ -89,22 +129,17 @@ sub _parse_ATOM_lines {
     
     my $self = shift;
 
-    my $file = $self->pdb_file;
-    
-    open(my $fh, '<', $file)
-        or die "Cannot open file $file to parse ATOM lines";
-  
+    my @array = @{ $self->pdb_data };  
+ 
     my @ATOM_lines = ();
 
-    while ( my $line = <$fh> ) {
+    foreach my $line (@array) {
         if ($line =~ /^ATOM /) {
             push(@ATOM_lines, $line);
         }
     }
-
-    close $fh;
     
-    croak "No ATOM lines parsed from pdb file $file"
+    croak "No ATOM lines parsed from pdb data"
         if ! @ATOM_lines;
 
     return @ATOM_lines;
@@ -395,7 +430,7 @@ around BUILDARGS => sub {
         my $makepatch = $_[0];
         my %arg
             = ( central_atom => $makepatch->central_atom,
-                pdb_file     => $makepatch->output,
+                pdb_data     => $makepatch->output,
                 summary      => rm_trail( $makepatch->output->[-1] ),
                 pdb_code     => $makepatch->pdb_code,
             );

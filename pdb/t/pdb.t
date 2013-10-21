@@ -45,6 +45,9 @@ my $pdb_file = '1djs.pdb';
 my $pdb = pdb->new( pdb_file => $pdb_file, pdb_code => '1djs' );
 isa_ok($pdb, 'pdb', "pdb object created ok");
 
+# fh builder test
+is( ref $pdb->pdb_data, 'ARRAY', "fh builder okay" );
+
 ## _parse_ATOM_lines
 
 my @ATOM_lines = $pdb->_parse_ATOM_lines;
@@ -60,8 +63,6 @@ $pdb->atom_array();
 $pdb->atom_index();
 
 ok($pdb->resid_index, "resid_index ok" );
-
-print Dumper $pdb->resid_index;
 
 # chain object
 
@@ -125,5 +126,3 @@ $chain->read_ASA($mono_x2p);
 
 ok( $chain->patch_centres( %pc_arg),
     "patch_centres modified for chain object" );
-
-print $atom;

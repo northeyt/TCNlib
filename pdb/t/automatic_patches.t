@@ -45,3 +45,4 @@ $noxmas->{pdb_code} = '1noxm'; # Will not be found in xmas dir
 $noxmas->{pdb_file} = '1nox.pdb';
 
 ok($noxmas->xmas_file, "xmas file created when not found in xmas dir");
+

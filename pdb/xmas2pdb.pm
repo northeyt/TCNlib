@@ -109,8 +109,6 @@ sub _write_output {
 
 sub _get_tmp_pdb {
     
-    #my $tmpdir = $TCNPerlVars::tmpdir . '/xmas2pdb' ;
-
     my $tmp
         = File::Temp->new( UNLINK => 0, SUFFIX => '.pdb');
 

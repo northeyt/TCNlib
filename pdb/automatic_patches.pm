@@ -10,7 +10,7 @@ use pdb::pdb;
 use pdb::xmas2pdb;
 use pdb::makepatch;
 
-use File::Temp;
+use write2tmp;
 
 use TCNPerlVars;
 
@@ -119,15 +119,11 @@ sub _build_xmas_fname {
             if ! @output;
         
         my $tmp
-            = File::Temp->new( UNLINK => 0,
-                               DIR => $tmpdir,
-                               SUFFIX => '.xmas'
-                           );
-        
-        print $tmp @output;
-        close $tmp;
+            = write2tmp->new( data => [ @output ],
+                               SUFFIX => '.xmas',
+                          );
 
-        $fname = $tmp->filename;
+        $fname = $tmp->file_name;
     }
     return $fname;
 }
@@ -195,10 +191,10 @@ sub get_patches {
 
         croak   "No ATOM lines parsed with chain id " . $pdb_obj->chain_id
             if ! @ATOM_lines;
+
+        my $tmp_file = write2tmp( data => [@ATOM_lines], suffix => '.pdb' );
         
-        my $tmp = File::Temp->new( SUFFIX => '.pdb', UNLINK => 0 );
-        print $tmp @ATOM_lines;
-        $tmp_pdb_file  = $tmp->filename;
+        $tmp_pdb_file  = $tmp_file;
     }
     else {
         $tmp_pdb_file = $x2p_obj->output_file();
@@ -225,7 +221,6 @@ sub get_patches {
         push(@patches, $patch);
         
     }
-
     return  @patches;
 }
 

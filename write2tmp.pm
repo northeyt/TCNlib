@@ -2,23 +2,23 @@ package write2tmp;
 
 use Moose;
 use Moose::Util::TypeConstraints;
-
 use Carp;
 
 use File::Temp;
 
+use MooseX::ClassAttribute;
+
+class_has 'Cache' =>
+    ( is => 'rw',
+      isa => 'ArrayRef',
+      default => sub { [] },
+  );
+
+no MooseX::ClassAttribute;
+
 # Subtypes
 
-# Must be subtyped here to avoid problems with types module using write2tmp
-#subtype 'TempDirectory',
-#        as 'Str',
-#    where { -d $_ },
-#    message { "$_ is not a directory" };
-
 # Attributes
-
-# NOTE modified isa to avoid circular reference with types package
-# need to replace these in future
 
 has 'dir' => (
     is => 'rw',
@@ -41,16 +41,18 @@ has 'data' => (
 has 'file_name' => (
     is => 'ro',
     isa => 'Str', #FileReadable
-    builder => '_write_file',
     lazy => 1,
+    builder => '_write_file',
 );
+
+# Methods
 
 sub _write_file {
     my $self = shift;
-
-    my %arg = ( #DIR => $self->dir,
+    
+    my %arg = ( DIR => $self->dir,
                 SUFFIX => $self->suffix,
-                UNLINK => 0 );
+                UNLINK => 1);
 
     my $tmp = File::Temp->new(%arg);
 
@@ -60,8 +62,10 @@ sub _write_file {
 
     my $fname = $tmp->filename;
 
+    push( @{ write2tmp->Cache }, $tmp );
     return $fname;
 }
+
 
 
 1;
