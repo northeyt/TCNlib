@@ -102,6 +102,9 @@ sub _run_makepatch {
 
 # methods
 
+__PACKAGE__->meta->make_immutable;
+
+
 1;
 __END__
 

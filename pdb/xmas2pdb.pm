@@ -4,7 +4,7 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use types;
 use TCNPerlVars;
-use File::Temp;
+use write2tmp;
 
 use Carp;
 
@@ -110,10 +110,13 @@ sub _write_output {
 sub _get_tmp_pdb {
     
     my $tmp
-        = File::Temp->new( UNLINK => 0, SUFFIX => '.pdb');
+        = write2tmp->new( suffix => '.pdb', data => [] );
 
     return $tmp->filename;
 }
+
+__PACKAGE__->meta->make_immutable;
+
 
 1;
 __END__

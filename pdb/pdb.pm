@@ -327,6 +327,9 @@ sub _is_patch_centre {
     return -1;
 }
 
+__PACKAGE__->meta->make_immutable;
+
+
 package chain;
 
 use Moose;
@@ -383,6 +386,9 @@ around '_is_patch_centre' => sub {
     return $self->$orig(@arg);
     
 };
+
+
+__PACKAGE__->meta->make_immutable;
 
 
 package patch;
@@ -481,6 +487,9 @@ sub run_PatchOrder {
     
     return $pOrder;
 }
+
+__PACKAGE__->meta->make_immutable;
+
 
 package atom;
 
@@ -590,6 +599,9 @@ sub BUILD {
         $self->$value( $record{$value} );
     }
 }
+
+__PACKAGE__->meta->make_immutable;
+
 
 1;
 __END__

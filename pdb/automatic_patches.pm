@@ -192,9 +192,9 @@ sub get_patches {
         croak   "No ATOM lines parsed with chain id " . $pdb_obj->chain_id
             if ! @ATOM_lines;
 
-        my $tmp_file = write2tmp( data => [@ATOM_lines], suffix => '.pdb' );
+        my $tmp_file = write2tmp->new( data => [@ATOM_lines], suffix => '.pdb' );
         
-        $tmp_pdb_file  = $tmp_file;
+        $tmp_pdb_file  = $tmp_file->file_name;
     }
     else {
         $tmp_pdb_file = $x2p_obj->output_file();
@@ -223,6 +223,9 @@ sub get_patches {
     }
     return  @patches;
 }
+
+
+__PACKAGE__->meta->make_immutable;
 
 
 1;

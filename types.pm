@@ -61,6 +61,9 @@ subtype 'ValidPDBID',
     where { $_ =~ m{ \A \d [A-Z0-9]{3} [A-Z] \z }xmsi },
     message{ "$_ is not a valid pdbid!" };
 
+__PACKAGE__->meta->make_immutable;
+
+
 1;
 __END__
 

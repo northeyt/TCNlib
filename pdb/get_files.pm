@@ -63,6 +63,9 @@ sub _build_xmas_fname {
 
 
 
+__PACKAGE__->meta->make_immutable;
+
+
 1;
 __END__
 
