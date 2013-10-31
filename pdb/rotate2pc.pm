@@ -3,6 +3,8 @@ package rotate2pc;
 use strict; 
 use warnings;
 
+use IO::CaptureOutput qw(capture);
+    
 use Exporter;
 
 our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
@@ -67,10 +69,11 @@ sub get_eigenvectors {
     my $data = [ map { [ $_->x(), $_->y(), $_->z() ] } @vector  ];
 
     my $pca = Statistics::PCA->new();
-    
-    $pca->load_data( { format => 'table', data => $data } );
-    $pca->pca( { eigen => 'M' } );    
 
+    capture sub {$pca->load_data( { format => 'table', data => $data } ) };
+    
+    capture sub {$pca->pca( { eigen => 'M' } ) };
+                                    
     return map { vector( $_->[0], $_->[1], $_->[2] ) }
         @{ $pca->results('eigenvector')};    
 }

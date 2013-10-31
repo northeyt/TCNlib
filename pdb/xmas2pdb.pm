@@ -97,22 +97,21 @@ sub _run_xmas2pdb {
 
 sub _write_output {
     my $self = shift;
-    my $file
-        = @_ ? $_[0] : _get_tmp_pdb() ;  
 
-    open(my $fh, '>', $file) or die "Cannot write xmas2pdb output to $file";
-
-    print $fh @{ $self->output };
-
-    return $file;
-}
-
-sub _get_tmp_pdb {
+    my $file;
     
-    my $tmp
-        = write2tmp->new( suffix => '.pdb', data => [] );
+    if (@_) {
+        $file = $_[0];
+        open(my $fh, '>', $file)
+            or die "Cannot write xmas2pdb output to $file, $!";
 
-    return $tmp->filename;
+        print {$fh} @{ $self->output };
+    }
+    else {
+        my $tmp = write2tmp->new( suffix => '.pdb', data => $self->output );
+        $file = $tmp->file_name;
+    }
+    return $file;
 }
 
 __PACKAGE__->meta->make_immutable;

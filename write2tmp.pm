@@ -45,6 +45,12 @@ has 'file_name' => (
     builder => '_write_file',
 );
 
+has 'retain' => (
+    is => 'rw',
+    isa => 'Bool',
+    default => 0,
+);
+
 # Methods
 
 sub _write_file {
@@ -63,6 +69,7 @@ sub _write_file {
     my $fname = $tmp->filename;
 
     push( @{ write2tmp->Cache }, $tmp );
+    
     return $fname;
 }
 

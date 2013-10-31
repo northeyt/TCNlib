@@ -41,6 +41,7 @@ for my $name ( 'pdb', 'xmas' ) {
         is => 'rw',
         lazy => 1,
         builder => '_build_' . $att_data,
+        predicate => 'has_' . $att_data,
     );
 }
 
@@ -224,9 +225,12 @@ sub read_ASA {
     
     foreach my $atom ( @{ $self->atom_array() } ) {
         my $serial = $atom->serial();
-        croak "Nothing parsed from xmas2pdbfor atom " . $atom->serial()
-            if ! exists $ASAs{$serial};
-        
+
+        if ( ! exists $ASAs{$serial} ) {
+            print "Nothing parsed from xmas2pdb for atom " . $atom->serial()
+                . "\n";
+            next;
+        }   
         $atom->radius( $radii{$serial} );
         $atom->$attribute( $ASAs{$serial} );
     }
@@ -281,10 +285,19 @@ sub patch_centres {
 
             }
             
-            my $central_atom
-                = $self->_is_patch_centre( $arg{ASA_threshold},
-                                           'ASAc',
-                                           @atom_indices );
+            my $central_atom = do {
+                local $@;
+                my $ret;
+                
+                eval { $ret = $self->_is_patch_centre( $arg{ASA_threshold},
+                                                       'ASAc',
+                                                       @atom_indices );
+                       
+                       1; }
+                    or carp "Could not determine patch center status for "
+                             . "res " . $resSeq . ": " . $@ and next;
+                $ret
+            };
             
             if ( $central_atom != -1 ) {
                 push( @central_atoms, $central_atom);
@@ -299,7 +312,7 @@ sub patch_centres {
 }
 
 sub _is_patch_centre {
-   
+
     my $self = shift;
     my $threshold = shift;
     my $attribute = shift;
@@ -307,7 +320,8 @@ sub _is_patch_centre {
 
     foreach my $index (@indices) {
         my $predicate = "has_$attribute";
-        croak "$attribute has not been set"
+        croak "$attribute has not been set for atom "
+            . $self->atom_array->[$index]->serial
             if ! $self->atom_array->[$index]->$predicate();
         
     }

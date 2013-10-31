@@ -133,9 +133,7 @@ sub get_patches {
 
     my $pdb_code = lc $self->pdb_code();
     
-    # Get files
-    my $pdb_file  = $self->pdb_file();
-    croak "Could not read $pdb_file" if ! -r $pdb_file;
+    # Get xmas file
 
     my $xmas_file = $self->xmas_file();
     croak "Could not read $xmas_file" if ! -r $xmas_file;
@@ -144,7 +142,6 @@ sub get_patches {
 
     my %pdb_arg
         = ( pdb_code => $pdb_code,
-            pdb_file => $pdb_file,
             xmas_file => $xmas_file,
         );
 
@@ -170,6 +167,12 @@ sub get_patches {
     # xmas2pdb
     my $x2p_obj = xmas2pdb->new(%x2p_arg);
 
+    # Assign x2p output to pdb obj and self (assigning to self allows
+    # other methods to use identical pdb for downstream analysis
+    # e.g. patch_desc
+    $pdb_obj->pdb_file($x2p_obj->output_file);
+    $self->pdb_file($x2p_obj->output_file);
+    
     # Read ASA values for pdb object
     $pdb_obj->read_ASA($x2p_obj);
 
@@ -192,12 +195,10 @@ sub get_patches {
         croak   "No ATOM lines parsed with chain id " . $pdb_obj->chain_id
             if ! @ATOM_lines;
 
-        my $tmp_file = write2tmp->new( data => [@ATOM_lines], suffix => '.pdb' );
+        my $tmp_file = write2tmp->new( data => [@ATOM_lines],
+                                       suffix => '.pdb' );
         
-        $tmp_pdb_file  = $tmp_file->file_name;
-    }
-    else {
-        $tmp_pdb_file = $x2p_obj->output_file();
+        $self->pdb_file($tmp_file->file_name);
     }
     
     my @patches = ();
@@ -210,14 +211,14 @@ sub get_patches {
             = ( makepatch_file => $makepatch,
                 patch_type     => $self->patch_type,
                 radius         => $self->radius,
-                pdb_file       => $tmp_pdb_file,
+                pdb_file       => $self->pdb_file,
                 pdb_code       => $pdb_code,
                 central_atom   => $cent_atom,
                 surf_min       => $self->surf_min,
             );
 
         my $mkp_obj = makepatch->new(%mkp_arg);
-        my $patch   = patch->new($mkp_obj);
+        my $patch   = eval { patch->new($mkp_obj) } or next;
         push(@patches, $patch);
         
     }
