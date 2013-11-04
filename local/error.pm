@@ -12,7 +12,23 @@ has 'message' => (
 has 'caller' => (
     isa => 'Str',
     is => 'ro',
-    default => caller(1),
+    default => sub { caller(1) },
+);
+
+has 'type' => (
+    isa => 'Str',
+    is => 'rw',
+    required => 1,
+);
+
+has 'data' => (
+    is => 'rw',
+);
+
+has 'parent' => (
+    is => 'rw',
+    isa => 'local::error',
+    predicate => 'has_parent',
 );
 
 __PACKAGE__->meta->make_immutable;

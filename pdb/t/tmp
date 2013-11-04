@@ -1,0 +1,20 @@
+ok 1 - use pdb;
+ok 2 - atom object created ok isa atom
+ok 3 - pdb object created ok isa pdb
+ok 4 - fh builder okay
+ok 5 - resid_index ok
+ok 6 - chain object created ok isa chain
+ok 7 - Radius read from xmas2pdb object
+ok 8 - Multimer ASA read from xmas2pdb object
+ok 9 - Monomer ASA read from xmas2pdb object
+1360 1393 8.16
+1357 1390 0.03
+1361 1394 21.99
+1364 1397 41.26
+1359 1392 0.03
+1363 1396 30.36
+1362 1395 7.30
+1358 1391 0.00
+ok 10 - Dies if ASAm has not been set for chain
+ok 11 - patch_centres modified for chain object
+1..11

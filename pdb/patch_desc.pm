@@ -7,13 +7,14 @@ use types;
 use Math::Trig;
 use Math::VectorReal qw(:all);
 use Math::MatrixReal;
-
 use Statistics::PCA;
+
 use pdb::xmas2pdb;
 use pdb::rotate2pc qw(:all);
 
 use TCNPerlVars;
 use Data::Dumper;
+use local::error;
 
 use Carp;
 
@@ -49,7 +50,7 @@ sub patch_order {
 
     croak "Parent object must have xmas_file attribute set"
         if ! $self->parent->has_xmas_file;
-    
+
     my @surface_atoms = $self->_surface_atoms;
 
     # Hash surf atoms by serial
@@ -95,6 +96,19 @@ sub patch_order {
     my($posz_contacts, $negz_contacts)
         = $self->_surface_sides( \%patch_atom, \%nonpatch_atom );
 
+    if ( ref $posz_contacts eq 'local::error' ) {
+        my $message
+            = "Could not determine surface side: "
+             . $posz_contacts->message;
+
+        my $error = local::error->new( message => $message,
+                                       type => 'surface_side',
+                                       parent => $posz_contacts );
+
+        return $error;
+        
+    }
+    
     if (scalar @{$posz_contacts} > 5 && scalar @{$negz_contacts}> 5) {
         print $self->parent->pdb_code . "\nPositive side:\n";
         print $_->resSeq . " " . $_->name . "\n" foreach @{$posz_contacts};
@@ -119,9 +133,22 @@ sub _surface_atoms {
                         xmas2pdb_file => $TCNPerlVars::xmas2pdb,
                         form => 'monomer',);
     
-    $self->parent->read_ASA($xmas2pdb);
+    my $ret = $self->parent->read_ASA($xmas2pdb);
+
+    my @no_ASA = ();
+
+    # Capture atoms with no ASA defined from xmas file
+    # (normally altLoc atoms)
+    foreach my $err ( @{$ret} ) {
+        push( @no_ASA, $err->data->{atom}->serial() );
+    }
     
     foreach my $atom ( @{ $self->parent->atom_array } ) {
+
+        my $serial = $atom->serial();
+        
+        next if grep { /^$serial$/} @no_ASA;
+        
         croak "Monomer ASA is not defined for atom " . $atom->serial
             if ! $atom->has_ASAm;
         
@@ -129,7 +156,7 @@ sub _surface_atoms {
             push(@surface_atoms, $atom);
         }
     }
-    return @surface_atoms;
+    return ( @surface_atoms );
 }
 
 # Returns number of atoms contacting either side of patch
@@ -158,12 +185,37 @@ sub _surface_sides {
     
     # Only consider non-patch atoms within x and y ranges to form min set
     foreach my $np_atom ( values %{ $np_atom_h } ) {
+
+        if ( ! $np_atom->has_radius  || ! defined $np_atom->radius ) {
+            my $message
+                =  "non-patch atom " . $np_atom->serial
+                 . " has no radius set";
+
+            my $error = local::error->new( message => $message,
+                                           type => 'no_radius_attribute',
+                                           data => { atom => $np_atom }, );
+            return $error;
+        }
+        
         next unless   $np_atom->x < $limit{xmax}
                    && $np_atom->x > $limit{xmin}
                    && $np_atom->y < $limit{ymax}
                    && $np_atom->y > $limit{ymin};
 
         foreach my $p_atom ( values %{ $p_atom_h } ) {
+
+            if ( ! $p_atom->has_radius || ! defined $np_atom->radius) {
+                my $message
+                    =  "patch atom " . $np_atom->serial
+                        . " has no radius set";
+                
+                my $error
+                    = local::error->new( message => $message,
+                                         type => 'no_radius_attribute',
+                                         data => { atom => $np_atom }, );
+                return $error;
+            }
+            
             my $dist_thresh =  $np_atom->radius + $p_atom->radius;
 
             my $distance = sqrt (   ( $np_atom->x - $p_atom->x )**2
@@ -218,7 +270,7 @@ sub _true_angle_from_x {
     my $v2d = vector($v->x, $v->y, 0 );
     
     # Avoid attempts to divide by zero
-    return 0 if length($v2d) == 0;
+    return 0 if $v2d->length == 0;
  
     my $inner_prod = ( $v2d . X ) / $v2d->length * 1; # Length X = 1
 
@@ -231,7 +283,6 @@ sub _true_angle_from_x {
 }
 
 __PACKAGE__->meta->make_immutable;
-
 
 1;
 __END__

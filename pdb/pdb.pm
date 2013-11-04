@@ -6,8 +6,9 @@ use Tie::File;
 use Moose;
 use Moose::Util::TypeConstraints;
 use types;
+use local::error;
+
 use GLOBAL qw(&rm_trail);
-use search_hash;
 
 use Data::Dumper;
 use Carp;
@@ -103,6 +104,21 @@ has 'resid_index' => (
     builder => '_build_resid_index',
 );
 
+# Selects one altLoc atom for a given residue atom according to highest
+# occupancy
+has 'altLoc_cleanup' => (
+    isa => 'Bool',
+    is  => 'rw',
+    default => 0,
+);
+
+# Avoid parsing hydrogen atoms from pdb data
+has 'hydrogen_cleanup' => (
+    isa => 'Bool',
+    is => 'rw',
+    default => 0,
+);
+
 # Consume antigen role
 with 'pdb::antigen';
 
@@ -114,10 +130,46 @@ sub _parse_atoms {
     my @ATOM_lines = $self->_parse_ATOM_lines();
   
     my @atoms = ();
+
+    my $aL_clean = $self->altLoc_cleanup();
+    my %altLoc = ();
+
+    my $h_clean = $self->hydrogen_cleanup();
     
     foreach my $line (@ATOM_lines) {
         my $atom = atom->new( ATOM_line => $line );
-        push(@atoms, $atom);
+
+        next if $h_clean && $atom->element eq 'H';
+        
+        if ( $aL_clean && $atom->has_altLoc ) {
+            my $string
+                =  $atom->name . $atom->resName . $atom->chainID
+                 . $atom->resSeq;
+
+            if ( exists $altLoc{$string} ) {
+                push( @{ $altLoc{$string} }, $atom );
+            }
+            else {
+                $altLoc{$string} = [ $atom ];
+            }
+            
+        }
+        else {   
+            push(@atoms, $atom);   
+        }
+    }
+
+    if ($aL_clean) {
+        foreach my $arr ( values %altLoc ) {
+
+            my @sorted
+                = map { $_->[0] }
+                  sort { $b->[1] <=> $a->[1] }
+                  map { [ $_, $_->occupancy ] }
+                  @{$arr};
+
+            push( @atoms, $sorted[0] );
+        }
     }
 
     croak "No atom objects were created" if ! @atoms;
@@ -129,7 +181,7 @@ sub _parse_atoms {
 sub _parse_ATOM_lines {
     
     my $self = shift;
-
+    
     my @array = @{ $self->pdb_data };  
  
     my @ATOM_lines = ();
@@ -222,18 +274,31 @@ sub read_ASA {
     }
 
     croak "Nothing parsed from xmas2pdb output!" if ! ( %ASAs && %radii );
+
+    my @errors = ();
     
     foreach my $atom ( @{ $self->atom_array() } ) {
         my $serial = $atom->serial();
 
         if ( ! exists $ASAs{$serial} ) {
-            print "Nothing parsed from xmas2pdb for atom " . $atom->serial()
-                . "\n";
+            my $message =  "Nothing from xmas2pdb object for atom "
+                          . $atom->serial();
+            
+            my $error
+                = local::error->new( message => $message,
+                                     type => 'ASA_read',
+                                     data => { xmas2pdb => $xmas2pdb,
+                                               atom     => $atom, },
+                                 );
+            push(@errors, $error);
+            
             next;
         }   
         $atom->radius( $radii{$serial} );
         $atom->$attribute( $ASAs{$serial} );
     }
+
+    return \@errors;
 };
 
 sub patch_centres {
@@ -269,6 +334,8 @@ sub patch_centres {
     }
 
     my @central_atoms = ();
+
+    my @errors = ();
     
     foreach my $chain_h ( keys %{ $self->atom_index } ) {
         my %chain_h = %{ $self->atom_index->{$chain_h} };
@@ -284,31 +351,36 @@ sub patch_centres {
                 push( @atom_indices, $index );
 
             }
-            
-            my $central_atom = do {
-                local $@;
-                my $ret;
-                
-                eval { $ret = $self->_is_patch_centre( $arg{ASA_threshold},
+
+
+            my $ret = $self->_is_patch_centre( $arg{ASA_threshold},
                                                        'ASAc',
                                                        @atom_indices );
-                       
-                       1; }
-                    or carp "Could not determine patch center status for "
-                             . "res " . $resSeq . ": " . $@ and next;
-                $ret
-            };
-            
-            if ( $central_atom != -1 ) {
-                push( @central_atoms, $central_atom);
+            if ( ref $ret eq 'local::error' ) {
+                my $message
+                    =  "Could not determine if residue " . $resSeq
+                      . " is valid patch center: " . $ret->message();
+
+                my $error = local::error->new(
+                    message => $message,
+                    type => 'no_patch_centre_value_for_residue',
+                    data => { residue => $resSeq,
+                              chain_id => $chain_h,
+                              atoms =>
+                                  [ map { $self->atom_array->[$_] }
+                                      @atom_indices ],
+                          },
+                    parent => $ret,
+                );
+
+                push(@errors, $error);
             }
-            
+            elsif ( $ret != -1 ) {
+                push( @central_atoms, $ret);
+            }
         }
     }
-
-    @central_atoms ? return @central_atoms
-                   : croak "No patch centres found!";
-    
+    return(\@errors, \@central_atoms);
 }
 
 sub _is_patch_centre {
@@ -320,10 +392,21 @@ sub _is_patch_centre {
 
     foreach my $index (@indices) {
         my $predicate = "has_$attribute";
-        croak "$attribute has not been set for atom "
-            . $self->atom_array->[$index]->serial
-            if ! $self->atom_array->[$index]->$predicate();
         
+            if( ! $self->atom_array->[$index]->$predicate() ){
+                my $message
+                    =  "Could not determine patch centre status because "
+                      . "atom " . $self->atom_array->[$index]->serial
+                      . " has no $attribute value";
+                
+                my $error = local::error->new(
+                    message => $message,
+                    type => "no_atom_$attribute" . "_set",
+                    data => { atom => $self->atom_array->[$index], },
+                );
+
+                return $error;
+            }        
     }
     
     @indices
@@ -448,6 +531,11 @@ around BUILDARGS => sub {
 
     if ( ref $_[0] eq 'makepatch' ) {
         my $makepatch = $_[0];
+        
+        if ( ref $makepatch->output()->[0] eq 'local::error' ) {
+            croak $makepatch->output()->[0];
+        }
+        
         my %arg
             = ( central_atom => $makepatch->central_atom,
                 pdb_data     => $makepatch->output,
@@ -530,7 +618,13 @@ has 'ATOM_line' => (
 has [ 'name', 'resName', 'element', 'charge' ]
     => ( is => 'rw', isa => 'Str' );
 
-has [ 'altLoc', 'chainID', 'iCode', ] => ( is => 'rw', isa => 'Character' );
+foreach my $name ( 'altLoc', 'chainID', 'iCode' ) {
+    my $predicate = 'has_' . $name;
+    
+    has $name => ( is => 'rw',
+                   isa => 'Character',
+                   predicate => $predicate); 
+}
 
 has [ 'serial', 'resSeq', ] => ( is => 'rw', => isa => 'Int' );
 
@@ -584,7 +678,6 @@ sub BUILD {
 
     # Avoid substr complaining if there are missing columns at end of string
     $ATOM_line = pack ( "A81", $ATOM_line );
-    
     my %record
         = ( ATOM => rm_trail( substr($ATOM_line, 0, 6) ),
             serial =>  rm_trail( substr($ATOM_line, 6, 5) ),
