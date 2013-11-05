@@ -7,6 +7,8 @@ use pdb::pdb;
 
 use Carp;
 
+use IO::CaptureOutput qw( capture_exec );
+
 # subtypes
 
 subtype 'ValidPatchType',
@@ -55,7 +57,7 @@ has 'pdb_code' => (
 
 has 'output' => (
     is => 'ro',
-    isa => 'ArrayRef[Str]',
+    isa => 'ArrayRef',
     lazy => 1,
     builder => '_run_makepatch',
 );
@@ -88,16 +90,29 @@ sub _run_makepatch {
     my $resspec
         = $self->central_atom->chainID() . $self->central_atom->resSeq();
     my $surf_min = $self->surf_min;
+    my $iCode
+        =  $self->central_atom->has_iCode ? $self->central_atom->iCode
+          : '';
     
     my $cmd = "$makepatch -s -r $radius -m $surf_min"
-              . " $patch_type $resspec $atomname $pdb";
+              . " $patch_type $resspec$iCode $atomname $pdb";
 
-    my @output = `$cmd`;
+    my ($stdout, $stderr) = capture_exec( $cmd );
 
-    croak "makepatch produced no output\ncommand run: $cmd"
-        if ! @output;
-
-    return [ @output ];
+    if ( ! $stdout ){
+        my $message = "make_patch produced no output given command: $cmd";
+        my $error
+            = local::error->new( message => $message,
+                                 type    => 'no_output',
+                                 data    => {
+                                     stderr       => $stderr,
+                                     cmd          => $cmd,
+                                     central_atom => $self->central_atom,
+                                     ### TESTING
+                                   );
+        return [$error];
+    }
+    return [ split ("\n", $stdout) ];
 }
 
 # methods

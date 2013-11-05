@@ -166,16 +166,28 @@ sub get_patches {
     
     # xmas2pdb
     my $x2p_obj = xmas2pdb->new(%x2p_arg);
-
+    
     # Assign x2p output to pdb obj and self (assigning to self allows
     # other methods to use identical pdb for downstream analysis
     # e.g. patch_desc
     $pdb_obj->pdb_file($x2p_obj->output_file);
     $self->pdb_file($x2p_obj->output_file);
-    
-    # Read ASA values for pdb object
-    $pdb_obj->read_ASA($x2p_obj);
 
+    my @ASA_read_err = ();
+    
+    # Read ASA values for pdb object, check for errors
+    foreach my $ret ( $pdb_obj->read_ASA($x2p_obj) ) {
+        if (ref $ret eq 'local::error'){
+            if ( $ret->type() eq 'ASA_read' ) {
+                push(@ASA_read_err, $ret);
+            }
+            else {
+                croak "Unrecognised error type '" . $ret->error()
+                    . "' returned read_ASA";
+            }
+        }
+    }
+    
     # Parse x2p output to avoid making patches with non-chain res
     # if object is chain
 
@@ -203,7 +215,9 @@ sub get_patches {
     
     my @patches = ();
 
-    foreach my $atom_index ( $pdb_obj->patch_centres() ) {
+    my($pc_errors, $patch_centres) = $pdb_obj->patch_centres();
+    
+    foreach my $atom_index ( @{$patch_centres} ) {
 
         my $cent_atom = $pdb_obj->atom_array->[$atom_index];
 
@@ -218,9 +232,16 @@ sub get_patches {
             );
 
         my $mkp_obj = makepatch->new(%mkp_arg);
-        my $patch   = eval { patch->new($mkp_obj) } or next;
-        push(@patches, $patch);
+
         
+        my $return = do {
+            local $@;
+            my $ret;
+            eval { $ret = patch->new($mkp_obj); 1 };
+            $ret ? $ret : $@;
+        };
+        
+        push(@patches, $return);
     }
     return  @patches;
 }

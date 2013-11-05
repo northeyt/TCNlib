@@ -50,7 +50,6 @@ subtype 'ValidChar',
     where { $_ =~ m{ \A [A-Z0-9] \z }xmsi },
     message { "$_ is not a valid pdb chain id " };
 
-
 subtype 'ValidPDB',
     as 'Str',
     where { $_ =~ m{ \A \d [A-Z0-9]{3}  \z }xmsi },

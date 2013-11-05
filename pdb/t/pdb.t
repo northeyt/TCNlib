@@ -112,15 +112,16 @@ ok($test_atom->ASAm(), "Monomer ASA read from xmas2pdb object" );
 
 my %pc_arg = ( ASA_threshold => 25 );
 
-#my @patch_centres = $pdb->patch_centres( %pc_arg );
+my ($errors, $patch_centres) = $pdb->patch_centres( %pc_arg );
 
 #foreach my $index (1360, 1357, 1361, 1364, 1359, 1363, 1362, 1358) {
 #    print "$index " .  $pdb->atom_array->[$index]->{serial} . ' '
 #         . $pdb->atom_array->[$index]->ASAc() . "\n";
 #}
 
-dies_ok ( sub { $chain->patch_centres( %pc_arg ) },
-          "Dies if ASAm has not been set for chain" );
+($errors, $patch_centres) = $chain->patch_centres( %pc_arg);
+
+ok( @{ $errors }, "Errors returned if ASAm has not been set for chain" );
 
 $chain->read_ASA($mono_x2p);
 
