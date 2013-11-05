@@ -34,12 +34,18 @@ my $tmp = write2tmp->new( suffix => '.dat',
 
 my $fname = $tmp->file_name;
 
-is(ref write2tmp->Cache->[0], 'File::Temp',
+is(ref [ ( values %{ write2tmp->Cache } ) ]->[0], 'File::Temp',
    'Cache catching File::Temp objects');
+
+
+is( $tmp->retain_file, 1, "retain_file ok with no arg" );
+is($tmp->retain_file( file_name => $tmp->file_name ), 1,
+    "retain_file ok with file_name" );
+is( $tmp->retain_file( all => 1 ), 1, "retain_file ok with 'all' arg" );
+
+print "Temp file name: " . $tmp->file_name . "\n";
 
 undef $tmp;
 
-is(ref write2tmp->Cache->[0], 'File::Temp',
-   'Cache retains objects when write2tmp object is undef');
-
-
+is(ref [ ( values %{ write2tmp->Cache } ) ]->[0], 'File::Temp',
+   'Cache retains objects when write2tmp reference is undef');
