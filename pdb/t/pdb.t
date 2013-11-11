@@ -1,4 +1,4 @@
-#!/usr/bin/perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/acrm/usr/local/bin/perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl pdb.t'
@@ -77,6 +77,12 @@ isa_ok($chain, 'chain', "chain object created ok");
 ## are around modifiers for _parse_ATOM_lines working?
 
 $chain->_parse_atoms();
+
+# get accession codes using pdbsws?
+
+is( $chain->accession_codes()->[0], 'P21802',
+    "Accession codes from pdbsws" );
+
 
 # reading ASAs and radii from xmas2pdb object
 

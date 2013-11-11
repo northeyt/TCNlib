@@ -31,7 +31,6 @@ coerce 'FileReadable',
           return $tmp->file_name; 
 };
 
-
 subtype 'FileWritable',
         as 'Str',
         where { -w $_ },
@@ -61,6 +60,18 @@ subtype 'ValidPDBID',
     message{ "$_ is not a valid pdbid!" };
 
 __PACKAGE__->meta->make_immutable;
+
+# SwissProt Acession code code check
+
+subtype 'ValidAC',
+    as 'Str',
+    where { $_ =~ /[A-Z0-9]/ },
+    message{ "$_ is not a valid SwissProt accession code!" };
+
+coerce 'ValidAC',
+    from 'Str',
+    via { return uc $_ };
+
 
 
 1;

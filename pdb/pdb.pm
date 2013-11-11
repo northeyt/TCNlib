@@ -434,6 +434,8 @@ use Moose::Util::TypeConstraints;
 use types;
 use Carp;
 
+use pdb::pdbsws;
+
 extends 'pdb';
 
 # Subtypes
@@ -450,7 +452,27 @@ has 'chain_id' => (
     required => 1,
 );
 
+has 'accession_codes' => (
+    isa => 'ArrayRef[ValidAC]',
+    is => 'ro',
+    lazy => 1,
+    builder => '_get_acs',
+);
+
+
+
 # Methods
+
+sub _get_acs {
+    my $self = shift;
+
+    my $pdbsws = pdb::pdbsws->new();
+
+    my $pdbid = $self->pdb_code . $self->chain_id;
+
+    return [ $pdbsws->get_ac($pdbid) ];
+}
+
 around '_parse_ATOM_lines' => sub {
 
     my $orig = shift;
