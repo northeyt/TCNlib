@@ -637,6 +637,13 @@ foreach my $name ( 'radius', 'ASAm', 'ASAc' ) {
 has [ 'x', 'y', 'z', 'occupancy', 'tempFactor' ]
     => ( is => 'rw', isa => 'Num');
 
+has 'resid' => (
+    is => 'ro',
+    isa => 'Str',
+    lazy => 1,
+    builder => '_get_resid',
+);
+
 use overload '""' => \&_stringify, fallback => 1;
 
 sub _stringify {
@@ -705,6 +712,13 @@ sub BUILD {
         next if $record{$value} eq '' ;
         $self->$value( $record{$value} );
     }
+}
+
+sub _get_resid {
+    my $self = shift;
+    my $resid = $self->chainID . $self->resSeq;
+
+    return $resid;
 }
 
 __PACKAGE__->meta->make_immutable;
