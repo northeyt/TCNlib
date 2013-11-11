@@ -45,6 +45,25 @@ has 'parent' => (
 sub patch_order {
     my $self = shift;
 
+    # Default contact threshold - if one side of patch has < threshold
+    # contacts then it is considered a surface side and a patch order for
+    # that side will be returned
+    my $threshold = 5;
+    
+    if (@_){
+        croak "Args must be passed as a hash ref"
+            if ref $_[0] ne 'HASH';
+
+        my %arg = %{ $_[0] };
+
+        if ( exists $arg{threshold} ){
+            croak "Threshold must be a positive integer"
+                unless abs( int $arg{threshold} ) eq $arg{threshold};
+
+            $threshold = $arg{threshold};
+        }
+    };
+    
     croak "This method requires a parent pdb or chain object"
         if ! $self->has_parent;
 
@@ -106,20 +125,46 @@ sub patch_order {
                                        parent => $posz_contacts );
 
         return $error;
+    }
+
+    if (   scalar @{$posz_contacts} > $threshold
+        && scalar @{$negz_contacts} > $threshold ) {
+        # return an error
+        my $message
+            = "patch order: neither side of patch has contact number"
+              . " less than threshold";
+
+        my $error
+            = local::error->new( message => $message,
+                                 type => 'no_surface_sides',
+                                 data => { positive_side =>
+                                               scalar @{$posz_contacts},
+                                           negative_side =>
+                                               scalar @{ $negz_contacts },
+                                           patch => $self->patch },
+                             );
+
+        return $error;
+    }
+
+    my @return = ();
+    
+    my @residue_order = $self->_residue_order;
+    
+    if ( $posz_contacts < $threshold ) {
+        push( @return, join( '', @residue_order ) );
         
     }
-    
-    if (scalar @{$posz_contacts} > 5 && scalar @{$negz_contacts}> 5) {
-        print $self->parent->pdb_code . "\nPositive side:\n";
-        print $_->resSeq . " " . $_->name . "\n" foreach @{$posz_contacts};
-        print "Negative side\n";
-        print $_->resSeq . " " . $_->name . "\n" foreach @{$negz_contacts};
+
+    if ( $negz_contacts < $threshold ) {
+        my $rev_string
+            =  shift (@residue_order)
+             . reverse ( join( '', @residue_order ) );
+                    
+        push( @return, $rev_string );
     }
     
-    my @ro = $self->_residue_order;
-    
-    my @neg_ro = reverse(@ro);
-  
+    return @return;
 }
 
 sub _surface_atoms {
@@ -241,22 +286,23 @@ sub _residue_order {
             keys %{ $self->patch->resid_index };
     
     my %angle = ();
-    
+
+    my $c_atom_resid = $self->patch->central_atom->resid();
+
     foreach my $p_atom (@calpha) {
 
+        next if $p_atom->resid eq $c_atom_resid;
+        
         my $vector = vector($p_atom->x, $p_atom->y, $p_atom->z);
         
         my $angle = $self->_true_angle_from_x($vector);
-
-        #print $p_atom . "\n";
-        #print $p_atom->resSeq . ': ' .  $angle * (180 / pi) . "\n";
        
-        $angle{$p_atom->resSeq} = $angle;      
+        $angle{$p_atom->resid} = $angle;      
     }
 
     my @sorted = sort { $angle{$a} <=> $angle{$b} } keys %angle;
 
-    return @sorted;
+    return ( $c_atom_resid, @sorted );
 }
 
 # Sub to deal with calulating obtuse angles by calculating angle on x y plane

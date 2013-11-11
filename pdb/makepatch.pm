@@ -101,6 +101,12 @@ sub _run_makepatch {
 
     if ( ! $stdout ){
         my $message = "make_patch produced no output given command: $cmd";
+        
+        # If pdb file is a temp file, retain for error checking
+        if ( exists write2tmp->Cache->{$self->pdb_file} ) {
+            write2tmp->retain_file( file_name => $self->pdb_file );
+        }
+        
         my $error
             = local::error->new( message => $message,
                                  type    => 'no_output',
@@ -108,7 +114,7 @@ sub _run_makepatch {
                                      stderr       => $stderr,
                                      cmd          => $cmd,
                                      central_atom => $self->central_atom,
-                                     ### TESTING
+                                     pdb_file => $self->pdb_file, }
                                    );
         return [$error];
     }
