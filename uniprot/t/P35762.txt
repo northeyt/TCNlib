@@ -1,0 +1,242 @@
+ID   CD81_MOUSE              Reviewed;         236 AA.
+AC   P35762; Q91V78;
+DT   01-JUN-1994, integrated into UniProtKB/Swiss-Prot.
+DT   03-OCT-2012, sequence version 2.
+DT   16-OCT-2013, entry version 99.
+DE   RecName: Full=CD81 antigen;
+DE   AltName: Full=26 kDa cell surface protein TAPA-1;
+DE   AltName: Full=Target of the antiproliferative antibody 1;
+DE   AltName: CD_antigen=CD81;
+GN   Name=Cd81; Synonyms=Tapa1;
+OS   Mus musculus (Mouse).
+OC   Eukaryota; Metazoa; Chordata; Craniata; Vertebrata; Euteleostomi;
+OC   Mammalia; Eutheria; Euarchontoglires; Glires; Rodentia; Sciurognathi;
+OC   Muroidea; Muridae; Murinae; Mus; Mus.
+OX   NCBI_TaxID=10090;
+RN   [1]
+RP   NUCLEOTIDE SEQUENCE [GENOMIC DNA].
+RX   PubMed=1650385;
+RA   Andria M.L., Hsieh C.L., Oren R., Francke U., Levy S.;
+RT   "Genomic organization and chromosomal localization of the TAPA-1
+RT   gene.";
+RL   J. Immunol. 147:1030-1036(1991).
+RN   [2]
+RP   NUCLEOTIDE SEQUENCE [GENOMIC DNA].
+RC   STRAIN=129/Sv;
+RX   PubMed=10915772; DOI=10.1093/hmg/9.12.1829;
+RA   Paulsen M., El-Maarri O., Engemann S., Stroedicke M., Franck O.,
+RA   Davies K., Reinhardt R., Reik W., Walter J.;
+RT   "Sequence conservation and variability of imprinting in the Beckwith-
+RT   Wiedemann syndrome gene cluster in human and mouse.";
+RL   Hum. Mol. Genet. 9:1829-1841(2000).
+RN   [3]
+RP   NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA].
+RC   STRAIN=NOD; TISSUE=Mammary gland;
+RX   PubMed=16141072; DOI=10.1126/science.1112014;
+RA   Carninci P., Kasukawa T., Katayama S., Gough J., Frith M.C., Maeda N.,
+RA   Oyama R., Ravasi T., Lenhard B., Wells C., Kodzius R., Shimokawa K.,
+RA   Bajic V.B., Brenner S.E., Batalov S., Forrest A.R., Zavolan M.,
+RA   Davis M.J., Wilming L.G., Aidinis V., Allen J.E.,
+RA   Ambesi-Impiombato A., Apweiler R., Aturaliya R.N., Bailey T.L.,
+RA   Bansal M., Baxter L., Beisel K.W., Bersano T., Bono H., Chalk A.M.,
+RA   Chiu K.P., Choudhary V., Christoffels A., Clutterbuck D.R.,
+RA   Crowe M.L., Dalla E., Dalrymple B.P., de Bono B., Della Gatta G.,
+RA   di Bernardo D., Down T., Engstrom P., Fagiolini M., Faulkner G.,
+RA   Fletcher C.F., Fukushima T., Furuno M., Futaki S., Gariboldi M.,
+RA   Georgii-Hemming P., Gingeras T.R., Gojobori T., Green R.E.,
+RA   Gustincich S., Harbers M., Hayashi Y., Hensch T.K., Hirokawa N.,
+RA   Hill D., Huminiecki L., Iacono M., Ikeo K., Iwama A., Ishikawa T.,
+RA   Jakt M., Kanapin A., Katoh M., Kawasawa Y., Kelso J., Kitamura H.,
+RA   Kitano H., Kollias G., Krishnan S.P., Kruger A., Kummerfeld S.K.,
+RA   Kurochkin I.V., Lareau L.F., Lazarevic D., Lipovich L., Liu J.,
+RA   Liuni S., McWilliam S., Madan Babu M., Madera M., Marchionni L.,
+RA   Matsuda H., Matsuzawa S., Miki H., Mignone F., Miyake S., Morris K.,
+RA   Mottagui-Tabar S., Mulder N., Nakano N., Nakauchi H., Ng P.,
+RA   Nilsson R., Nishiguchi S., Nishikawa S., Nori F., Ohara O.,
+RA   Okazaki Y., Orlando V., Pang K.C., Pavan W.J., Pavesi G., Pesole G.,
+RA   Petrovsky N., Piazza S., Reed J., Reid J.F., Ring B.Z., Ringwald M.,
+RA   Rost B., Ruan Y., Salzberg S.L., Sandelin A., Schneider C.,
+RA   Schoenbach C., Sekiguchi K., Semple C.A., Seno S., Sessa L., Sheng Y.,
+RA   Shibata Y., Shimada H., Shimada K., Silva D., Sinclair B.,
+RA   Sperling S., Stupka E., Sugiura K., Sultana R., Takenaka Y., Taki K.,
+RA   Tammoja K., Tan S.L., Tang S., Taylor M.S., Tegner J., Teichmann S.A.,
+RA   Ueda H.R., van Nimwegen E., Verardo R., Wei C.L., Yagi K.,
+RA   Yamanishi H., Zabarovsky E., Zhu S., Zimmer A., Hide W., Bult C.,
+RA   Grimmond S.M., Teasdale R.D., Liu E.T., Brusic V., Quackenbush J.,
+RA   Wahlestedt C., Mattick J.S., Hume D.A., Kai C., Sasaki D., Tomaru Y.,
+RA   Fukuda S., Kanamori-Katayama M., Suzuki M., Aoki J., Arakawa T.,
+RA   Iida J., Imamura K., Itoh M., Kato T., Kawaji H., Kawagashira N.,
+RA   Kawashima T., Kojima M., Kondo S., Konno H., Nakano K., Ninomiya N.,
+RA   Nishio T., Okada M., Plessy C., Shibata K., Shiraki T., Suzuki S.,
+RA   Tagami M., Waki K., Watahiki A., Okamura-Oho Y., Suzuki H., Kawai J.,
+RA   Hayashizaki Y.;
+RT   "The transcriptional landscape of the mammalian genome.";
+RL   Science 309:1559-1563(2005).
+RN   [4]
+RP   NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA].
+RC   STRAIN=C57BL/6J;
+RX   PubMed=19468303; DOI=10.1371/journal.pbio.1000112;
+RA   Church D.M., Goodstadt L., Hillier L.W., Zody M.C., Goldstein S.,
+RA   She X., Bult C.J., Agarwala R., Cherry J.L., DiCuccio M., Hlavina W.,
+RA   Kapustin Y., Meric P., Maglott D., Birtle Z., Marques A.C., Graves T.,
+RA   Zhou S., Teague B., Potamousis K., Churas C., Place M., Herschleb J.,
+RA   Runnheim R., Forrest D., Amos-Landgraf J., Schwartz D.C., Cheng Z.,
+RA   Lindblad-Toh K., Eichler E.E., Ponting C.P.;
+RT   "Lineage-specific biology revealed by a finished genome assembly of
+RT   the mouse.";
+RL   PLoS Biol. 7:E1000112-E1000112(2009).
+RN   [5]
+RP   NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA].
+RA   Mural R.J., Adams M.D., Myers E.W., Smith H.O., Venter J.C.;
+RL   Submitted (JUL-2005) to the EMBL/GenBank/DDBJ databases.
+RN   [6]
+RP   NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA].
+RC   STRAIN=FVB/N; TISSUE=Mammary tumor;
+RX   PubMed=15489334; DOI=10.1101/gr.2596504;
+RG   The MGC Project Team;
+RT   "The status, quality, and expansion of the NIH full-length cDNA
+RT   project: the Mammalian Gene Collection (MGC).";
+RL   Genome Res. 14:2121-2127(2004).
+RN   [7]
+RP   NUCLEOTIDE SEQUENCE [MRNA] OF 11-236.
+RC   TISSUE=Heart;
+RA   Duff K., Parsons J.;
+RL   Submitted (APR-1991) to the EMBL/GenBank/DDBJ databases.
+RN   [8]
+RP   PROTEIN SEQUENCE OF 125-144; 149-171 AND 194-201, AND MASS
+RP   SPECTROMETRY.
+RC   STRAIN=C57BL/6; TISSUE=Brain;
+RA   Lubec G., Kang S.U.;
+RL   Submitted (APR-2007) to UniProtKB.
+RN   [9]
+RP   INTERACTION WITH IGSF8.
+RX   PubMed=11673522;
+RA   Clark K.L., Zeng Z., Langford A.L., Bowen S.M., Todd S.C.;
+RT   "PGRL is a major CD81-associated protein on lymphocytes and
+RT   distinguishes a new family of cell surface proteins.";
+RL   J. Immunol. 167:5115-5121(2001).
+RN   [10]
+RP   DISRUPTION PHENOTYPE, AND TISSUE SPECIFICITY.
+RX   PubMed=16380109; DOI=10.1016/j.ydbio.2005.11.031;
+RA   Rubinstein E., Ziyyat A., Prenant M., Wrobel E., Wolf J.-P., Levy S.,
+RA   Le Naour F., Boucheix C.;
+RT   "Reduced fertility of female mice lacking CD81.";
+RL   Dev. Biol. 290:351-358(2006).
+RN   [11]
+RP   INTERACTION WITH IFITM2 AND IFITM3.
+RX   PubMed=16395393; DOI=10.1038/sj.gene.6364278;
+RA   Smith R.A., Young J., Weis J.J., Weis J.H.;
+RT   "Expression of the mouse fragilis gene products in immune cells and
+RT   association with receptor signaling complexes.";
+RL   Genes Immun. 7:113-121(2006).
+RN   [12]
+RP   DISRUPTION PHENOTYPE, TISSUE SPECIFICITY, AND FUNCTION IN ACROSOME
+RP   REACTION.
+RX   PubMed=17290409; DOI=10.1002/mrd.20709;
+RA   Tanigawa M., Miyamoto K., Kobayashi S., Sato M., Akutsu H., Okabe M.,
+RA   Mekada E., Sakakibara K., Miyado M., Umezawa A., Miyado K.;
+RT   "Possible involvement of CD81 in acrosome reaction of sperm in mice.";
+RL   Mol. Reprod. Dev. 75:150-155(2008).
+CC   -!- FUNCTION: May play an important role in the regulation of lymphoma
+CC       cell growth. May be involved in the acrosome reaction.
+CC   -!- SUBUNIT: Interacts with CD53 and SCIMP. Interacts directly with
+CC       IGSF8. Interacts with IFITM1, IFITM2 and IFITM3. Part of a GPCR-
+CC       tetraspanin complex consisting at least of GPR56, CD81, eventually
+CC       CD9, and GNA11 in which CD81 is enhancing the association of GPR56
+CC       with GNA11.
+CC   -!- SUBCELLULAR LOCATION: Membrane; Multi-pass membrane protein.
+CC   -!- TISSUE SPECIFICITY: Expressed in oocytes. Highly expressed in
+CC       granulosa cells.
+CC   -!- PTM: Not glycosylated (Probable).
+CC   -!- DISRUPTION PHENOTYPE: Reduction in the fecundity of female mice
+CC       and their eggs have impaired ability to fuse with sperm.
+CC   -!- SIMILARITY: Belongs to the tetraspanin (TM4SF) family.
+CC   -----------------------------------------------------------------------
+CC   Copyrighted by the UniProt Consortium, see http://www.uniprot.org/terms
+CC   Distributed under the Creative Commons Attribution-NoDerivs License
+CC   -----------------------------------------------------------------------
+DR   EMBL; S45012; AAB19417.1; -; Genomic_DNA.
+DR   EMBL; S44957; AAB19417.1; JOINED; Genomic_DNA.
+DR   EMBL; S44966; AAB19417.1; JOINED; Genomic_DNA.
+DR   EMBL; S45001; AAB19417.1; JOINED; Genomic_DNA.
+DR   EMBL; S45008; AAB19417.1; JOINED; Genomic_DNA.
+DR   EMBL; S45010; AAB19417.1; JOINED; Genomic_DNA.
+DR   EMBL; AJ251835; CAB94774.1; -; Genomic_DNA.
+DR   EMBL; AK166521; BAE38825.1; -; mRNA.
+DR   EMBL; AK170741; BAE41994.1; -; mRNA.
+DR   EMBL; AC015800; -; NOT_ANNOTATED_CDS; Genomic_DNA.
+DR   EMBL; CH466531; EDL18195.1; -; Genomic_DNA.
+DR   EMBL; BC011433; AAH11433.1; -; mRNA.
+DR   EMBL; X59047; -; NOT_ANNOTATED_CDS; mRNA.
+DR   IPI; IPI00310916; -.
+DR   IPI; IPI00405736; -.
+DR   PIR; A46472; A46472.
+DR   RefSeq; NP_598416.1; NM_133655.2.
+DR   UniGene; Mm.806; -.
+DR   ProteinModelPortal; P35762; -.
+DR   SMR; P35762; 113-201.
+DR   IntAct; P35762; 3.
+DR   MINT; MINT-4090262; -.
+DR   PhosphoSite; P35762; -.
+DR   PaxDb; P35762; -.
+DR   PRIDE; P35762; -.
+DR   Ensembl; ENSMUST00000037941; ENSMUSP00000043768; ENSMUSG00000037706.
+DR   GeneID; 12520; -.
+DR   KEGG; mmu:12520; -.
+DR   UCSC; uc009kou.2; mouse.
+DR   CTD; 975; -.
+DR   MGI; MGI:1096398; Cd81.
+DR   eggNOG; NOG305712; -.
+DR   GeneTree; ENSGT00680000099842; -.
+DR   HOGENOM; HOG000230651; -.
+DR   HOVERGEN; HBG002324; -.
+DR   InParanoid; P35762; -.
+DR   KO; K06508; -.
+DR   OMA; CHQKIDE; -.
+DR   OrthoDB; EOG4X97J1; -.
+DR   ChiTaRS; CD81; mouse.
+DR   NextBio; 281526; -.
+DR   PRO; PR:P35762; -.
+DR   CleanEx; MM_CD81; -.
+DR   Genevestigator; P35762; -.
+DR   GO; GO:0001772; C:immunological synapse; IEA:Ensembl.
+DR   GO; GO:0005887; C:integral to plasma membrane; ISS:UniProtKB.
+DR   GO; GO:0000187; P:activation of MAPK activity; ISS:UniProtKB.
+DR   GO; GO:0006661; P:phosphatidylinositol biosynthetic process; ISS:UniProtKB.
+DR   GO; GO:0043128; P:positive regulation of 1-phosphatidylinositol 4-kinase activity; ISS:UniProtKB.
+DR   GO; GO:0030890; P:positive regulation of B cell proliferation; TAS:UniProtKB.
+DR   GO; GO:0030307; P:positive regulation of cell growth; TAS:UniProtKB.
+DR   GO; GO:0050731; P:positive regulation of peptidyl-tyrosine phosphorylation; ISS:UniProtKB.
+DR   GO; GO:0008104; P:protein localization; ISS:UniProtKB.
+DR   InterPro; IPR000301; Tetraspanin.
+DR   InterPro; IPR018499; Tetraspanin/Peripherin.
+DR   InterPro; IPR018503; Tetraspanin_CS.
+DR   InterPro; IPR008952; Tetraspanin_EC2.
+DR   Pfam; PF00335; Tetraspannin; 1.
+DR   PIRSF; PIRSF002419; Tetraspanin; 1.
+DR   PRINTS; PR00259; TMFOUR.
+DR   SUPFAM; SSF48652; SSF48652; 1.
+DR   PROSITE; PS00421; TM4_1; 1.
+PE   1: Evidence at protein level;
+KW   Complete proteome; Direct protein sequencing; Disulfide bond;
+KW   Membrane; Reference proteome; Transmembrane; Transmembrane helix.
+FT   CHAIN         1    236       CD81 antigen.
+FT                                /FTId=PRO_0000219222.
+FT   TOPO_DOM      1     12       Cytoplasmic (Potential).
+FT   TRANSMEM     13     33       Helical; (Potential).
+FT   TOPO_DOM     34     57       Extracellular (Potential).
+FT   TRANSMEM     58     78       Helical; (Potential).
+FT   TOPO_DOM     79     89       Cytoplasmic (Potential).
+FT   TRANSMEM     90    115       Helical; (Potential).
+FT   TOPO_DOM    116    201       Extracellular (Potential).
+FT   TRANSMEM    202    226       Helical; (Potential).
+FT   TOPO_DOM    227    236       Cytoplasmic (Potential).
+FT   DISULFID    156    190       By similarity.
+FT   DISULFID    157    175       By similarity.
+FT   CONFLICT    173    173       S -> T (in Ref. 1; AAB19417).
+SQ   SEQUENCE   236 AA;  25815 MW;  7BDCB792E7F9FA4E CRC64;
+     MGVEGCTKCI KYLLFVFNFV FWLAGGVILG VALWLRHDPQ TTSLLYLELG NKPAPNTFYV
+     GIYILIAVGA VMMFVGFLGC YGAIQESQCL LGTFFTCLVI LFACEVAAGI WGFVNKDQIA
+     KDVKQFYDQA LQQAVMDDDA NNAKAVVKTF HETLNCCGSN ALTTLTTTIL RNSLCPSGGN
+     ILTPLLQQDC HQKIDELFSG KLYLIGIAAI VVAVIMIFEM ILSMVLCCGI RNSSVY
+//
