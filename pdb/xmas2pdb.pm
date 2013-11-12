@@ -22,12 +22,14 @@ has 'radii_file' => (
     is => 'rw',
     isa => 'FileReadable',
     required => 1,
+    default => $TCNPerlVars::radii_file,
 );
 
 has 'xmas2pdb_file' => (
     is => 'rw',
     isa => 'FileExecutable',
     required => 1,
+    default => $TCNPerlVars::xmas2pdb,
 );
 
 has xmas_file => (
