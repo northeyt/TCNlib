@@ -49,28 +49,6 @@ is(patch_desc->_true_angle_from_x($v[3]) * 180 / pi, 315,
    "4th quad angles okay");
 
 
-print "Testing _RMforvector2x\n";
-
-my $xvector = vector(1,0,0);
-my $R = patch_desc->_RMforvector2x($xvector); 
-is(ref $R ,'Math::MatrixReal',
-   "_RMforvector2x returns rot Matrix ok when vector y component = 0" );
-
-my $x_rotated = $xvector * $R;
-
-cmp_deeply( [$x_rotated->x, $x_rotated->y, $x_rotated->z], [1, 0, 0],
-            "_RMforvector2x matrix does not rotate x vector" );
-
-my $yvector = vector(0,1,0);
-$R =  patch_desc->_RMforvector2x($yvector);
-is( ref $R ,'Math::MatrixReal',
-    "_RMforvector2x returns rot Matrix ok when vector x component = 0" );
-
-my $y_rotated = $yvector * $R;
-cmp_deeply( [$y_rotated->x, $y_rotated->y, $y_rotated->z],
-            [1, 6.12323399573677e-17, 0],
-            "_RMforvector2x matrix rotates y unit vector okay" );
-
 my $chain = chain->new(pdb_code => '4hou',
                        chain_id => 'A',
                        pdb_file => 'pdb4hou.ent',
@@ -116,7 +94,7 @@ my %nonpatch_atom
     grep( ! defined $patch_atom{$_}, keys %all_atom );
 
 
-$patch_desc->patch_order;
+is( [$patch_desc->patch_order]->[0], 'ALRETQ', "patch order works okay" );
 
 my $file = 'fullrun.pdb';
 

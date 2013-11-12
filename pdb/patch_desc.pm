@@ -13,6 +13,7 @@ use pdb::xmas2pdb;
 use pdb::rotate2pc qw(:all);
 
 use TCNPerlVars;
+use GLOBAL qw( three2one_lc );
 use Data::Dumper;
 use local::error;
 
@@ -48,7 +49,7 @@ sub patch_order {
     # Default contact threshold - if one side of patch has < threshold
     # contacts then it is considered a surface side and a patch order for
     # that side will be returned
-    my $threshold = 5;
+    my $threshold = 3;
     
     if (@_){
         croak "Args must be passed as a hash ref"
@@ -150,20 +151,23 @@ sub patch_order {
     my @return = ();
     
     my @residue_order = $self->_residue_order;
-    
-    if ( $posz_contacts < $threshold ) {
-        push( @return, join( '', @residue_order ) );
-        
+
+    my @aacid_order
+        = map { three2one_lc($_) }
+            map { $self->patch->atom_array->[$_]->resName }
+                map { $self->patch->resid_index->{$_}->{CA} } @residue_order;
+
+    if ( @{$posz_contacts} < $threshold ) {
+        push( @return, join( '', @aacid_order ) );
     }
 
-    if ( $negz_contacts < $threshold ) {
+    if ( @{$negz_contacts} < $threshold ) {
         my $rev_string
-            =  shift (@residue_order)
-             . reverse ( join( '', @residue_order ) );
+            =  shift (@aacid_order)
+             . reverse ( join( '', @aacid_order ) );
                     
         push( @return, $rev_string );
     }
-    
     return @return;
 }
 
