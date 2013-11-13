@@ -119,6 +119,13 @@ has 'hydrogen_cleanup' => (
     default => 0,
 );
 
+has 'has_ASA_read' => (
+    isa => 'Bool',
+    is => 'rw',
+    default => 0,
+);
+
+
 # Consume antigen role
 with 'pdb::antigen';
 
@@ -298,6 +305,8 @@ sub read_ASA {
         $atom->$attribute( $ASAs{$serial} );
     }
 
+    $self->has_ASA_read(1);
+    
     return \@errors;
 };
 
