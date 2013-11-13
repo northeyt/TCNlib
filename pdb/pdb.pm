@@ -119,7 +119,7 @@ has 'hydrogen_cleanup' => (
     default => 0,
 );
 
-has 'has_ASA_read' => (
+has 'has_read_ASA' => (
     isa => 'Bool',
     is => 'rw',
     default => 0,
@@ -305,7 +305,7 @@ sub read_ASA {
         $atom->$attribute( $ASAs{$serial} );
     }
 
-    $self->has_ASA_read(1);
+    $self->has_read_ASA(1);
     
     return \@errors;
 };
