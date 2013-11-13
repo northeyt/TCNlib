@@ -1,4 +1,4 @@
-#!/usr/bin/perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/acrm/usr/local/bin/perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl automatc_patches.t'
@@ -17,6 +17,8 @@ use warnings;
 use Data::Dumper;
 
 use lib ( '..' );
+
+use pdb::pdb;
 
 use Test::More qw( no_plan );
 BEGIN { use_ok( 'automatic_patches' ); }
@@ -46,3 +48,14 @@ $noxmas->{pdb_file} = '1nox.pdb';
 
 ok($noxmas->xmas_file, "xmas file created when not found in xmas dir");
 
+
+print "Testing  BUILDARGS for when given a pdb object ...\n";
+
+my $chain = chain->new( pdb_code => '1djs', chain_id => 'A',
+                        pdb_file => '1djs.pdb', xmas_file => '1djs.xmas',
+                    );
+
+my $ap_from_pdb = new_ok('automatic_patches', [ pdb_object => $chain,
+                                                radius => 8,
+                                                patch_type => 'contact' ]
+                                            );

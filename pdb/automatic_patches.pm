@@ -21,6 +21,11 @@ subtype 'PatchType',
     where { $_ =~ m{ \A (?: contact|normal ) \s* \z }xms },
     message { "$_ is not a valid patch type" };
 
+subtype 'ValidPDBObject',
+    as 'Ref',
+    where { ref $_ eq 'pdb' || ref $_ eq 'chain' },
+    message { "$_ is not a valid pdb object (pdb or chain)" };
+
 # Import vars
 my $pdbprep = $TCNPerlVars::pdbprep;
 my $pdbext  = $TCNPerlVars::pdbext;
@@ -50,6 +55,11 @@ has 'patch_type' => (
     is => 'rw',
     isa => 'PatchType',
     required => 1,
+);
+
+has 'pdb_object' => (
+    is => 'rw',
+    isa => 'ValidPDBObject',
 );
 
 has 'pdb_code' => (
@@ -85,6 +95,30 @@ for my $name ( 'pdb', 'xmas' ) {
 }
 
 # Methods
+
+# Build an automatic_patches object straight from a pdb object
+around BUILDARGS => sub {
+    my $orig = shift;
+    my $class = shift;
+
+    my %arg = @_;
+
+    if ( exists $arg{pdb_object} ) {
+        my $pdb_obj = $arg{pdb_object};
+        
+        $arg{pdb_code} = $pdb_obj->pdb_code;
+        $arg{chain_id} = $pdb_obj->chain_id if ref $pdb_obj eq 'chain';
+        
+        foreach my $type ( 'pdb', 'xmas' ) {
+            my $attribute = $type . '_file';
+            my $predicate = 'has_' . $attribute;
+            if ($pdb_obj->$predicate) {
+                $arg{$attribute} = $pdb_obj->$attribute;
+            }
+        }
+    }
+    return $class->$orig(%arg);
+};
 
 sub _build_pdb_fname {
     my $self = shift;
