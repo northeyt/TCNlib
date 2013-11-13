@@ -60,6 +60,8 @@ has 'patch_type' => (
 has 'pdb_object' => (
     is => 'rw',
     isa => 'ValidPDBObject',
+    lazy => 1,
+    builder => '_build_pdb_object',
 );
 
 has 'pdb_code' => (
@@ -162,6 +164,22 @@ sub _build_xmas_fname {
     return $fname;
 }
 
+sub _build_pdb_object {
+    my $self = shift;
+    
+    my $class = $self->has_chain_id ? 'chain' : 'pdb';
+    
+    my %pdb_arg
+        = ( pdb_code => $self->pdb_code,
+            pdb_file => $self->pdb_file(),
+            xmas_file => $self->xmas_file(),
+        );
+
+    $pdb_arg{chain_id} = $self->chain_id() if $class eq 'chain';
+        
+    return $class->new(%pdb_arg);    
+}
+
 sub get_patches {
     my $self = shift;
 
@@ -173,23 +191,7 @@ sub get_patches {
     croak "Could not read $xmas_file" if ! -r $xmas_file;
     
     my $class = $self->has_chain_id ? 'chain' : 'pdb';
-
-    my %pdb_arg
-        = ( pdb_code => $pdb_code,
-            xmas_file => $xmas_file,
-        );
-
-    my $form;
-    
-    if ($class eq 'chain') {
-        $pdb_arg{chain_id} = uc $self->chain_id();
-        $form = 'monomer';
-    }
-    else {
-        $form = 'multimer';
-    }
-    
-    my $pdb_obj = $class->new(%pdb_arg);
+    my $form = $class eq 'chain' ? 'monomer' : 'multimer' ; 
     
     my %x2p_arg
         = ( xmas2pdb_file => $xmas2pdb,
@@ -200,13 +202,9 @@ sub get_patches {
     
     # xmas2pdb
     my $x2p_obj = xmas2pdb->new(%x2p_arg);
-    
-    # Assign x2p output to pdb obj and self (assigning to self allows
-    # other methods to use identical pdb for downstream analysis
-    # e.g. patch_desc
-    $pdb_obj->pdb_file($x2p_obj->output_file);
-    $self->pdb_file($x2p_obj->output_file);
 
+    my $pdb_obj = $self->pdb_object;
+    
     my @ASA_read_err = ();
     
     # Read ASA values for pdb object, check for errors
@@ -217,7 +215,7 @@ sub get_patches {
             }
             else {
                 croak "Unrecognised error type '" . $ret->error()
-                    . "' returned read_ASA";
+                    . "' returned by read_ASA";
             }
         }
     }
