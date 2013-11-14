@@ -19,6 +19,7 @@ use Data::Dumper;
 use lib ( '..' );
 
 use Test::More qw( no_plan );
+use Test::Deep;
 BEGIN { use_ok( 'automatic_patches' ); }
 
 #########################
@@ -34,7 +35,22 @@ my %arg
     );
 
 my $auto = automatic_patches->new(%arg);
-$auto->get_patches();
+
+my @summary = ();
+
+foreach my $patch ($auto->get_patches) {
+    push( @summary, $patch->summary . "\n" );
+}
+
+my $exp_patch_file = 'automatic_patches.out';
+
+open(my $fh, '<', $exp_patch_file)
+    or die "Canot open file $exp_patch_file, $!\n"; 
+
+my @exp_summary = <$fh>;
+
+cmp_deeply(\@summary, \@exp_summary,
+           "get_patches produces correct patch summaries");
 
 # Test to see if tmp xmas file write works
 $arg{pdb_code} = '1nox';
