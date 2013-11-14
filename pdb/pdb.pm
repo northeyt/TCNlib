@@ -152,8 +152,8 @@ sub _parse_atoms {
     foreach my $line (@ATOM_lines) {
         my $atom = atom->new( ATOM_line => $line );
 
-        next if $h_clean && $atom->element eq 'H'
-            || $HETATM_clean && $atom->is_het_atom;
+        next if ( $h_clean && $atom->element eq 'H'
+                      || $HETATM_clean && $atom->is_het_atom );
         
         if ( $aL_clean && $atom->has_altLoc ) {
             my $string
@@ -201,7 +201,7 @@ sub _parse_ATOM_lines {
     my @ATOM_lines = ();
 
     foreach my $line (@array) {
-        if ($line =~ /^(?: ATOM|HETATM) /) {
+        if ($line =~ /^(?:ATOM|HETATM) /) {
             push(@ATOM_lines, $line);
         }
     }

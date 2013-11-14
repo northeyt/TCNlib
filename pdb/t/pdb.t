@@ -72,7 +72,8 @@ ok( (grep /^HETATM/, @ATOM_lines),
 
 $pdb->_parse_atoms();
 
-$pdb->atom_array();
+is( scalar @{ $pdb->atom_array() }, 3066,
+    "all ATOM and HETATM lines parsed and included in atom_array" );
 
 # atom_index
 
