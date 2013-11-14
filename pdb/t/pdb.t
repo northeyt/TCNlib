@@ -41,11 +41,15 @@ isa_ok($atom, 'atom', "atom object created ok");
 # HETATM
 
 my $HETATM_line
-    = "HETATM 2105  N   MSE B  67      68.539  35.469  16.161  1.60  0.00           N\n";
+    = "HETATM 2105  N   MSE B  67      68.539  35.469  16.161  1.60  0.00           N  \n";
 
 my $het_atom = atom->new( ATOM_line => $HETATM_line );
 
 is( $het_atom->is_het_atom, 1, "het atom identified" );
+
+my $het_atom_string = "$het_atom";
+
+is( $het_atom_string, $HETATM_line, "stringify okay for het atoms" );
 
 # pdb object tests
 
@@ -111,9 +115,6 @@ my %arg = (xmas2pdb_file => $xmas2pdb_file,
 my $x2p = xmas2pdb->new(%arg);
 
 my $test_atom = $pdb->atom_array->[1];
-
-print $test_atom;
-exit;
 
 $pdb->read_ASA($x2p);
 

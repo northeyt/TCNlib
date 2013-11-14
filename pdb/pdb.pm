@@ -736,7 +736,7 @@ sub stringify {
          : length $ordered_attr[1] == 3 ? ' ' . $ordered_attr[1] 
          : $ordered_attr[1];
 
-    unshift (@ordered_attr, 'ATOM');
+    unshift (@ordered_attr, ( $self->is_het_atom ? 'HETATM' : 'ATOM' ) );
     
     for my $i ( 0 .. @ordered_attr) {
         if ( ! defined $ordered_attr[$i] ) {
@@ -745,7 +745,7 @@ sub stringify {
         }
     }
     
-    my $string = sprintf(  '%-6.4s%5.5s' . ' ' . '%s%1.1s%3.3s %1.1s%4.4s%1.1s   '
+    my $string = sprintf(  '%-6.6s%5.5s' . ' ' . '%s%1.1s%3.3s %1.1s%4.4s%1.1s   '
                           .'%8.3f' x 3 .  '%6.2f' x 2 . ' ' x 10 . '%2.2s'. '%2.2s' ,
                            @ordered_attr );
 
