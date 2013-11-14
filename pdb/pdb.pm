@@ -659,14 +659,12 @@ foreach my $name ( 'altLoc', 'chainID', 'iCode' ) {
 
 has [ 'serial', 'resSeq', ] => ( is => 'rw', => isa => 'Int' );
 
-foreach my $name ( 'radius', 'ASAm', 'ASAc' ) {
+foreach my $name ( 'radius', 'ASAm', 'ASAc', 'x', 'y', 'z', 'occupancy',
+                'tempFactor' ) {
     my $predicate = 'has_' . $name;
     
     has $name => ( is => 'rw', isa => 'Num', predicate => $predicate );
 }
-
-has [ 'x', 'y', 'z', 'occupancy', 'tempFactor' ]
-    => ( is => 'rw', isa => 'Num');
 
 has 'resid' => (
     is => 'ro',
@@ -675,17 +673,55 @@ has 'resid' => (
     builder => '_get_resid',
 );
 
-use overload '""' => \&_stringify, fallback => 1;
+use overload '""' => \&stringify, fallback => 1;
 
-sub _stringify {
+sub stringify {
     my $self = shift;
 
-    my @ordered_attr
-        = eval { my @ar = ( 'ATOM', $self->serial, $self->name, $self->altLoc,
-            $self->resName, $self->chainID, $self->resSeq, $self->iCode,
-            $self->x, $self->y, $self->z, $self->occupancy,
-            $self->tempFactor, $self->element, $self->charge ) }; 
+    my @arg = ();
+    
+    foreach my $arg (@_) {
+        if ( defined $arg && $arg =~ /\S/ ) {
+            push(@arg, $arg);
+        }
+    }
 
+    my %hash = ();
+    
+    if (@arg) {
+        croak "stringify must be passed a hashref: this hash must contain "
+            . "column replacements. e.g. { tempFactor => ASAm } to replace "
+            . "tempFactor with ASAm"
+                if ref $_[0] ne 'HASH';
+
+        %hash = %{ $_[0] };
+    }
+    
+    my @ordered_attr = ( 'serial', 'name', 'altLoc', 'resName', 'chainID',
+                       'resSeq','iCode', 'x', 'y', 'z', 'occupancy',
+                         'tempFactor', 'element', 'charge' );
+     
+    # Make column replacements
+    for my $i ( 0 .. @ordered_attr - 1 ) {
+        if ( exists $hash{ $ordered_attr[$i] } ) {
+            my $predicate = 'has_' . $ordered_attr[$i];
+            $ordered_attr[$i]
+                = $self->$predicate ? $hash{ $ordered_attr[$i] } : ' ' ;
+        }
+    }
+
+    @ordered_attr = map { $self->$_ } @ordered_attr;
+
+    # Process 'name' to match pdb formatting by padding with whitespace
+    $ordered_attr[1]
+        =  length $ordered_attr[1] == 0 ? ' ' x 4
+         : length $ordered_attr[1] == 1 ? ' ' . $ordered_attr[1] . ' ' x 2
+         : length $ordered_attr[1] == 2 ? ' ' . $ordered_attr[1] . ' '
+         : length $ordered_attr[1] == 3 ? ' ' . $ordered_attr[1] 
+         : $ordered_attr[1];
+
+    unshift (@ordered_attr, 'ATOM');
+    
     for my $i ( 0 .. @ordered_attr) {
         if ( ! defined $ordered_attr[$i] ) {
             $ordered_attr[$i] = '';
@@ -693,8 +729,8 @@ sub _stringify {
         }
     }
     
-    my $string = sprintf(  '%-6.4s%5.5s %4.4s%1.1s%3.3s %1.1s%4.4s%1.1s   '
-                          .'%8.3f' x 3 .  '%6.2f' x 2 . '%2.2s' x 2 ,
+    my $string = sprintf(  '%-6.4s%5.5s' . ' ' . '%s%1.1s%3.3s %1.1s%4.4s%1.1s   '
+                          .'%8.3f' x 3 .  '%6.2f' x 2 . ' ' x 10 . '%2.2s'. '%2.2s' ,
                            @ordered_attr );
 
     $string .= "\n";
