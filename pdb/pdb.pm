@@ -273,7 +273,7 @@ sub read_ASA {
         next unless $line =~ /^ATOM /;
 
         my $serial = rm_trail( substr($line, 6, 5) );
-        my $radius = rm_trail( substr($line, 54, 5) );
+        my $radius = rm_trail( substr($line, 54, 6) );
         my $ASA    = rm_trail( substr($line, 60, 6) );
 
         $ASAs{$serial} = $ASA;
