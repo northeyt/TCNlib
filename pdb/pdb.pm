@@ -119,6 +119,12 @@ has 'hydrogen_cleanup' => (
     default => 0,
 );
 
+has 'het_atom_cleanup' => (
+    isa => 'Bool',
+    is => 'rw',
+    default => 0,
+);
+
 has 'has_read_ASA' => (
     isa => 'Bool',
     is => 'rw',
@@ -141,11 +147,13 @@ sub _parse_atoms {
     my %altLoc = ();
 
     my $h_clean = $self->hydrogen_cleanup();
+    my $HETATM_clean = $self->het_atom_cleanup();
     
     foreach my $line (@ATOM_lines) {
         my $atom = atom->new( ATOM_line => $line );
 
-        next if $h_clean && $atom->element eq 'H';
+        next if $h_clean && $atom->element eq 'H'
+            || $HETATM_clean && $atom->is_het_atom;
         
         if ( $aL_clean && $atom->has_altLoc ) {
             my $string
@@ -193,12 +201,12 @@ sub _parse_ATOM_lines {
     my @ATOM_lines = ();
 
     foreach my $line (@array) {
-        if ($line =~ /^ATOM /) {
+        if ($line =~ /^(?: ATOM|HETATM) /) {
             push(@ATOM_lines, $line);
         }
     }
     
-    croak "No ATOM lines parsed from pdb data"
+    croak "No ATOM or HETATM lines parsed from pdb data"
         if ! @ATOM_lines;
 
     return @ATOM_lines;

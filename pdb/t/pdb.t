@@ -61,6 +61,9 @@ is( ref $pdb->pdb_data, 'ARRAY', "fh builder okay" );
 
 my @ATOM_lines = $pdb->_parse_ATOM_lines;
 
+ok( (grep /^HETATM/, @ATOM_lines),
+    "HETATM lines included by _parse_ATOM_lines");
+
 ## _parse_atoms
 
 $pdb->_parse_atoms();
@@ -108,6 +111,9 @@ my %arg = (xmas2pdb_file => $xmas2pdb_file,
 my $x2p = xmas2pdb->new(%arg);
 
 my $test_atom = $pdb->atom_array->[1];
+
+print $test_atom;
+exit;
 
 $pdb->read_ASA($x2p);
 
