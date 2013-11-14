@@ -1,4 +1,4 @@
-#!/usr/bin/perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/acrm/usr/local/bin/perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl automatc_patches.t'

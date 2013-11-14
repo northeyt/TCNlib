@@ -47,8 +47,13 @@ my $R = rotate2pc::RM_about_vector( Z, pi );
 
 my $r_vector = X * $R;
 
-cmp_deeply( [ $r_vector->x, $r_vector->y, $r_vector->z ],
-            [ -1,        , -1.22464679914735E-16, 0 ],
+
+# Treatment of element 2 of return array is due to very small fp number
+# that differs very slightly on different bit-architectures
+cmp_deeply( [ $r_vector->x,
+              int (1*(10**19) * $r_vector->y ),
+              $r_vector->z ],
+            [ -1,        , -1224, 0 ],
             "RM_about_vector works okay" );
 
 my @point = ( vector(1.5,0,0), vector(-1.5,0,0),
