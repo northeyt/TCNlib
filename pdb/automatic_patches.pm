@@ -173,6 +173,8 @@ sub _build_pdb_object {
         = ( pdb_code => $self->pdb_code,
             pdb_file => $self->pdb_file(),
             xmas_file => $self->xmas_file(),
+            hydrogen_cleanup => 1,
+            altLoc_cleanup => 1,
         );
 
     $pdb_arg{chain_id} = $self->chain_id() if $class eq 'chain';
@@ -199,51 +201,44 @@ sub get_patches {
             xmas_file     => $xmas_file,
             form          => $form,
         );
-    
-    # xmas2pdb
-    my $x2p_obj = xmas2pdb->new(%x2p_arg);
 
-    my $pdb_obj = $self->pdb_object;
+    my $pdb_obj = $self->pdb_object();
     
-    my @ASA_read_err = ();
-    
-    # Read ASA values for pdb object, check for errors
-    foreach my $ret ( $pdb_obj->read_ASA($x2p_obj) ) {
-        if (ref $ret eq 'local::error'){
-            if ( $ret->type() eq 'ASA_read' ) {
-                push(@ASA_read_err, $ret);
-            }
-            else {
-                croak "Unrecognised error type '" . $ret->error()
+    if ( ! $pdb_obj->has_read_ASA() ) {
+        # xmas2pdb
+        my $x2p_obj = xmas2pdb->new(%x2p_arg);
+        
+        my $pdb_obj = $self->pdb_object;
+        
+        my @ASA_read_err = ();
+        
+        # Read ASA values for pdb object, check for errors
+        foreach my $ret ( $pdb_obj->read_ASA($x2p_obj) ) {
+            if (ref $ret eq 'local::error'){
+                if ( $ret->type() eq 'ASA_read' ) {
+                    push(@ASA_read_err, $ret);
+                }
+                else {
+                    croak "Unrecognised error type '" . $ret->error()
                     . "' returned by read_ASA";
+                }
             }
         }
     }
     
-    # Parse x2p output to avoid making patches with non-chain res
-    # if object is chain
+    # Create tmp pdb file with modified atom lines ala xmas2pdb output
+    my $ASA_type = $form eq 'monomer' ? 'ASAm' : 'ASAc' ;
 
-    my $tmp_pdb_file;
+    my %swap = ( occupancy => 'radius', tempFactor => $ASA_type );
     
-    if ($class eq 'chain') {
-
-        my @ATOM_lines = ();
-        
-        foreach my $line ( @{ $x2p_obj->output } ) {
-            if (   $line =~ /^ATOM/ 
-                && substr($line, 21, 1) eq $pdb_obj->chain_id ){
-                push( @ATOM_lines, $line);
-            }
-        }
-
-        croak   "No ATOM lines parsed with chain id " . $pdb_obj->chain_id
-            if ! @ATOM_lines;
-
-        my $tmp_file = write2tmp->new( data => [@ATOM_lines],
-                                       suffix => '.pdb' );
-        
-        $self->pdb_file($tmp_file->file_name);
-    }
+    my @ATOM_lines = map { $_->stringify( {%swap} ) }
+                               @{ $pdb_obj->atom_array() }; 
+                           
+    my $tmp = write2tmp->new( suffix => '.pdb',
+                              data => [ @ATOM_lines ],
+                          );
+    
+    my $tmp_file_name = $tmp->file_name();
     
     my @patches = ();
 
@@ -257,15 +252,20 @@ sub get_patches {
             = ( makepatch_file => $makepatch,
                 patch_type     => $self->patch_type,
                 radius         => $self->radius,
-                pdb_file       => $self->pdb_file,
+                pdb_file       => $tmp_file_name,
                 pdb_code       => $pdb_code,
                 central_atom   => $cent_atom,
                 surf_min       => $self->surf_min,
             );
 
-        my $mkp_obj = makepatch->new(%mkp_arg);
-
+        if ($mkp_arg{central_atom}->resSeq eq 190) {
+            print $mkp_arg{central_atom}->radius;
+            print "\n";
+            print "$_ => $mkp_arg{$_}\n" foreach keys %mkp_arg;
+        }
         
+        my $mkp_obj = makepatch->new(%mkp_arg);
+    
         my $return = do {
             local $@;
             my $ret;
