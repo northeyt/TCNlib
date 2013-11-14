@@ -38,6 +38,15 @@ my $atom = atom->new( ATOM_line => $ATOM_line );
 
 isa_ok($atom, 'atom', "atom object created ok");
 
+# HETATM
+
+my $HETATM_line
+    = "HETATM 2105  N   MSE B  67      68.539  35.469  16.161  1.60  0.00           N\n";
+
+my $het_atom = atom->new( ATOM_line => $HETATM_line );
+
+is( $het_atom->is_het_atom, 1, "het atom identified" );
+
 # pdb object tests
 
 my $pdb_file = '1djs.pdb';
@@ -83,7 +92,6 @@ $chain->_parse_atoms();
 is( $chain->accession_codes()->[0], 'P21802',
     "Accession codes from pdbsws" );
 
-
 # reading ASAs and radii from xmas2pdb object
 
 my $xmas2pdb_file = 'xmas2pdb';
@@ -119,11 +127,6 @@ ok($test_atom->ASAm(), "Monomer ASA read from xmas2pdb object" );
 my %pc_arg = ( ASA_threshold => 25 );
 
 my ($errors, $patch_centres) = $pdb->patch_centres( %pc_arg );
-
-#foreach my $index (1360, 1357, 1361, 1364, 1359, 1363, 1362, 1358) {
-#    print "$index " .  $pdb->atom_array->[$index]->{serial} . ' '
-#         . $pdb->atom_array->[$index]->ASAc() . "\n";
-#}
 
 ($errors, $patch_centres) = $chain->patch_centres( %pc_arg);
 

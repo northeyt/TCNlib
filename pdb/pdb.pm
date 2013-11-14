@@ -125,7 +125,6 @@ has 'has_read_ASA' => (
     default => 0,
 );
 
-
 # Consume antigen role
 with 'pdb::antigen';
 
@@ -646,6 +645,8 @@ has 'ATOM_line' => (
     is  => 'rw',
 );
 
+
+
 has [ 'name', 'resName', 'element', 'charge' ]
     => ( is => 'rw', isa => 'Str' );
 
@@ -672,6 +673,13 @@ has 'resid' => (
     lazy => 1,
     builder => '_get_resid',
 );
+
+has 'is_het_atom' => (
+    isa => 'Bool',
+    is => 'rw',
+    default => 0,
+);
+
 
 use overload '""' => \&stringify, fallback => 1;
 
@@ -770,9 +778,14 @@ sub BUILD {
             charge => rm_trail( substr($ATOM_line, 78, 2) ),
         );
 
-    croak "It looks like you're trying to parse a non-ATOM line: $ATOM_line"
-        if $record{ATOM} ne 'ATOM';
+    croak "It looks like you're trying to parse a non-ATOM or HETATM line: "
+        . "$ATOM_line"
+            if ! ($record{ATOM} eq 'ATOM' || $record{ATOM} eq 'HETATM') ;
 
+    if ( $record{ATOM} eq 'HETATM' ) {
+        $self->is_het_atom(1);
+    }
+    
     delete $record{ATOM};
     
     foreach my $value (keys %record) {
