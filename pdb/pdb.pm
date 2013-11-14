@@ -277,7 +277,7 @@ sub read_ASA {
     my  %radii = ();
     
     foreach my $line ( @{ $xmas2pdb->output() } ){
-        next unless $line =~ /^ATOM /;
+        next unless $line =~ /^(?:ATOM|HETATM) /;
 
         my $serial = rm_trail( substr($line, 6, 5) );
         my $radius = rm_trail( substr($line, 54, 6) );
