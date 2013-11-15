@@ -18,6 +18,7 @@ use Data::Dumper;
 
 use lib ( '..' );
 use Test::More qw( no_plan );
+use Test::Deep;
 use Test::Exception;
 
 BEGIN { use_ok('pdb'); }
@@ -75,11 +76,28 @@ $pdb->_parse_atoms();
 is( scalar @{ $pdb->atom_array() }, 3066,
     "all ATOM and HETATM lines parsed and included in atom_array" );
 
+# _parse_ter
+
+my $ter_line = "TER    2725      SO4 A 407\n";
+
+my($serial, $chainID) = pdb::_parse_ter($ter_line);
+
+is( $serial, '2725', "_parse_ter parses serial ok"  );
+is( $chainID, 'A'  , "_parse_ter parses chainID ok" );
+
 # atom_index
 
 $pdb->atom_index();
 
 ok($pdb->resid_index, "resid_index ok" );
+
+# is_terminal atom attribute
+
+my $term_atom  = $pdb->atom_array->[ $pdb->resid_index->{A362}->{CB}  ];
+my $term_atom2 = $pdb->atom_array->[ $pdb->resid_index->{B140}->{OD2} ];
+
+cmp_deeply( [ $term_atom->is_terminal, $term_atom2->is_terminal ], [ 1, 1 ],
+            "terminal atom labelled");
 
 # chain object
 

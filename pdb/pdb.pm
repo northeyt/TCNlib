@@ -148,10 +148,23 @@ sub _parse_atoms {
 
     my $h_clean = $self->hydrogen_cleanup();
     my $HETATM_clean = $self->het_atom_cleanup();
+
+    my %ter = ();
     
     foreach my $line (@ATOM_lines) {
-        my $atom = atom->new( ATOM_line => $line );
 
+        if ( $line =~ /^TER/ ) {
+            # parse serial and resid
+            my ($serial, $chainID) = _parse_ter($line);
+
+            # Serial of TER line is the serial of the last atom  of the
+            # chain + 1
+            $ter{ $serial - 1 } = $chainID;
+            next;
+        }
+        
+        my $atom = atom->new( ATOM_line => $line );
+   
         next if ( $h_clean && $atom->element eq 'H'
                       || $HETATM_clean && $atom->is_het_atom );
         
@@ -186,12 +199,25 @@ sub _parse_atoms {
         }
     }
 
+    # Label terminal atoms
+    foreach my $atom (@atoms) {
+        my $serial = $atom->serial();
+        if (! defined $serial) {
+            croak "Undefined $serial!";
+        }
+        if ( exists $ter{$serial} && $atom->has_chainID
+                 && $atom->chainID eq $ter{$serial} ){
+            $atom->is_terminal(1);
+        }
+    }     
+    
     croak "No atom objects were created" if ! @atoms;
 
     return [ @atoms ];
 }
 
 
+# Also parses HETATM and TER lines
 sub _parse_ATOM_lines {
     
     my $self = shift;
@@ -201,15 +227,29 @@ sub _parse_ATOM_lines {
     my @ATOM_lines = ();
 
     foreach my $line (@array) {
-        if ($line =~ /^(?:ATOM|HETATM) /) {
+        if ($line =~ /^(?:ATOM|HETATM|TER) /) {
             push(@ATOM_lines, $line);
         }
     }
     
-    croak "No ATOM or HETATM lines parsed from pdb data"
+    croak "No ATOM, HETATM or TER lines parsed from pdb data"
         if ! @ATOM_lines;
 
     return @ATOM_lines;
+}
+
+sub _parse_ter {
+    my($ter_line) = @_;
+
+    my $serial  = rm_trail( substr( $ter_line, 6, 5 ) );
+    croak "Could not parse serial from TER line $ter_line"
+        if ! defined $serial;
+    
+    my $chainID = rm_trail( substr( $ter_line, 21, 1 ) );
+    croak "Could not parse chainID from TER line $ter_line"
+        if ! defined $chainID;
+
+    return($serial, $chainID);
 }
 
 sub _build_atom_index {
@@ -688,6 +728,11 @@ has 'is_het_atom' => (
     default => 0,
 );
 
+has 'is_terminal' => (
+    isa => 'Bool',
+    is => 'rw',
+    default => 0,
+);
 
 use overload '""' => \&stringify, fallback => 1;
 
