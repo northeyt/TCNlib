@@ -230,12 +230,19 @@ sub get_patches {
     my $ASA_type = $form eq 'monomer' ? 'ASAm' : 'ASAc' ;
 
     my %swap = ( occupancy => 'radius', tempFactor => $ASA_type );
+
+    my @ATOM_lines = ();
     
-    my @ATOM_lines = map { $_->stringify( {%swap} ) }
-                               @{ $pdb_obj->atom_array() }; 
-                           
+    foreach my $atom ( @{ $pdb_obj->atom_array() } ) {
+        push( @ATOM_lines, $atom->stringify( {%swap} ) );
+        if ( $atom->is_terminal() ) {
+            push( @ATOM_lines, $atom->stringify_ter() );
+        }
+    }
+    
     my $tmp = write2tmp->new( suffix => '.pdb',
                               data => [ @ATOM_lines ],
+                              retain => 1, # TEMP FOR TESTING
                           );
     
     my $tmp_file_name = $tmp->file_name();
