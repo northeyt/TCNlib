@@ -13,6 +13,8 @@ use GLOBAL qw(&rm_trail);
 use Data::Dumper;
 use Carp;
 
+use pdb::xmas2pdb;
+
 # Subtypes
 
 ### Attributes
@@ -304,11 +306,28 @@ sub _build_resid_index {
 sub read_ASA {
 
     my $self = shift;
-    my $xmas2pdb = shift;
-       
-    croak "read_ASA must be passed an xmas2pdb object"
-        if ref $xmas2pdb ne 'xmas2pdb';
 
+    my $xmas2pdb;
+    
+    # Use xmas2pdb object if it has been passed, otherwise create one
+    if (@_) {
+        $xmas2pdb = shift;
+       
+        croak "read_ASA must be passed an xmas2pdb object"
+            if ref $xmas2pdb ne 'xmas2pdb';
+    }
+    else {
+        croak "read_ASA: pdb object must have an xmas file\n"
+            if ! $self->has_xmas_file();
+
+        my $form = ref $self eq 'pdb' ? 'multimer' : 'monomer' ;
+        
+        my %x2p_arg = ( xmas_file     => $self->xmas_file(),
+                        form          => $form, );
+
+        $xmas2pdb = xmas2pdb->new(%x2p_arg);
+    }
+    
     my $form = $xmas2pdb->form();
 
     my $attribute = 'ASA' . ( $form eq 'monomer' ? 'm' : 'c' ) ;

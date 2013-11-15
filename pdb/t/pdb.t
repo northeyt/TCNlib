@@ -78,7 +78,7 @@ is( scalar @{ $pdb->atom_array() }, 3066,
 
 # _parse_ter
 
-my $ter_line = "TER    2725      SO4 A 407\n\n";
+my $ter_line = "TER    2725      SO4 A 407 \n";
 
 my($serial, $chainID) = pdb::_parse_ter($ter_line);
 
@@ -100,7 +100,7 @@ cmp_deeply( [ $term_atom->is_terminal, $term_atom2->is_terminal ], [ 1, 1 ],
             "terminal atom labelled");
 
 my $term_string = $term_atom->stringify_ter();
-my $exp_string  = "TER    1628  CB  ALA A 362 \n";
+my $exp_string  = "TER    1628  CB  ALA A 362 \n\n";
 is($term_string, $exp_string, "stringify_ter returns TER string ok" );
 
 # chain object

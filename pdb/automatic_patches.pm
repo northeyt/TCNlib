@@ -7,7 +7,6 @@ use types;
 
 use Carp;
 use pdb::pdb;
-use pdb::xmas2pdb;
 use pdb::makepatch;
 
 use write2tmp;
@@ -195,25 +194,17 @@ sub get_patches {
     my $class = $self->has_chain_id ? 'chain' : 'pdb';
     my $form = $class eq 'chain' ? 'monomer' : 'multimer' ; 
     
-    my %x2p_arg
-        = ( xmas2pdb_file => $xmas2pdb,
-            radii_file    => $radii_file,
-            xmas_file     => $xmas_file,
-            form          => $form,
-        );
 
     my $pdb_obj = $self->pdb_object();
     
     if ( ! $pdb_obj->has_read_ASA() ) {
-        # xmas2pdb
-        my $x2p_obj = xmas2pdb->new(%x2p_arg);
         
-        my $pdb_obj = $self->pdb_object;
-        
+        $pdb_obj->read_ASA();
+       
         my @ASA_read_err = ();
         
         # Read ASA values for pdb object, check for errors
-        foreach my $ret ( $pdb_obj->read_ASA($x2p_obj) ) {
+        foreach my $ret ( $pdb_obj->read_ASA() ) {
             if (ref $ret eq 'local::error'){
                 if ( $ret->type() eq 'ASA_read' ) {
                     push(@ASA_read_err, $ret);
@@ -264,12 +255,6 @@ sub get_patches {
                 surf_min       => $self->surf_min,
             );
 
-        if ($mkp_arg{central_atom}->resSeq eq 190) {
-            print $mkp_arg{central_atom}->radius;
-            print "\n";
-            print "$_ => $mkp_arg{$_}\n" foreach keys %mkp_arg;
-        }
-        
         my $mkp_obj = makepatch->new(%mkp_arg);
     
         my $return = do {
