@@ -655,7 +655,7 @@ around '_parse_ATOM_lines' => sub {
     my @patch_ATOM_lines = ();
     
     foreach my $line ( $self->$orig() ) {
-        if ( substr($line, 60, 6) =~ /1\.00/ ){
+        if ( $line =~ /^(?:ATOM|HETAM)/ && substr($line, 60, 6) =~ /1\.00/ ){
             push(@patch_ATOM_lines, $line);
         }
     }
