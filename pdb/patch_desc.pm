@@ -9,7 +9,6 @@ use Math::VectorReal qw(:all);
 use Math::MatrixReal;
 use Statistics::PCA;
 
-use pdb::xmas2pdb;
 use pdb::rotate2pc qw(:all);
 
 use TCNPerlVars;
@@ -67,9 +66,6 @@ sub patch_order {
     
     croak "This method requires a parent pdb or chain object"
         if ! $self->has_parent;
-
-    croak "Parent object must have xmas_file attribute set"
-        if ! $self->parent->has_xmas_file;
 
     my @surface_atoms = $self->_surface_atoms;
 
@@ -176,28 +172,13 @@ sub _surface_atoms {
 
     my @surface_atoms = ();
 
-    my $xmas2pdb
-        = xmas2pdb->new(xmas_file => $self->parent->xmas_file,
-                        radii_file => $TCNPerlVars::radii_file,
-                        xmas2pdb_file => $TCNPerlVars::xmas2pdb,
-                        form => 'monomer',);
-    
-    my $ret = $self->parent->read_ASA($xmas2pdb);
+    if ( ! $self->parent->has_read_ASA ) {
+        my $ret = $self->parent->read_ASA();
 
-    my @no_ASA = ();
-
-    # Capture atoms with no ASA defined from xmas file
-    # (normally altLoc atoms)
-    foreach my $err ( @{$ret} ) {
-        push( @no_ASA, $err->data->{atom}->serial() );
+        # Capture errors?
     }
     
     foreach my $atom ( @{ $self->parent->atom_array } ) {
-
-        my $serial = $atom->serial();
-        
-        next if grep { /^$serial$/} @no_ASA;
-        
         croak "Monomer ASA is not defined for atom " . $atom->serial
             if ! $atom->has_ASAm;
         
