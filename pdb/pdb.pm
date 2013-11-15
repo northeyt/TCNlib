@@ -790,15 +790,39 @@ sub stringify {
         }
     }
     
-    my $string = sprintf(  '%-6.6s%5.5s' . ' ' . '%s%1.1s%3.3s %1.1s%4.4s%1.1s   '
-                          .'%8.3f' x 3 .  '%6.2f' x 2 . ' ' x 10 . '%2.2s'. '%2.2s' ,
-                           @ordered_attr );
+    my $string
+        = sprintf(  '%-6.6s%5.5s' . ' ' . '%s%1.1s%3.3s %1.1s%4.4s%1.1s   '
+                   .'%8.3f' x 3 .  '%6.2f' x 2 . ' ' x 10 . '%2.2s'
+                   . '%2.2s' ,
+                    @ordered_attr );
 
     $string .= "\n";
     
     return $string;
 }
 
+sub stringify_ter {
+    my $self = shift;
+
+    # Temporarily increment serial
+    $self->serial( $self->serial() + 1);
+    
+    my $string = $self->stringify();
+
+    # Deincrement serial
+    $self->serial( $self->serial() - 1 );
+    
+    # Clip string to TER line length
+    $string = pack( "A27", $string );
+
+    # Modify start of string
+    substr($string, 0, 6) = 'TER   ';
+
+    # Readd newline
+    $string = $string . "\n";
+    
+    return $string;
+}
 
 # Methods
 sub BUILD {

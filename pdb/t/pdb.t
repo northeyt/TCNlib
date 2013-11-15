@@ -99,6 +99,10 @@ my $term_atom2 = $pdb->atom_array->[ $pdb->resid_index->{B140}->{OD2} ];
 cmp_deeply( [ $term_atom->is_terminal, $term_atom2->is_terminal ], [ 1, 1 ],
             "terminal atom labelled");
 
+my $term_string = $term_atom->stringify_ter();
+my $exp_string  = "TER    1628  CB  ALA A 362 \n";
+is($term_string, $exp_string, "stringify_ter returns TER string ok" );
+
 # chain object
 
 my $chain_id = 'A';
