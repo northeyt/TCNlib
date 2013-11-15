@@ -818,8 +818,8 @@ sub stringify_ter {
     # Modify start of string
     substr($string, 0, 6) = 'TER   ';
 
-    # Readd newline
-    $string = $string . "\n";
+    # Add newlines
+    $string = $string . "\n\n";
     
     return $string;
 }

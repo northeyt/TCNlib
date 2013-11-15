@@ -78,7 +78,7 @@ is( scalar @{ $pdb->atom_array() }, 3066,
 
 # _parse_ter
 
-my $ter_line = "TER    2725      SO4 A 407\n";
+my $ter_line = "TER    2725      SO4 A 407\n\n";
 
 my($serial, $chainID) = pdb::_parse_ter($ter_line);
 
