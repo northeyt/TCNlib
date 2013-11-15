@@ -7,7 +7,6 @@ use types;
 
 use Carp;
 use pdb::pdb;
-use pdb::xmas2pdb;
 use pdb::makepatch;
 
 use write2tmp;
@@ -20,6 +19,11 @@ subtype 'PatchType',
     as 'Str',
     where { $_ =~ m{ \A (?: contact|normal ) \s* \z }xms },
     message { "$_ is not a valid patch type" };
+
+subtype 'ValidPDBObject',
+    as 'Ref',
+    where { ref $_ eq 'pdb' || ref $_ eq 'chain' },
+    message { "$_ is not a valid pdb object (pdb or chain)" };
 
 # Import vars
 my $pdbprep = $TCNPerlVars::pdbprep;
@@ -50,6 +54,13 @@ has 'patch_type' => (
     is => 'rw',
     isa => 'PatchType',
     required => 1,
+);
+
+has 'pdb_object' => (
+    is => 'rw',
+    isa => 'ValidPDBObject',
+    lazy => 1,
+    builder => '_build_pdb_object',
 );
 
 has 'pdb_code' => (
@@ -85,6 +96,30 @@ for my $name ( 'pdb', 'xmas' ) {
 }
 
 # Methods
+
+# Build an automatic_patches object straight from a pdb object
+around BUILDARGS => sub {
+    my $orig = shift;
+    my $class = shift;
+
+    my %arg = @_;
+
+    if ( exists $arg{pdb_object} ) {
+        my $pdb_obj = $arg{pdb_object};
+        
+        $arg{pdb_code} = $pdb_obj->pdb_code;
+        $arg{chain_id} = $pdb_obj->chain_id if ref $pdb_obj eq 'chain';
+        
+        foreach my $type ( 'pdb', 'xmas' ) {
+            my $attribute = $type . '_file';
+            my $predicate = 'has_' . $attribute;
+            if ($pdb_obj->$predicate) {
+                $arg{$attribute} = $pdb_obj->$attribute;
+            }
+        }
+    }
+    return $class->$orig(%arg);
+};
 
 sub _build_pdb_fname {
     my $self = shift;
@@ -128,6 +163,24 @@ sub _build_xmas_fname {
     return $fname;
 }
 
+sub _build_pdb_object {
+    my $self = shift;
+    
+    my $class = $self->has_chain_id ? 'chain' : 'pdb';
+    
+    my %pdb_arg
+        = ( pdb_code => $self->pdb_code,
+            pdb_file => $self->pdb_file(),
+            xmas_file => $self->xmas_file(),
+            hydrogen_cleanup => 1,
+            altLoc_cleanup => 1,
+        );
+
+    $pdb_arg{chain_id} = $self->chain_id() if $class eq 'chain';
+        
+    return $class->new(%pdb_arg);    
+}
+
 sub get_patches {
     my $self = shift;
 
@@ -139,79 +192,50 @@ sub get_patches {
     croak "Could not read $xmas_file" if ! -r $xmas_file;
     
     my $class = $self->has_chain_id ? 'chain' : 'pdb';
+    my $form = $class eq 'chain' ? 'monomer' : 'multimer' ; 
+    
 
-    my %pdb_arg
-        = ( pdb_code => $pdb_code,
-            xmas_file => $xmas_file,
-        );
-
-    my $form;
+    my $pdb_obj = $self->pdb_object();
     
-    if ($class eq 'chain') {
-        $pdb_arg{chain_id} = uc $self->chain_id();
-        $form = 'monomer';
-    }
-    else {
-        $form = 'multimer';
-    }
-    
-    my $pdb_obj = $class->new(%pdb_arg);
-    
-    my %x2p_arg
-        = ( xmas2pdb_file => $xmas2pdb,
-            radii_file    => $radii_file,
-            xmas_file     => $xmas_file,
-            form          => $form,
-        );
-    
-    # xmas2pdb
-    my $x2p_obj = xmas2pdb->new(%x2p_arg);
-    
-    # Assign x2p output to pdb obj and self (assigning to self allows
-    # other methods to use identical pdb for downstream analysis
-    # e.g. patch_desc
-    $pdb_obj->pdb_file($x2p_obj->output_file);
-    $self->pdb_file($x2p_obj->output_file);
-
-    my @ASA_read_err = ();
-    
-    # Read ASA values for pdb object, check for errors
-    foreach my $ret ( $pdb_obj->read_ASA($x2p_obj) ) {
-        if (ref $ret eq 'local::error'){
-            if ( $ret->type() eq 'ASA_read' ) {
-                push(@ASA_read_err, $ret);
-            }
-            else {
-                croak "Unrecognised error type '" . $ret->error()
-                    . "' returned read_ASA";
+    if ( ! $pdb_obj->has_read_ASA() ) {
+        
+        $pdb_obj->read_ASA();
+       
+        my @ASA_read_err = ();
+        
+        # Read ASA values for pdb object, check for errors
+        foreach my $ret ( $pdb_obj->read_ASA() ) {
+            if (ref $ret eq 'local::error'){
+                if ( $ret->type() eq 'ASA_read' ) {
+                    push(@ASA_read_err, $ret);
+                }
+                else {
+                    croak "Unrecognised error type '" . $ret->error()
+                    . "' returned by read_ASA";
+                }
             }
         }
     }
     
-    # Parse x2p output to avoid making patches with non-chain res
-    # if object is chain
+    # Create tmp pdb file with modified atom lines ala xmas2pdb output
+    my $ASA_type = $form eq 'monomer' ? 'ASAm' : 'ASAc' ;
 
-    my $tmp_pdb_file;
+    my %swap = ( occupancy => 'radius', tempFactor => $ASA_type );
+
+    my @ATOM_lines = ();
     
-    if ($class eq 'chain') {
-
-        my @ATOM_lines = ();
-        
-        foreach my $line ( @{ $x2p_obj->output } ) {
-            if (   $line =~ /^ATOM/ 
-                && substr($line, 21, 1) eq $pdb_obj->chain_id ){
-                push( @ATOM_lines, $line);
-            }
+    foreach my $atom ( @{ $pdb_obj->atom_array() } ) {
+        push( @ATOM_lines, $atom->stringify( {%swap} ) );
+        if ( $atom->is_terminal() ) {
+            push( @ATOM_lines, $atom->stringify_ter() );
         }
-
-        croak   "No ATOM lines parsed with chain id " . $pdb_obj->chain_id
-            if ! @ATOM_lines;
-
-        my $tmp_file = write2tmp->new( data => [@ATOM_lines],
-                                       suffix => '.pdb' );
-        
-        $self->pdb_file($tmp_file->file_name);
     }
+    
+    my $tmp = write2tmp->new( suffix => '.pdb',
+                              data => [ @ATOM_lines ],
+                          );
+    
+    my $tmp_file_name = $tmp->file_name();
     
     my @patches = ();
 
@@ -225,15 +249,14 @@ sub get_patches {
             = ( makepatch_file => $makepatch,
                 patch_type     => $self->patch_type,
                 radius         => $self->radius,
-                pdb_file       => $self->pdb_file,
+                pdb_file       => $tmp_file_name,
                 pdb_code       => $pdb_code,
                 central_atom   => $cent_atom,
                 surf_min       => $self->surf_min,
             );
 
         my $mkp_obj = makepatch->new(%mkp_arg);
-
-        
+    
         my $return = do {
             local $@;
             my $ret;

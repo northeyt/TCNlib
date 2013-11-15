@@ -18,6 +18,8 @@ use Data::Dumper;
 
 use lib ( '..' );
 
+use pdb::pdb;
+
 use Test::More qw( no_plan );
 use Test::Deep;
 BEGIN { use_ok( 'automatic_patches' ); }
@@ -38,8 +40,15 @@ my $auto = automatic_patches->new(%arg);
 
 my @summary = ();
 
+my %summ_hash = ();
+
 foreach my $patch ($auto->get_patches) {
-    push( @summary, $patch->summary . "\n" );
+    if ( ref $patch ne 'patch' ) {
+        next;
+    }
+    else {
+        $summ_hash{$patch->summary. "\n"} = 1;
+    }    
 }
 
 my $exp_patch_file = 'automatic_patches.out';
@@ -49,7 +58,13 @@ open(my $fh, '<', $exp_patch_file)
 
 my @exp_summary = <$fh>;
 
-cmp_deeply(\@summary, \@exp_summary,
+my %exp_hash = ();
+
+foreach my $summ (@exp_summary) {
+    $exp_hash{$summ} = 1;
+}
+
+cmp_deeply(\%summ_hash, \%exp_hash,
            "get_patches produces correct patch summaries");
 
 # Test to see if tmp xmas file write works
@@ -62,3 +77,14 @@ $noxmas->{pdb_file} = '1nox.pdb';
 
 ok($noxmas->xmas_file, "xmas file created when not found in xmas dir");
 
+
+print "Testing  BUILDARGS for when given a pdb object ...\n";
+
+my $chain = chain->new( pdb_code => '1djs', chain_id => 'A',
+                        pdb_file => '1djs.pdb', xmas_file => '1djs.xmas',
+                    );
+
+my $ap_from_pdb = new_ok('automatic_patches', [ pdb_object => $chain,
+                                                radius => 8,
+                                                patch_type => 'contact' ]
+                                            );

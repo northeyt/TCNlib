@@ -18,6 +18,7 @@ use Data::Dumper;
 
 use lib ( '..' );
 use Test::More qw( no_plan );
+use Test::Deep;
 use Test::Exception;
 
 BEGIN { use_ok('pdb'); }
@@ -38,6 +39,19 @@ my $atom = atom->new( ATOM_line => $ATOM_line );
 
 isa_ok($atom, 'atom', "atom object created ok");
 
+# HETATM
+
+my $HETATM_line
+    = "HETATM 2105  N   MSE B  67      68.539  35.469  16.161  1.60  0.00           N  \n";
+
+my $het_atom = atom->new( ATOM_line => $HETATM_line );
+
+is( $het_atom->is_het_atom, 1, "het atom identified" );
+
+my $het_atom_string = "$het_atom";
+
+is( $het_atom_string, $HETATM_line, "stringify okay for het atoms" );
+
 # pdb object tests
 
 my $pdb_file = '1djs.pdb';
@@ -52,17 +66,42 @@ is( ref $pdb->pdb_data, 'ARRAY', "fh builder okay" );
 
 my @ATOM_lines = $pdb->_parse_ATOM_lines;
 
+ok( (grep /^HETATM/, @ATOM_lines),
+    "HETATM lines included by _parse_ATOM_lines");
+
 ## _parse_atoms
 
 $pdb->_parse_atoms();
 
-$pdb->atom_array();
+is( scalar @{ $pdb->atom_array() }, 3066,
+    "all ATOM and HETATM lines parsed and included in atom_array" );
+
+# _parse_ter
+
+my $ter_line = "TER    2725      SO4 A 407 \n";
+
+my($serial, $chainID) = pdb::_parse_ter($ter_line);
+
+is( $serial, '2725', "_parse_ter parses serial ok"  );
+is( $chainID, 'A'  , "_parse_ter parses chainID ok" );
 
 # atom_index
 
 $pdb->atom_index();
 
 ok($pdb->resid_index, "resid_index ok" );
+
+# is_terminal atom attribute
+
+my $term_atom  = $pdb->atom_array->[ $pdb->resid_index->{A362}->{CB}  ];
+my $term_atom2 = $pdb->atom_array->[ $pdb->resid_index->{B140}->{OD2} ];
+
+cmp_deeply( [ $term_atom->is_terminal, $term_atom2->is_terminal ], [ 1, 1 ],
+            "terminal atom labelled");
+
+my $term_string = $term_atom->stringify_ter();
+my $exp_string  = "TER    1628  CB  ALA A 362 \n\n";
+is($term_string, $exp_string, "stringify_ter returns TER string ok" );
 
 # chain object
 
@@ -82,7 +121,6 @@ $chain->_parse_atoms();
 
 is( $chain->accession_codes()->[0], 'P21802',
     "Accession codes from pdbsws" );
-
 
 # reading ASAs and radii from xmas2pdb object
 
@@ -119,11 +157,6 @@ ok($test_atom->ASAm(), "Monomer ASA read from xmas2pdb object" );
 my %pc_arg = ( ASA_threshold => 25 );
 
 my ($errors, $patch_centres) = $pdb->patch_centres( %pc_arg );
-
-#foreach my $index (1360, 1357, 1361, 1364, 1359, 1363, 1362, 1358) {
-#    print "$index " .  $pdb->atom_array->[$index]->{serial} . ' '
-#         . $pdb->atom_array->[$index]->ASAc() . "\n";
-#}
 
 ($errors, $patch_centres) = $chain->patch_centres( %pc_arg);
 

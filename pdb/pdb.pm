@@ -13,6 +13,8 @@ use GLOBAL qw(&rm_trail);
 use Data::Dumper;
 use Carp;
 
+use pdb::xmas2pdb;
+
 # Subtypes
 
 ### Attributes
@@ -119,12 +121,17 @@ has 'hydrogen_cleanup' => (
     default => 0,
 );
 
-has 'has_ASA_read' => (
+has 'het_atom_cleanup' => (
     isa => 'Bool',
     is => 'rw',
     default => 0,
 );
 
+has 'has_read_ASA' => (
+    isa => 'Bool',
+    is => 'rw',
+    default => 0,
+);
 
 # Consume antigen role
 with 'pdb::antigen';
@@ -142,11 +149,26 @@ sub _parse_atoms {
     my %altLoc = ();
 
     my $h_clean = $self->hydrogen_cleanup();
+    my $HETATM_clean = $self->het_atom_cleanup();
+
+    my %ter = ();
     
     foreach my $line (@ATOM_lines) {
-        my $atom = atom->new( ATOM_line => $line );
 
-        next if $h_clean && $atom->element eq 'H';
+        if ( $line =~ /^TER/ ) {
+            # parse serial and resid
+            my ($serial, $chainID) = _parse_ter($line);
+
+            # Serial of TER line is the serial of the last atom  of the
+            # chain + 1
+            $ter{ $serial - 1 } = $chainID;
+            next;
+        }
+        
+        my $atom = atom->new( ATOM_line => $line );
+   
+        next if ( $h_clean && $atom->element eq 'H'
+                      || $HETATM_clean && $atom->is_het_atom );
         
         if ( $aL_clean && $atom->has_altLoc ) {
             my $string
@@ -179,12 +201,25 @@ sub _parse_atoms {
         }
     }
 
+    # Label terminal atoms
+    foreach my $atom (@atoms) {
+        my $serial = $atom->serial();
+        if (! defined $serial) {
+            croak "Undefined $serial!";
+        }
+        if ( exists $ter{$serial} && $atom->has_chainID
+                 && $atom->chainID eq $ter{$serial} ){
+            $atom->is_terminal(1);
+        }
+    }     
+    
     croak "No atom objects were created" if ! @atoms;
 
     return [ @atoms ];
 }
 
 
+# Also parses HETATM and TER lines
 sub _parse_ATOM_lines {
     
     my $self = shift;
@@ -194,15 +229,29 @@ sub _parse_ATOM_lines {
     my @ATOM_lines = ();
 
     foreach my $line (@array) {
-        if ($line =~ /^ATOM /) {
+        if ($line =~ /^(?:ATOM|HETATM|TER) /) {
             push(@ATOM_lines, $line);
         }
     }
     
-    croak "No ATOM lines parsed from pdb data"
+    croak "No ATOM, HETATM or TER lines parsed from pdb data"
         if ! @ATOM_lines;
 
     return @ATOM_lines;
+}
+
+sub _parse_ter {
+    my($ter_line) = @_;
+
+    my $serial  = rm_trail( substr( $ter_line, 6, 5 ) );
+    croak "Could not parse serial from TER line $ter_line"
+        if ! defined $serial;
+    
+    my $chainID = rm_trail( substr( $ter_line, 21, 1 ) );
+    croak "Could not parse chainID from TER line $ter_line"
+        if ! defined $chainID;
+
+    return($serial, $chainID);
 }
 
 sub _build_atom_index {
@@ -257,11 +306,28 @@ sub _build_resid_index {
 sub read_ASA {
 
     my $self = shift;
-    my $xmas2pdb = shift;
-       
-    croak "read_ASA must be passed an xmas2pdb object"
-        if ref $xmas2pdb ne 'xmas2pdb';
 
+    my $xmas2pdb;
+    
+    # Use xmas2pdb object if it has been passed, otherwise create one
+    if (@_) {
+        $xmas2pdb = shift;
+       
+        croak "read_ASA must be passed an xmas2pdb object"
+            if ref $xmas2pdb ne 'xmas2pdb';
+    }
+    else {
+        croak "read_ASA: pdb object must have an xmas file\n"
+            if ! $self->has_xmas_file();
+
+        my $form = ref $self eq 'pdb' ? 'multimer' : 'monomer' ;
+        
+        my %x2p_arg = ( xmas_file     => $self->xmas_file(),
+                        form          => $form, );
+
+        $xmas2pdb = xmas2pdb->new(%x2p_arg);
+    }
+    
     my $form = $xmas2pdb->form();
 
     my $attribute = 'ASA' . ( $form eq 'monomer' ? 'm' : 'c' ) ;
@@ -270,10 +336,10 @@ sub read_ASA {
     my  %radii = ();
     
     foreach my $line ( @{ $xmas2pdb->output() } ){
-        next unless $line =~ /^ATOM /;
+        next unless $line =~ /^(?:ATOM|HETATM) /;
 
         my $serial = rm_trail( substr($line, 6, 5) );
-        my $radius = rm_trail( substr($line, 54, 5) );
+        my $radius = rm_trail( substr($line, 54, 6) );
         my $ASA    = rm_trail( substr($line, 60, 6) );
 
         $ASAs{$serial} = $ASA;
@@ -305,7 +371,7 @@ sub read_ASA {
         $atom->$attribute( $ASAs{$serial} );
     }
 
-    $self->has_ASA_read(1);
+    $self->has_read_ASA(1);
     
     return \@errors;
 };
@@ -646,6 +712,8 @@ has 'ATOM_line' => (
     is  => 'rw',
 );
 
+
+
 has [ 'name', 'resName', 'element', 'charge' ]
     => ( is => 'rw', isa => 'Str' );
 
@@ -659,14 +727,12 @@ foreach my $name ( 'altLoc', 'chainID', 'iCode' ) {
 
 has [ 'serial', 'resSeq', ] => ( is => 'rw', => isa => 'Int' );
 
-foreach my $name ( 'radius', 'ASAm', 'ASAc' ) {
+foreach my $name ( 'radius', 'ASAm', 'ASAc', 'x', 'y', 'z', 'occupancy',
+                'tempFactor' ) {
     my $predicate = 'has_' . $name;
     
     has $name => ( is => 'rw', isa => 'Num', predicate => $predicate );
 }
-
-has [ 'x', 'y', 'z', 'occupancy', 'tempFactor' ]
-    => ( is => 'rw', isa => 'Num');
 
 has 'resid' => (
     is => 'ro',
@@ -675,17 +741,67 @@ has 'resid' => (
     builder => '_get_resid',
 );
 
-use overload '""' => \&_stringify, fallback => 1;
+has 'is_het_atom' => (
+    isa => 'Bool',
+    is => 'rw',
+    default => 0,
+);
 
-sub _stringify {
+has 'is_terminal' => (
+    isa => 'Bool',
+    is => 'rw',
+    default => 0,
+);
+
+use overload '""' => \&stringify, fallback => 1;
+
+sub stringify {
     my $self = shift;
 
-    my @ordered_attr
-        = eval { my @ar = ( 'ATOM', $self->serial, $self->name, $self->altLoc,
-            $self->resName, $self->chainID, $self->resSeq, $self->iCode,
-            $self->x, $self->y, $self->z, $self->occupancy,
-            $self->tempFactor, $self->element, $self->charge ) }; 
+    my @arg = ();
+    
+    foreach my $arg (@_) {
+        if ( defined $arg && $arg =~ /\S/ ) {
+            push(@arg, $arg);
+        }
+    }
 
+    my %hash = ();
+    
+    if (@arg) {
+        croak "stringify must be passed a hashref: this hash must contain "
+            . "column replacements. e.g. { tempFactor => ASAm } to replace "
+            . "tempFactor with ASAm"
+                if ref $_[0] ne 'HASH';
+
+        %hash = %{ $_[0] };
+    }
+    
+    my @ordered_attr = ( 'serial', 'name', 'altLoc', 'resName', 'chainID',
+                       'resSeq','iCode', 'x', 'y', 'z', 'occupancy',
+                         'tempFactor', 'element', 'charge' );
+     
+    # Make column replacements
+    for my $i ( 0 .. @ordered_attr - 1 ) {
+        if ( exists $hash{ $ordered_attr[$i] } ) {
+            my $predicate = 'has_' . $ordered_attr[$i];
+            $ordered_attr[$i]
+                = $self->$predicate ? $hash{ $ordered_attr[$i] } : ' ' ;
+        }
+    }
+
+    @ordered_attr = map { $self->$_ } @ordered_attr;
+
+    # Process 'name' to match pdb formatting by padding with whitespace
+    $ordered_attr[1]
+        =  length $ordered_attr[1] == 0 ? ' ' x 4
+         : length $ordered_attr[1] == 1 ? ' ' . $ordered_attr[1] . ' ' x 2
+         : length $ordered_attr[1] == 2 ? ' ' . $ordered_attr[1] . ' '
+         : length $ordered_attr[1] == 3 ? ' ' . $ordered_attr[1] 
+         : $ordered_attr[1];
+
+    unshift (@ordered_attr, ( $self->is_het_atom ? 'HETATM' : 'ATOM' ) );
+    
     for my $i ( 0 .. @ordered_attr) {
         if ( ! defined $ordered_attr[$i] ) {
             $ordered_attr[$i] = '';
@@ -693,15 +809,39 @@ sub _stringify {
         }
     }
     
-    my $string = sprintf(  '%-6.4s%5.5s %4.4s%1.1s%3.3s %1.1s%4.4s%1.1s   '
-                          .'%8.3f' x 3 .  '%6.2f' x 2 . '%2.2s' x 2 ,
-                           @ordered_attr );
+    my $string
+        = sprintf(  '%-6.6s%5.5s' . ' ' . '%s%1.1s%3.3s %1.1s%4.4s%1.1s   '
+                   .'%8.3f' x 3 .  '%6.2f' x 2 . ' ' x 10 . '%2.2s'
+                   . '%2.2s' ,
+                    @ordered_attr );
 
     $string .= "\n";
     
     return $string;
 }
 
+sub stringify_ter {
+    my $self = shift;
+
+    # Temporarily increment serial
+    $self->serial( $self->serial() + 1);
+    
+    my $string = $self->stringify();
+
+    # Deincrement serial
+    $self->serial( $self->serial() - 1 );
+    
+    # Clip string to TER line length
+    $string = pack( "A27", $string );
+
+    # Modify start of string
+    substr($string, 0, 6) = 'TER   ';
+
+    # Add newlines
+    $string = $string . "\n\n";
+    
+    return $string;
+}
 
 # Methods
 sub BUILD {
@@ -734,9 +874,14 @@ sub BUILD {
             charge => rm_trail( substr($ATOM_line, 78, 2) ),
         );
 
-    croak "It looks like you're trying to parse a non-ATOM line: $ATOM_line"
-        if $record{ATOM} ne 'ATOM';
+    croak "It looks like you're trying to parse a non-ATOM or HETATM line: "
+        . "$ATOM_line"
+            if ! ($record{ATOM} eq 'ATOM' || $record{ATOM} eq 'HETATM') ;
 
+    if ( $record{ATOM} eq 'HETATM' ) {
+        $self->is_het_atom(1);
+    }
+    
     delete $record{ATOM};
     
     foreach my $value (keys %record) {
