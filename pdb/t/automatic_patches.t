@@ -40,8 +40,15 @@ my $auto = automatic_patches->new(%arg);
 
 my @summary = ();
 
+my %summ_hash = ();
+
 foreach my $patch ($auto->get_patches) {
-    push( @summary, $patch->summary . "\n" );
+    if ( ref $patch ne 'patch' ) {
+        next;
+    }
+    else {
+        $summ_hash{$patch->summary. "\n"} = 1;
+    }    
 }
 
 my $exp_patch_file = 'automatic_patches.out';
@@ -51,7 +58,13 @@ open(my $fh, '<', $exp_patch_file)
 
 my @exp_summary = <$fh>;
 
-cmp_deeply(\@summary, \@exp_summary,
+my %exp_hash = ();
+
+foreach my $summ (@exp_summary) {
+    $exp_hash{$summ} = 1;
+}
+
+cmp_deeply(\%summ_hash, \%exp_hash,
            "get_patches produces correct patch summaries");
 
 # Test to see if tmp xmas file write works
