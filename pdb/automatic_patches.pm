@@ -242,7 +242,6 @@ sub get_patches {
     
     my $tmp = write2tmp->new( suffix => '.pdb',
                               data => [ @ATOM_lines ],
-                              retain => 1, # TEMP FOR TESTING
                           );
     
     my $tmp_file_name = $tmp->file_name();
