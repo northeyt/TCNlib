@@ -54,6 +54,11 @@ has 'organism_NCBI_TaxID' => (
     builder => '_build_organism_NCBI_TaxID',
 );
 
+has 'error' => (
+    is => 'ro',
+    isa => 'ArrayRef[local:error]',
+    
+);
 
 # Methods
 
@@ -102,8 +107,20 @@ sub _get_entry_data {
         my $ac = $self->accession_code;
      
         my $url = "http://www.uniprot.org/uniprot/$ac" . '.txt' ;
+        
+        my $response = get($url);
 
-        my $response = get($url) or croak "Request failed for url $url";
+        if ( ! $response ) {
+            my $message = "Request failed for url $url";
+            
+            my $error
+                = local::error->new(
+                    message => $message,
+                    type => 'url_request_failed',
+                    data => { url => $url,
+                              accession_code => $ac, } );
+            croak $error;
+        }
         
         my @line = map { $_ . "\n" } split("\n", $response);
 

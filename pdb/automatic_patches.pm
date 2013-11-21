@@ -158,7 +158,7 @@ sub _build_xmas_fname {
                                SUFFIX => '.xmas',
                           );
 
-        $fname = $tmp->file_name;
+    $fname = $tmp->file_name;
     }
     return $fname;
 }
@@ -175,7 +175,7 @@ sub _build_pdb_object {
             hydrogen_cleanup => 1,
             altLoc_cleanup => 1,
         );
-
+    
     $pdb_arg{chain_id} = $self->chain_id() if $class eq 'chain';
         
     return $class->new(%pdb_arg);    
@@ -219,12 +219,17 @@ sub get_patches {
     
     # Create tmp pdb file with modified atom lines ala xmas2pdb output
     my $ASA_type = $form eq 'monomer' ? 'ASAm' : 'ASAc' ;
-
+    my $predicate = 'has_' . $ASA_type;
+    
     my %swap = ( occupancy => 'radius', tempFactor => $ASA_type );
 
     my @ATOM_lines = ();
     
     foreach my $atom ( @{ $pdb_obj->atom_array() } ) {
+
+        # Avoid printing atoms to file that do not have ASA
+        next if ! $atom->$predicate;
+        
         push( @ATOM_lines, $atom->stringify( {%swap} ) );
         if ( $atom->is_terminal() ) {
             push( @ATOM_lines, $atom->stringify_ter() );

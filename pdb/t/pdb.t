@@ -23,8 +23,6 @@ use Test::Exception;
 
 BEGIN { use_ok('pdb'); }
 
-use xmas2pdb;
-
 #########################
 
 # Insert your test code below, the Test::More module is used here so read
@@ -103,6 +101,10 @@ my $term_string = $term_atom->stringify_ter();
 my $exp_string  = "TER    1628  CB  ALA A 362 \n\n";
 is($term_string, $exp_string, "stringify_ter returns TER string ok" );
 
+# terminal_atom_index
+
+print "$_\n" foreach  @{ $pdb->terminal_atom_index };
+
 # chain object
 
 my $chain_id = 'A';
@@ -166,3 +168,15 @@ $chain->read_ASA($mono_x2p);
 
 ok( $chain->patch_centres( %pc_arg),
     "patch_centres modified for chain object" );
+
+# test multi_resName_resid
+
+my $bad_chain = chain->new( pdb_code => '3u5e',
+                            chain_id => 'O',
+                            pdb_file => '3u5e.pdb'
+                        );
+
+$bad_chain->atom_array();
+
+is( scalar keys %{ $bad_chain->multi_resName_resid() }, '175',
+    "multi_resName_resid captures resids with atoms with resNames" );

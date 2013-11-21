@@ -48,7 +48,7 @@ sub patch_order {
     # Default contact threshold - if one side of patch has < threshold
     # contacts then it is considered a surface side and a patch order for
     # that side will be returned
-    my $threshold = 3;
+    my $threshold = 4;
     
     if (@_){
         croak "Args must be passed as a hash ref"
@@ -67,34 +67,64 @@ sub patch_order {
     croak "This method requires a parent pdb or chain object"
         if ! $self->has_parent;
 
-    my @surface_atoms = $self->_surface_atoms;
-
-    # Hash surf atoms by serial
-
-    my %all_atom = map { $_->serial => $_ } @{ $self->parent->atom_array };
+    # Avoid inclusion of solvent atoms in all hashes
     
-    my %surf_atom = map { $_->serial => $_ } @surface_atoms;
+    my ($surface_errors, $surface_atoms) = $self->_surface_atoms;
 
-    my %patch_atom = map { $_->serial => $all_atom{$_->serial} }
-                               @{ $self->patch->atom_array };
+    my %no_ASA_atom = ();
+    
+    # Return error if any patch atoms do not have ASA defined
+    foreach my $error ( @{$surface_errors} ) {
+        if ( $error->type() eq 'atom_no_ASAm' ) {
+            my $atom = $error->data->{atom};
+            $no_ASA_atom{ $atom->serial() } = $atom;
+        }
+    }
+    
+    $surface_atoms = [ grep { ! $_->is_solvent() } @{ $surface_atoms } ];
+   
+    my %all_atom
+        = map { $_->serial => $_ }
+            grep { ! $_->is_solvent() } @{ $self->parent->atom_array };
+        
+    my %patch_atom
+        = map { $_->serial => $all_atom{$_->serial} }
+            @{ $self->patch->atom_array };
+
+    foreach my $serial ( keys %patch_atom ) {
+        if ( grep /^$serial$/, keys %no_ASA_atom ) {
+            my $message
+                = "patch desc: patch atom " . $serial . " has no ASA value";
+
+            my $atom = $patch_atom{$serial};
+            
+            my $error = local::error->new( message => $message,
+                                           type => 'patch_atom_no_ASA',
+                                           data => { atom => $atom }, );
+
+            return $error;
+        }
+    }
     
     my %patch_surf_atom
         = map { $_->serial => $_ }
-            grep ( defined $patch_atom{$_->serial}, @surface_atoms );
+            grep ( defined $patch_atom{$_->serial}, @{ $surface_atoms } );
     
     my %nonpatch_atom
         = map { $all_atom{$_}->serial => $all_atom{$_} }
             grep( ! defined $patch_atom{$_}, keys %all_atom );
 
     # Set central atom to origin
-    my $cent_atom = $self->patch->central_atom;
+    my %cent_atom_coord = ( x => $self->patch->central_atom->x(),
+                            y => $self->patch->central_atom->y(),
+                            z => $self->patch->central_atom->z(), );
     
     foreach my $atom (values %all_atom) {
         foreach my $coord ( 'x', 'y', 'z') {
-            $atom->$coord( $atom->$coord - $cent_atom->$coord ); 
+            $atom->$coord( $atom->$coord - $cent_atom_coord{$coord} ); 
         }
     }
-
+    
     # Get rot matrix for transform  x and y ->  patch PC1 and PC2
     my $RM = rotate2pc::rotate2pc( map { vector($_->x, $_->y, $_->z) }
                             values %patch_surf_atom );
@@ -108,9 +138,8 @@ sub patch_order {
         }
     }
     
-    # Determine number of atomic contacts on either side of patch
     my($posz_contacts, $negz_contacts)
-        = $self->_surface_sides( \%patch_atom, \%nonpatch_atom );
+        = $self->_surface_sides( \%patch_surf_atom, \%all_atom );
 
     if ( ref $posz_contacts eq 'local::error' ) {
         my $message
@@ -124,46 +153,40 @@ sub patch_order {
         return $error;
     }
 
-    if (   scalar @{$posz_contacts} > $threshold
-        && scalar @{$negz_contacts} > $threshold ) {
-        # return an error
-        my $message
-            = "patch order: neither side of patch has contact number"
-              . " less than threshold";
-
-        my $error
-            = local::error->new( message => $message,
-                                 type => 'no_surface_sides',
-                                 data => { positive_side =>
-                                               scalar @{$posz_contacts},
-                                           negative_side =>
-                                               scalar @{ $negz_contacts },
-                                           patch => $self->patch },
-                             );
-
-        return $error;
-    }
-
     my @return = ();
     
     my @residue_order = $self->_residue_order;
 
-    my @aacid_order
-        = map { three2one_lc($_) }
-            map { $self->patch->atom_array->[$_]->resName }
-                map { $self->patch->resid_index->{$_}->{CA} } @residue_order;
+    my @aacid_order = ();
 
-    if ( @{$posz_contacts} < $threshold ) {
-        push( @return, join( '', @aacid_order ) );
+    foreach my $res (@residue_order) {
+        
+        my %atom_names = %{ $self->patch->resid_index->{$res} };
+        
+        my $index = [ values %atom_names ]->[0];
+        my $resName = $self->patch->atom_array->[$index]->resName();
+
+        my $onelc = eval { three2one_lc($resName) };
+        $onelc = 'X' if ! $onelc;
+        push(@aacid_order, $onelc);
+    }   
+
+    my $string = join( '', @aacid_order );
+    
+    my $rev_string
+        = shift (@aacid_order) . reverse ( join( '', @aacid_order) );
+    
+    if (  abs ( scalar @{$posz_contacts} - scalar @{$negz_contacts} )
+              < $threshold ) {
+        push( @return, ($string, $rev_string) );
+        
+    }elsif ( scalar @{$posz_contacts} < scalar @{$negz_contacts} ) {
+        push( @return, $string );
     }
-
-    if ( @{$negz_contacts} < $threshold ) {
-        my $rev_string
-            =  shift (@aacid_order)
-             . reverse ( join( '', @aacid_order ) );
-                    
+    else {
         push( @return, $rev_string );
     }
+    
     return @return;
 }
 
@@ -171,41 +194,63 @@ sub _surface_atoms {
     my $self = shift;
 
     my @surface_atoms = ();
-
+    my @errors = ();
+    
     if ( ! $self->parent->has_read_ASA ) {
         my $ret = $self->parent->read_ASA();
 
-        # Capture errors?
+        if ( ref $ret eq 'local::error' ) {
+            push(@errors, $ret);
+        }
+        elsif ( ref $ret eq 'ARRAY' ){
+            foreach ( @{$ret} ) {
+                if ( ref $_ eq 'local::error' ){
+                    push(@errors, $_);
+                }
+            }
+        }
     }
     
     foreach my $atom ( @{ $self->parent->atom_array } ) {
-        croak "Monomer ASA is not defined for atom " . $atom->serial
-            if ! $atom->has_ASAm;
+
+        if ( ! $atom->has_ASAm() ){
+            my $message
+                = "atom " . $atom->serial() . " does not have ASAm assigned";
+            
+            my $error = local::error->new( message => $message,
+                                           type => 'atom_no_ASAm',
+                                           data => { atom => $atom, }
+                                       );
+            push(@errors, $error);
+            next;
+        }
         
         if ( $atom->ASAm > 0 ) {
             push(@surface_atoms, $atom);
         }
     }
-    return ( @surface_atoms );
+    return ( \@errors, \@surface_atoms );
 }
 
 # Returns number of atoms contacting either side of patch
 # 
 sub _surface_sides {
-    my ( $self, $p_atom_h, $np_atom_h ) = @_;
+    my ( $self, $ps_atom_h, $all_atom_h ) = @_;
 
+    my @p_atom_serial = map { $_->serial  } values %{ $ps_atom_h };
+    
     my %limit = ( xmin => 0, xmax => 0, ymin => 0, ymax => 0 );
 
     # Get patch x and y limits
-    foreach my $p_atom ( values %{ $p_atom_h } ) {
-        my $radius = $p_atom->radius();
+    foreach my $ps_atom ( values %{ $ps_atom_h } ) {
+        my $radius = $ps_atom->radius();
 
         foreach my $axis ('x', 'y') {
-            if ( ($p_atom->$axis - $radius) < $limit{$axis.'min'} ) {
-                $limit{$axis.'min'} = $p_atom->$axis;
+            if ( ($ps_atom->$axis - $radius) < $limit{$axis.'min'} ) {
+                $limit{$axis.'min'} = $ps_atom->$axis;
             }
-            elsif ( ($p_atom->$axis + $radius) > $limit{$axis.'max'} ) {
-                $limit{$axis.'max'} = $p_atom->$axis;
+            elsif ( ($ps_atom->$axis + $radius) > $limit{$axis.'max'} ) {
+                $limit{$axis.'max'} = $ps_atom->$axis;
             }
         }
     }
@@ -214,49 +259,50 @@ sub _surface_sides {
     my @zneg = ();
     
     # Only consider non-patch atoms within x and y ranges to form min set
-    foreach my $np_atom ( values %{ $np_atom_h } ) {
-
-        if ( ! $np_atom->has_radius  || ! defined $np_atom->radius ) {
+    foreach my $atom ( values %{ $all_atom_h } ) {
+        my $serial = $atom->serial;
+        next if grep ( /^$serial$/, @p_atom_serial );
+        
+        if ( ! $atom->has_radius  || ! defined $atom->radius ) {
             my $message
-                =  "non-patch atom " . $np_atom->serial
+                =  "non-patch atom " . $atom->serial
                  . " has no radius set";
 
             my $error = local::error->new( message => $message,
                                            type => 'no_radius_attribute',
-                                           data => { atom => $np_atom }, );
+                                           data => { atom => $atom }, );
             return $error;
         }
         
-        next unless   $np_atom->x < $limit{xmax}
-                   && $np_atom->x > $limit{xmin}
-                   && $np_atom->y < $limit{ymax}
-                   && $np_atom->y > $limit{ymin};
+        next unless   $atom->x < $limit{xmax}
+                   && $atom->x > $limit{xmin}
+                   && $atom->y < $limit{ymax}
+                   && $atom->y > $limit{ymin};
 
-        foreach my $p_atom ( values %{ $p_atom_h } ) {
+        foreach my $ps_atom ( values %{ $ps_atom_h } ) {
 
-            if ( ! $p_atom->has_radius || ! defined $np_atom->radius) {
+            if ( ! $ps_atom->has_radius || ! defined $atom->radius) {
                 my $message
-                    =  "patch atom " . $np_atom->serial
+                    =  "patch atom " . $atom->serial
                         . " has no radius set";
                 
                 my $error
                     = local::error->new( message => $message,
                                          type => 'no_radius_attribute',
-                                         data => { atom => $np_atom }, );
+                                         data => { atom => $atom }, );
                 return $error;
             }
             
-            my $dist_thresh =  $np_atom->radius + $p_atom->radius;
+            my $dist_thresh =  $atom->radius + $ps_atom->radius;
 
-            my $distance = sqrt (   ( $np_atom->x - $p_atom->x )**2
-                                  + ( $np_atom->y - $p_atom->y )**2
-                                  + ( $np_atom->z - $p_atom->z )**2 );
+            my $distance = sqrt (   ( $atom->x - $ps_atom->x )**2
+                                  + ( $atom->y - $ps_atom->y )**2
+                                  + ( $atom->z - $ps_atom->z )**2 );
             
             if ($distance < $dist_thresh) {
                 
-                abs $np_atom->z == $np_atom->z ? push(@zpos, $np_atom) 
-                                               : push(@zneg, $np_atom);
-                last;
+                $atom->z > $ps_atom->z ? push(@zpos, $atom) 
+                                               : push(@zneg, $atom);
             }
         }
     }

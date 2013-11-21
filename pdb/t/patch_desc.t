@@ -75,18 +75,18 @@ my $patch_desc = patch_desc->new( patch => $patch,
 isa_ok( $patch_desc, 'patch_desc' );
 
 # Hashes created internally by patch order method
-my @surface_atoms = $patch_desc->_surface_atoms;
+my ( $surface_error, $surface_atoms ) = $patch_desc->_surface_atoms;
 
 my %all_atom = map { $_->serial => $_ } @{ $patch_desc->parent->atom_array };
 
-my %surf_atom = map { $_->serial => $_ } @surface_atoms;
+my %surf_atom = map { $_->serial => $_ } @{ $surface_atoms };
 
 my %patch_atom = map { $_->serial => $all_atom{$_->serial} }
     @{ $patch_desc->patch->atom_array };
 
 my %patch_surf_atom
     = map { $_->serial => $_ }
-    grep ( defined $patch_atom{$_->serial}, @surface_atoms );
+    grep ( defined $patch_atom{$_->serial}, @{ $surface_atoms } );
 
 
 my %nonpatch_atom

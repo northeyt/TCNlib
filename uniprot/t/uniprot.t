@@ -43,9 +43,18 @@ my $test_obj_2 = new_ok( $class => \@arg );
 
 $test_obj_2->data_array();
 
-cmp_deeply($test_obj->data_array(), $test_obj_2->data_array(),
-           "Data retrieval using LWP works okay" );
+cmp_deeply( [ @{ $test_obj->data_array() }[ 0 .. 3 ] ],
+            [ @{ $test_obj_2->data_array()}[ 0 .. 3 ] ],
+            "Data retrieval using LWP works okay" );
 
 ok($test_obj->data_hash, "data_hash okay");
 
-is( $test_obj->organism_NCBI_TaxID->[0], '10090', "organism_NCBI_TaxID okay" );
+is( $test_obj->organism_NCBI_TaxID->[0], '10090',
+    "organism_NCBI_TaxID okay" );
+
+my $bad_code = 'B5RX19';
+
+my $bad_obj = uniprot::uniprot->new( accession_code => $bad_code ); 
+
+print Dumper $bad_obj->data_array();
+

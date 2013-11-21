@@ -97,6 +97,12 @@ has 'atom_index' => (
     builder => '_build_atom_index',
 );
 
+has 'terminal_atom_index' => (
+    isa => 'ArrayRef[Int]',
+    is  => 'rw',
+    default => sub { [] },
+);
+
 # Index in form of resid -> atom_name -> index for atom_array
 # Resid = chainResSeq
 has 'resid_index' => (
@@ -104,6 +110,12 @@ has 'resid_index' => (
     is => 'ro',
     lazy => 1,
     builder => '_build_resid_index',
+);
+
+has 'multi_resName_resid' => (
+    isa => 'HashRef',
+    is => 'rw',
+    default => sub { {} },
 );
 
 # Selects one altLoc atom for a given residue atom according to highest
@@ -152,6 +164,9 @@ sub _parse_atoms {
     my $HETATM_clean = $self->het_atom_cleanup();
 
     my %ter = ();
+
+    # Used to find multi-residue resids
+    my %test_unique = ();
     
     foreach my $line (@ATOM_lines) {
 
@@ -166,7 +181,29 @@ sub _parse_atoms {
         }
         
         my $atom = atom->new( ATOM_line => $line );
-   
+
+        my $chain   = $atom->chainID();
+        my $resSeq  = $atom->resSeq();
+        my $resName = $atom->resName();
+
+        if ( ! exists $test_unique{$chain} ) {
+            $test_unique{$chain} = {};
+        }
+        
+        if ( ! exists $test_unique{$chain}->{$resSeq} ) {
+            $test_unique{$chain}->{$resSeq} = $resName;
+        }
+        else {
+            my $recorded_resName = $test_unique{$chain}->{$resSeq};
+            if ($recorded_resName ne $resName){
+               
+                my %multi = %{ $self->multi_resName_resid };
+                $multi{ $atom->_get_resid } = 1;
+                
+                $self->multi_resName_resid( { %multi } );
+            }
+        }
+        
         next if ( $h_clean && $atom->element eq 'H'
                       || $HETATM_clean && $atom->is_het_atom );
         
@@ -193,29 +230,82 @@ sub _parse_atoms {
 
             my @sorted
                 = map { $_->[0] }
-                  sort { $b->[1] <=> $a->[1] }
-                  map { [ $_, $_->occupancy ] }
-                  @{$arr};
+                    sort { $b->[1] <=> $a->[1] }
+                        map { [ $_, $_->occupancy ] }
+                            @{$arr};
 
+            # Clear altLoc
+            $sorted[0]->clear_altLoc();
+            
             push( @atoms, $sorted[0] );
         }
     }
 
-    # Label terminal atoms
+    # Order all atoms by chain, then serial
+    my %chain = ();
     foreach my $atom (@atoms) {
-        my $serial = $atom->serial();
-        if (! defined $serial) {
-            croak "Undefined $serial!";
-        }
-        if ( exists $ter{$serial} && $atom->has_chainID
-                 && $atom->chainID eq $ter{$serial} ){
-            $atom->is_terminal(1);
-        }
-    }     
-    
-    croak "No atom objects were created" if ! @atoms;
+        my $chainID = $atom->chainID();
 
-    return [ @atoms ];
+        if ( ! exists $chain{$chainID} ) {
+            $chain{$chainID} = { $atom->serial => $atom };
+        }
+        else {
+            $chain{$chainID}->{ $atom->serial } = $atom;
+        }
+    }
+
+    my @sorted_atoms = ();
+    my @term_array   = ();
+    
+    foreach my $chainID (sort keys %chain) {
+        my @chain_atoms = ();
+        
+        foreach my $atom ( sort { $a <=> $b } keys %{ $chain{$chainID} } ) {
+            push( @chain_atoms, $chain{$chainID}->{$atom} );
+        }
+
+        my @chain_terminal_index = ();
+        
+        # Label terminal atoms
+        for my $i ( 0 .. @chain_atoms - 1 ) {
+            my $atom = $chain_atoms[$i];
+            my $serial = $atom->serial();
+            if (! defined $serial) {
+                croak "Undefined $serial!";
+            }
+            if ( exists $ter{$serial} && $atom->has_chainID
+                     && $atom->chainID eq $ter{$serial} ){
+                $atom->is_terminal(1);
+                
+                push(@chain_terminal_index, $i);
+            }
+        }
+ 
+        # Determine solvent atoms
+        if( @chain_terminal_index == 1 ) {
+            my $start = $chain_terminal_index[0];
+            # Label all atoms after chain terminal as solvent
+            for my $i ( $start + 1 .. @chain_atoms - 1 ) {
+                $chain_atoms[$i]->is_solvent(1);
+            }
+        }
+        elsif ( @chain_terminal_index == 2 ) {
+            # Determine which terminal signals end of chain and which signals
+            # end of solvent
+            croak "I have not written this subroutine yet";
+            determine_solvent(\@chain_atoms, @chain_terminal_index )
+        }
+        elsif ( @chain_terminal_index > 2 ) {
+            croak "More than two terminals found for chain!";
+        }
+        push(@sorted_atoms, @chain_atoms);
+    }
+
+    $self->terminal_atom_index( [ @term_array ] );
+
+    croak "No atom objects were created" if ! @sorted_atoms;
+
+    return [ @sorted_atoms ];
 }
 
 
@@ -302,7 +392,7 @@ sub _build_resid_index {
 
     return {%hash};
 }
-
+ 
 sub read_ASA {
 
     my $self = shift;
@@ -422,6 +512,9 @@ sub patch_centres {
             foreach my $atom_name (keys %atom_h) {
 
                 my $index = $atom_h{$atom_name};
+                my $atom  = $self->atom_array->[$index];
+
+                next if $atom->is_solvent();
                 
                 push( @atom_indices, $index );
 
@@ -513,16 +606,10 @@ use pdb::pdbsws;
 
 extends 'pdb';
 
-# Subtypes
-subtype 'ValidId',
-    as 'Str',
-    where { $_ =~ /^[A-Z]$/i },
-    message { "$_ is not a valid Chain Id" };
-
 # Attributes
 
 has 'chain_id' => (
-    isa => 'ValidId',
+    isa => 'ValidChar',
     is => 'rw',
     required => 1,
 );
@@ -655,7 +742,7 @@ around '_parse_ATOM_lines' => sub {
     my @patch_ATOM_lines = ();
     
     foreach my $line ( $self->$orig() ) {
-        if ( $line =~ /^(?:ATOM|HETAM)/ && substr($line, 60, 6) =~ /1\.00/ ){
+        if ( $line =~ /^(?:ATOM|HETATM)/ && substr($line, 60, 6) =~ /1\.00/ ){
             push(@patch_ATOM_lines, $line);
         }
     }
@@ -718,11 +805,13 @@ has [ 'name', 'resName', 'element', 'charge' ]
     => ( is => 'rw', isa => 'Str' );
 
 foreach my $name ( 'altLoc', 'chainID', 'iCode' ) {
-    my $predicate = 'has_' . $name;
+    my $predicate = 'has_'   . $name;
+    my $clearer   = 'clear_' . $name;
     
     has $name => ( is => 'rw',
                    isa => 'Character',
-                   predicate => $predicate); 
+                   predicate => $predicate,
+                   clearer => $clearer ); 
 }
 
 has [ 'serial', 'resSeq', ] => ( is => 'rw', => isa => 'Int' );
@@ -741,17 +830,15 @@ has 'resid' => (
     builder => '_get_resid',
 );
 
-has 'is_het_atom' => (
-    isa => 'Bool',
-    is => 'rw',
-    default => 0,
-);
+my @labels = ( 'is_het_atom', 'is_terminal', 'is_solvent' );
 
-has 'is_terminal' => (
-    isa => 'Bool',
-    is => 'rw',
-    default => 0,
-);
+foreach my $label (@labels) {
+    has $label => (
+        isa => 'Bool',
+        is => 'rw',
+        default => 0,
+    );
+}
 
 use overload '""' => \&stringify, fallback => 1;
 
@@ -765,7 +852,7 @@ sub stringify {
             push(@arg, $arg);
         }
     }
-
+    
     my %hash = ();
     
     if (@arg) {
