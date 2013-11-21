@@ -3,6 +3,22 @@ package local::error;
 use Moose;
 use Carp;
 
+use MooseX::ClassAttribute;
+
+class_has 'id_generator' =>
+    ( is => 'rw',
+      isa => 'Int',
+      default => 0,
+  );
+
+no MooseX::ClassAttribute;
+
+has 'id' => (
+    is => 'ro',
+    isa => 'Int',
+    builder => '_generate_id',
+);
+
 has 'message' => (
     is => 'rw',
     isa => 'Str',
@@ -30,6 +46,15 @@ has 'parent' => (
     isa => 'local::error',
     predicate => 'has_parent',
 );
+
+sub _generate_id {
+    my $self = shift;
+
+    # Increment id generator
+    local::error->id_generator( local::error->id_generator() + 1 );
+
+    return local::error->id_generator();
+}
 
 __PACKAGE__->meta->make_immutable;
 
