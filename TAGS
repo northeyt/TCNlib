@@ -1,0 +1,128 @@
+
+pdb/pdb.pm,976
+package pdb;pdb1,0
+sub _build_pdb_data {_build_pdb_data52,947
+sub _build_xmas_data {_build_xmas_data56,1031
+sub _build_data {_build_data62,1119
+sub BUILD {BUILD175,3288
+sub _parse_atoms {_parse_atoms189,3669
+sub _determine_solvent {_determine_solvent357,8698
+sub _parse_ATOM_lines {_parse_ATOM_lines398,9771
+sub _parse_ter {_parse_ter418,10150
+sub _build_atom_index {_build_atom_index432,10527
+sub _build_resid_index {_build_resid_index461,11154
+sub read_ASA {read_ASA481,11601
+sub patch_centres {patch_centres554,13639
+sub _is_patch_centre {_is_patch_centre639,16210
+package chain;chain683,17379
+sub _build_chain_length {_build_chain_length720,17897
+sub _get_acs {_get_acs735,18217
+package patch;patch782,19076
+sub run_PatchOrder {    run_PatchOrder863,20643
+package atom;atom887,21181
+sub stringify {stringify952,22475
+sub stringify_ter {stringify_ter1017,24432
+sub BUILD {BUILD1041,24899
+sub _get_resid {_get_resid1087,26511
+
+pdb/makepatch.pm,77
+package makepatch;makepatch1,0
+sub _run_makepatch {_run_makepatch77,1174
+
+pdb/PatchOrder_v3.pm,432
+package PatchOrder_v3;PatchOrder_v31,0
+sub PatchOrder {PatchOrder18,238
+sub DoRotationDoRotation290,9324
+sub RotationMatrices # Give this subroutine the angle and the axis that you want to rotate aboutRotationMatrices305,9613
+sub TrueRotationAngleTrueRotationAngle358,10509
+sub CodeTransformCodeTransform407,11115
+sub StandardRepStandardRep443,11718
+sub TestTest462,12229
+sub Residue2Group {Residue2Group513,14207
+
+pdb/xmas2pdb.pm,116
+package xmas2pdb;xmas2pdb1,0
+sub _run_xmas2pdb {_run_xmas2pdb70,1038
+sub _write_output {_write_output100,1723
+
+pdb/get_files.pm,139
+package pdb::get_files;pdb::get_files1,0
+sub _build_pdb_fname {_build_pdb_fname34,536
+sub _build_xmas_fname {_build_xmas_fname48,903
+
+pdb/automatic_patches.pm,239
+package automatic_patches;automatic_patches1,0
+sub _build_pdb_fname {_build_pdb_fname124,2563
+sub _build_xmas_fname {_build_xmas_fname138,2846
+sub _build_pdb_object {_build_pdb_object166,3549
+sub get_patches {get_patches184,4004
+
+pdb/patch_desc.pm,260
+package patch_desc;patch_desc1,0
+sub patch_order {patch_order45,647
+sub _surface_atoms {_surface_atoms198,5366
+sub _surface_sides {_surface_sides242,6575
+sub _residue_order {_residue_order317,9239
+sub _true_angle_from_x {_true_angle_from_x345,9996
+
+pdb/antigen.pm,146
+package pdb::antigen;pdb::antigen1,0
+sub _attempt_copy {_attempt_copy55,838
+sub _build_epitope_atom_index {_build_epitope_atom_index67,1040
+
+pdb/rotate2pc.pm,269
+package rotate2pc;rotate2pc1,0
+sub rotate2pc {rotate2pc26,359
+sub get_eigenvectors {get_eigenvectors59,1029
+sub xyzmean {xyzmean87,1760
+sub meancenter {meancenter116,2375
+sub innerproduct {innerproduct137,2926
+sub RM_about_vector {RM_about_vector156,3388
+
+pdb/pdbsws.pm,95
+package pdb::pdbsws;pdb::pdbsws1,0
+sub _get_dbh {_get_dbh38,408
+sub get_ac {get_ac50,657
+
+pdb/getresol.pm,104
+package pdb::getresol;pdb::getresol1,0
+sub run {run42,552
+sub _parse_output {_parse_output93,2102
+
+GLOBAL.pm,137
+package GLOBAL;GLOBAL1,0
+sub rm_trail {rm_trail20,269
+sub one2three_lc {one2three_lc28,367
+sub three2one_lc {three2one_lc65,1197
+
+TCNPerlVars.pm,37
+package TCNPerlVars;TCNPerlVars1,0
+
+types.pm,25
+package types;types1,0
+
+t/test_types.pm,41
+package t::test_types;t::test_types1,0
+
+write2tmp.pm,108
+package write2tmp;write2tmp1,0
+sub _write_file {_write_file56,721
+sub retain_file {retain_file82,1337
+
+search_hash.pm,103
+package search_hash;search_hash1,0
+sub search {search42,463
+sub _parse_level {_parse_level60,851
+
+local/error.pm,78
+package local::error;local::error1,0
+sub _generate_id {_generate_id50,648
+
+local/can_error.pm,47
+package local::can_error;local::can_error1,0
+
+uniprot/uniprot.pm,210
+package uniprot::uniprot;uniprot::uniprot1,0
+sub _build_organism_NCBI_TaxID {_build_organism_NCBI_TaxID62,1013
+sub _get_entry_data {_get_entry_data86,1540
+sub _build_data_hash {_build_data_hash138,3021
