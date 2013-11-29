@@ -57,6 +57,14 @@ my $pdb_file = '1djs.pdb';
 my $pdb = pdb->new( pdb_file => $pdb_file, pdb_code => '1djs' );
 isa_ok($pdb, 'pdb', "pdb object created ok");
 
+# BUILD method gets attributes from getresol objet
+
+cmp_deeply( [ $pdb->experimental_method(), $pdb->resolution(),
+              $pdb->r_value ],
+            [ 'crystal', '2.40', '0.227' ],
+            "BUILD method gets attributes from getresol object okay" );
+
+
 # fh builder test
 is( ref $pdb->pdb_data, 'ARRAY', "fh builder okay" );
 
@@ -83,11 +91,29 @@ my($serial, $chainID) = pdb::_parse_ter($ter_line);
 is( $serial, '2725', "_parse_ter parses serial ok"  );
 is( $chainID, 'A'  , "_parse_ter parses chainID ok" );
 
-# atom_index
+# pdb file containing multiple models - for the moment, exception needs
+# to be thrown (untill I write in capacity to deal with multi-model pdbs)
 
-$pdb->atom_index();
+my $multimodel_file = '/acrm/data/pdb/pdb2q1z.ent';
 
+dies_ok(
+    sub { pdb->new( pdb_file => $multimodel_file, pdb_code => '2q1z' )
+      },  "Croak  if pdb is multimodel" );
+
+# atom_ and resid_ index
+
+ok($pdb->atom_index(), "atom_index ok");
 ok($pdb->resid_index, "resid_index ok" );
+
+# test out chain solvent determination
+
+my $multi_term_pdb_code = '2we8';
+my $multi_term_file = '/acrm/data/pdb/pdb2we8.ent';
+
+my $mterm_pdb = pdb->new( pdb_code => $multi_term_pdb_code,
+                          pdb_file => $multi_term_file, );
+
+$mterm_pdb->atom_array();
 
 # is_terminal atom attribute
 
@@ -118,6 +144,11 @@ isa_ok($chain, 'chain', "chain object created ok");
 ## are around modifiers for _parse_ATOM_lines working?
 
 $chain->_parse_atoms();
+
+# Chain length working?
+
+is($chain->chain_length, 206, "chain length determined ok");
+
 
 # get accession codes using pdbsws?
 
@@ -179,4 +210,4 @@ my $bad_chain = chain->new( pdb_code => '3u5e',
 $bad_chain->atom_array();
 
 is( scalar keys %{ $bad_chain->multi_resName_resid() }, '175',
-    "multi_resName_resid captures resids with atoms with resNames" );
+    "multi_resName_resid captures resids with multi resName-atoms" );

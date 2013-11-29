@@ -14,6 +14,7 @@ use Data::Dumper;
 use Carp;
 
 use pdb::xmas2pdb;
+use pdb::getresol;
 
 # Subtypes
 
@@ -123,7 +124,7 @@ has 'multi_resName_resid' => (
 has 'altLoc_cleanup' => (
     isa => 'Bool',
     is  => 'rw',
-    default => 0,
+    default => 1,
 );
 
 # Avoid parsing hydrogen atoms from pdb data
@@ -145,10 +146,72 @@ has 'has_read_ASA' => (
     default => 0,
 );
 
+has 'experimental_method' => (
+    is => 'rw',
+    isa => 'Str',
+    predicate => 'has_experimental_method',
+);
+
+has 'resolution' => (
+    is => 'rw',
+    isa => 'Num',
+    predicate => 'has_resolution',
+);
+
+has 'r_value' => (
+    is => 'rw',
+    isa => 'Num',
+    predicate => 'has_r_value',
+);
+
+
 # Consume antigen role
 with 'pdb::antigen';
 
 ### Methods
+
+# Attempt to build experimental_method, resolution and r_factor from getresol
+# object. Also check if pdb is multi-model
+sub BUILD {
+    my $self = shift;
+
+    return if ! $self->has_pdb_file();
+
+    my $getresol = pdb::getresol->new( pdb_file => $self->pdb_file );
+
+    if ( ref $getresol->run() ne 'local::error' ){
+        $self->experimental_method( $getresol->experimental_method() );
+        $self->resolution( $getresol->resolution() );
+        $self->r_value( $getresol->r_value() );
+    }
+ 
+    if ( $self->pdb_data && $self->_multi_model) {
+        my $message
+            = "pdb is a multi-model record: currently cannot handle these";
+        
+        my $error = local::error->new( message => $message,
+                                       type => 'multi_model_pdb',
+                                       data => {
+                                           pdb_file => $self->pdb_data },
+                                   );
+
+        croak $error;
+    }
+}
+
+sub _multi_model {
+    my $self = shift;
+
+     croak "Cannot determine multi-model status of pdb - no pdb data"
+         if ! $self->has_pdb_data;
+
+    if ( grep { m{ \A MODEL \s* \d+ \s* \z }xms } @{ $self->pdb_data() } ) {
+        return 1;
+    }
+    else {
+        return 0;
+    }
+};
 
 sub _parse_atoms {
     my $self = shift;
@@ -167,15 +230,15 @@ sub _parse_atoms {
 
     # Used to find multi-residue resids
     my %test_unique = ();
+
+    my $test_i = 0;
     
     foreach my $line (@ATOM_lines) {
-
+        ++$test_i;
+        
         if ( $line =~ /^TER/ ) {
-            # parse serial and resid
-            my ($serial, $chainID) = _parse_ter($line);
+            my($serial, $chainID) = _parse_ter($line);
 
-            # Serial of TER line is the serial of the last atom  of the
-            # chain + 1
             $ter{ $serial - 1 } = $chainID;
             next;
         }
@@ -208,6 +271,7 @@ sub _parse_atoms {
                       || $HETATM_clean && $atom->is_het_atom );
         
         if ( $aL_clean && $atom->has_altLoc ) {
+            
             my $string
                 =  $atom->name . $atom->resName . $atom->chainID
                  . $atom->resSeq;
@@ -289,14 +353,24 @@ sub _parse_atoms {
                 $chain_atoms[$i]->is_solvent(1);
             }
         }
-        elsif ( @chain_terminal_index == 2 ) {
+        elsif ( @chain_terminal_index > 1 ) {
             # Determine which terminal signals end of chain and which signals
             # end of solvent
-            croak "I have not written this subroutine yet";
-            determine_solvent(\@chain_atoms, @chain_terminal_index )
-        }
-        elsif ( @chain_terminal_index > 2 ) {
-            croak "More than two terminals found for chain!";
+            
+            my $index
+                = _determine_solvent(\@chain_atoms,
+                                    [ sort { $a <=> $b }
+                                          @chain_terminal_index ] );
+
+            
+            for ( my $i = 0 ; $i >= @chain_atoms ; $i++ ) {
+                # Label those atoms not in range of returned index and
+                # returned index - 1, as solvent
+                unless ($i > $chain_terminal_index[$i - 1]
+                            && $i < $chain_terminal_index[$i]) {
+                    $chain_atoms[$i]->is_solvent(1);
+                }
+            }
         }
         push(@sorted_atoms, @chain_atoms);
     }
@@ -306,6 +380,50 @@ sub _parse_atoms {
     croak "No atom objects were created" if ! @sorted_atoms;
 
     return [ @sorted_atoms ];
+}
+
+# Determines the terminal atom that signals the end of the non-solvent chain
+# segment
+sub _determine_solvent {
+    my( $chain_atoms, $chain_terminal_index ) = @_;
+
+    # Read through each array intersection and determine if any are all
+    # HETATM
+    
+    my @ordered_indices =  @{ $chain_terminal_index };
+
+    # -1 allows +1 to used in foreach range below to avoid including
+    # previous terminal atom in proceeding range
+    my $prev_index = -1;
+
+    my %hash = ();
+
+    foreach my $index ( @ordered_indices ) {
+        my $nonhetflag = 0;
+        foreach my $i ( $prev_index + 1 ..$index ) {
+            if ( ! $chain_atoms->[$i]->is_het_atom ) {
+                $nonhetflag = 1;
+            }
+        }
+        $hash{$index} = $nonhetflag;
+        $prev_index = $index;
+    }
+    
+    my $hatom_range_count = 0;
+    
+    foreach my $index (keys %hash) {
+        ++$hatom_range_count if $hash{$index};
+    } 
+    
+    croak "More than one range containing non-HETATM atoms found for chain"
+        if $hatom_range_count > 1;
+    
+    croak "No ranges found containing non-HETATM atoms for chain"
+        if $hatom_range_count < 1;
+
+    for my $i ( 0 .. @ordered_indices - 1 ) {
+        return $i if $hash{ $ordered_indices[$i] };
+    }
 }
 
 
@@ -621,9 +739,31 @@ has 'accession_codes' => (
     builder => '_get_acs',
 );
 
+has 'chain_length' => (
+    isa => 'Int',
+    is => 'ro',
+    lazy => 1,
+    builder => '_build_chain_length',
+);
 
 
 # Methods
+
+# Returns number of non-solvent residues found in chain
+sub _build_chain_length {
+    my $self = shift;
+
+    my %resid_h = %{ $self->resid_index };
+
+    my $count = 0;
+
+    foreach my $resid (keys %resid_h) {
+        my @atom_index = values %{ $resid_h{$resid} };
+        
+        ++$count if ! $self->atom_array->[ $atom_index[0] ]->is_solvent();
+    }
+    return $count;
+}
 
 sub _get_acs {
     my $self = shift;
