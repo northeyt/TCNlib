@@ -929,7 +929,7 @@ use Carp;
 
 subtype 'Character',
     as 'Str',
-    where { $_ =~ /\w{1}/ },
+    where { $_ =~ /[^\s]{1}/ },
     message { "$_ is not a valid single-char string!" };
 
 # Attributes
