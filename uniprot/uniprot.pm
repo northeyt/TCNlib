@@ -27,7 +27,7 @@ has 'file_name' => (
 
 has 'data_array' => (
     is => 'ro',
-    isa => 'ArrayRef[Str]',
+    isa => 'local::error|ArrayRef[Str]',
     lazy => 1,
     builder => '_get_entry_data',
 );
@@ -35,7 +35,7 @@ has 'data_array' => (
 # Array lines hashed by line id
 has 'data_hash' => (
     is => 'ro',
-    isa => 'HashRef',
+    isa => 'local::error|HashRef',
     lazy => 1,
     builder => '_build_data_hash',
 );
@@ -50,21 +50,22 @@ has 'local_mode' => (
 
 has 'organism_NCBI_TaxID' => (
     is => 'ro',
-    isa => 'ArrayRef[Int]',
+    isa => 'local::error|ArrayRef[Int]',
     builder => '_build_organism_NCBI_TaxID',
+    lazy => 1,
 );
 
-has 'error' => (
-    is => 'ro',
-    isa => 'ArrayRef[local:error]',
-    
-);
+with 'local::can_error';
 
 # Methods
 
 sub _build_organism_NCBI_TaxID {
     my $self = shift;
 
+    if ( ref $self->data_hash eq 'local::error' ) {
+        return $self->data_hash;
+    }
+    
     my @OX_line = @{ $self->data_hash->{OX} };
 
     croak "Can't get organism NCBI TaxID: no OX lines parsed from entry data"
@@ -119,7 +120,10 @@ sub _get_entry_data {
                     type => 'url_request_failed',
                     data => { url => $url,
                               accession_code => $ac, } );
-            croak $error;
+
+            $self->set_error( $error->id() => $error );
+
+            return $error;
         }
         
         my @line = map { $_ . "\n" } split("\n", $response);
@@ -134,6 +138,10 @@ sub _get_entry_data {
 sub _build_data_hash {
     my $self = shift;
 
+    if ( ref $self->data_array eq 'local::error' ) {
+        return $self->data_array;
+    }
+    
     my %hash = ();
 
     my $SQ_flag = 0;

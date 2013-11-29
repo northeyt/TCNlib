@@ -56,5 +56,6 @@ my $bad_code = 'B5RX19';
 
 my $bad_obj = uniprot::uniprot->new( accession_code => $bad_code ); 
 
-print Dumper $bad_obj->data_array();
+is(ref $bad_obj->organism_NCBI_TaxID, 'local::error',
+    "error object set to 'organism_NCBI_TaxID' attribute with bad object");
 
