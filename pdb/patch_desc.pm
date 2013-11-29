@@ -45,6 +45,11 @@ has 'parent' => (
 sub patch_order {
     my $self = shift;
 
+    # If patch only contains one, two, or three residues
+    if ( scalar keys %{ $self->patch->resid_index } < 4 ){
+        
+    }
+    
     # Default contact threshold - if one side of patch has < threshold
     # contacts then it is considered a surface side and a patch order for
     # that side will be returned

@@ -70,7 +70,12 @@ sub get_eigenvectors {
 
     my $pca = Statistics::PCA->new();
 
-    capture sub {$pca->load_data( { format => 'table', data => $data } ) };
+    my $stdout;
+    my $stderr;
+    
+    eval { capture
+               sub {$pca->load_data( { format => 'table',
+                                       data => $data } ) } };
     
     capture sub {$pca->pca( { eigen => 'M' } ) };
                                     
