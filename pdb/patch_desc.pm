@@ -47,7 +47,34 @@ sub patch_order {
 
     # If patch only contains one, two, or three residues
     if ( scalar keys %{ $self->patch->resid_index } < 4 ){
+
+        my @simple_residue_order = ();
         
+        my $central_atom = $self->patch->central_atom;
+
+        push( @simple_residue_order, $central_atom->resName() );
+        
+        foreach my $resid ( keys %{ $self->patch->resid_index() } ) {
+            
+            my %atom_names = %{ $self->patch->resid_index->{$resid} };
+            
+            my $index = [ values %atom_names ]->[0];
+            my $p_atom = $self->patch->atom_array->[$index];
+            
+            next if $p_atom->resid eq $central_atom->resid;
+            
+            push( @simple_residue_order, $p_atom->resName() );
+        }
+
+        my @aacid_order = ();
+        
+        foreach my $resName (@simple_residue_order){
+            my $onelc = eval { three2one_lc($resName) };
+            $onelc = 'X' if ! $onelc;
+            push(@aacid_order, $onelc);
+        }
+        my $string = join( '', @aacid_order );
+        return $string;
     }
     
     # Default contact threshold - if one side of patch has < threshold
