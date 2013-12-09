@@ -49,3 +49,25 @@ undef $tmp;
 
 is(ref [ ( values %{ write2tmp->Cache } ) ]->[0], 'File::Temp',
    'Cache retains objects when write2tmp reference is undef');
+
+write2tmp->Cache_Limit(5);
+
+my $to_be_removed;
+
+my %arg = ( data => \@data,
+            suffix => '.test' );
+
+for my $i ( 0 .. 5 ) {
+    if ( ! $i ) {
+        $to_be_removed = write2tmp->new(%arg);
+        $to_be_removed->file_name();
+    }
+    else {
+        my $tmp = write2tmp->new( data => [ qw ( some data ) ],
+                                  suffix => '.test' );
+        $tmp->file_name();   
+    }
+}
+
+is( exists write2tmp->Cache->{$to_be_removed->file_name}, '',
+    "Cache limit works okay" );

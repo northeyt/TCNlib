@@ -8,11 +8,23 @@ use File::Temp;
 
 use MooseX::ClassAttribute;
 
-class_has 'Cache' =>
-    ( is => 'rw',
-      isa => 'HashRef',
-      default => sub { {} },
-  );
+class_has 'Cache' => (
+    is => 'rw',
+    isa => 'HashRef',
+    default => sub { {} },
+);
+
+class_has '_Cache_Array' => (
+    is => 'rw',
+    isa => 'ArrayRef[write2tmp]',
+    default => sub { [] },
+);
+
+class_has 'Cache_Limit' => (
+    is => 'rw',
+    isa => 'Int',
+    default => 0,
+);
 
 no MooseX::ClassAttribute;
 
@@ -75,7 +87,15 @@ sub _write_file {
     }
     else {
         write2tmp->Cache->{$fname} = $tmp;
-    }     
+        push( @{ write2tmp->_Cache_Array }, $tmp );
+        if ( write2tmp->Cache_Limit
+                 && @{ write2tmp->_Cache_Array } > write2tmp->Cache_Limit ) {
+            until ( @{ write2tmp->_Cache_Array } == write2tmp->Cache_Limit) {
+                my $fh = shift @{ write2tmp->_Cache_Array };
+                delete write2tmp->Cache->{ $fh->filename };
+            }
+        }
+    }
     return $fname;
 }
 
@@ -90,7 +110,8 @@ sub retain_file {
     }
     elsif ( exists $arg{all} && $arg{all} ) {
         foreach my $fh ( values %{ write2tmp->Cache } ) {
-        $fh->unlink_on_destroy( 0 ); }
+            $fh->unlink_on_destroy( 0 );
+        }
         return 1;
     }
     elsif ( exists $arg{file_name} ) {
