@@ -25,7 +25,7 @@ has 'dbname' => (
 );
 
 has 'dbh' => (
-    is => 'Ref',
+    isa => 'Ref',
     is => 'ro',
     lazy => 1,
     builder => '_get_dbh', 
