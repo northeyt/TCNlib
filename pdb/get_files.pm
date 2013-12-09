@@ -71,12 +71,17 @@ __END__
 
 =head1 NAME
 
-pdb::get_files - Perl extension for blah blah blah
+pdb::get_files - Simple class to obtain locally stored pdb and xmas files for
+a given pdb code.
 
 =head1 SYNOPSIS
 
    use pdb::get_files;
-   blah blah blah
+
+   $get_my_file = pdb::get_files->new( pdb_code => $my_pdb_code );
+
+   $pdb_file_name   = $get_my_file->pdb_code();
+   $xmas_file_name  = $get_my_file->xmas_code();
 
 =head1 DESCRIPTION
 
