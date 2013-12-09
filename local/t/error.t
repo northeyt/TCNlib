@@ -14,6 +14,8 @@
 use strict;
 use warnings;
 
+use uniprot::uniprot;
+
 use Test::More qw( no_plan );
 BEGIN { use_ok( 'local::error' ); }
 
@@ -26,3 +28,15 @@ my @args = ( 'message', "Some message", 'type', 'an_error' );
 my $error = new_ok( 'local::error' , \@args );
 
 is($error->id(), 1, "error id assignment works okay");
+
+# use uniprot object to demonstrate 'can_error' role
+
+my $bad_code = 'B5RX19';
+
+my $bad_obj = uniprot::uniprot->new( accession_code => $bad_code ); 
+
+is( $bad_obj->has_no_error(), 1, "can_error role okay" );
+
+$bad_obj->organism_NCBI_TaxID();
+
+is( $bad_obj->has_no_error(), 0, "error_hash stores error" );
