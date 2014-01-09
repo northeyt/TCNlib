@@ -1,5 +1,7 @@
 package makepatch;
 
+use TCNPerlVars;
+
 use Moose;
 use Moose::Util::TypeConstraints;
 use types;
@@ -22,6 +24,7 @@ has 'makepatch_file' => (
     is  => 'rw',
     isa => 'FileExecutable',
     required => 1,
+    default => $TCNPerlVars::makepatch,
 );
 
 has 'patch_type' => (
