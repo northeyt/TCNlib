@@ -710,6 +710,39 @@ sub _is_patch_centre {
     return -1;
 }
 
+sub highestASA {
+    my $self  = shift;
+    my $resid = shift or croak "highestASA must be passed a resid";
+
+    my $ASA_type
+        =  ref $self eq 'pdb'   ? 'ASAc'
+         : ref $self eq 'chain' ? 'ASAm'
+         : '' ;
+
+    croak "highestASA: something went wrong assigning ASA type"
+        if ! $ASA_type;
+
+    croak "resid '$resid' was not found in resid index"
+        if ! exists $self->resid_index->{$resid};
+
+    my @atoms
+        = map { $self->atom_array->[$_] }
+            values %{ $self->resid_index->{$resid} };
+    
+    foreach my $atom (@atoms) {
+        my $predicate = "has_$ASA_type";
+        croak 'atom ' . $atom->serial() . " has no $ASA_type value"
+            if ! $atom->$predicate();
+    }
+
+    my @sorted = sort { $b->$ASA_type <=> $a->$ASA_type  } @atoms;
+
+    my $top_ASA_atom = $sorted[0];
+
+    return $top_ASA_atom;
+}
+
+
 __PACKAGE__->meta->make_immutable;
 
 

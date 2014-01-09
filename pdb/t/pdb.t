@@ -185,6 +185,13 @@ $pdb->read_ASA($mono_x2p);
 
 ok($test_atom->ASAm(), "Monomer ASA read from xmas2pdb object" );
 
+# test highestASA method
+
+my $resid = 'A147';
+
+is($pdb->highestASA($resid)->ASAc(), '69.01',
+   "highestASA returns highest ASA atom");
+
 # patch_centres
 
 my %pc_arg = ( ASA_threshold => 25 );
