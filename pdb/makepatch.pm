@@ -90,8 +90,12 @@ sub _run_makepatch {
     my $radius = $self->radius();
     my $patch_type = $self->patch_type eq 'contact' ? '-c' : '';
     my $atomname = $self->central_atom->name();
+
+    # '.' allows separation of numeric chain ids and resSeq
     my $resspec
-        = $self->central_atom->chainID() . $self->central_atom->resSeq();
+        = $self->central_atom->chainID() . '.'
+            . $self->central_atom->resSeq();
+    
     my $surf_min = $self->surf_min;
     my $iCode
         =  $self->central_atom->has_iCode ? $self->central_atom->iCode
