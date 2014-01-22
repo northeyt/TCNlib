@@ -8,7 +8,7 @@ use Moose::Util::TypeConstraints;
 use types;
 use local::error;
 
-use GLOBAL qw(&rm_trail);
+use GLOBAL qw(&rm_trail &three2one_lc);
 
 use Data::Dumper;
 use Carp;
@@ -510,7 +510,65 @@ sub _build_resid_index {
 
     return {%hash};
 }
- 
+
+sub get_sequence {
+    my $self = shift;
+
+    if ( %{ $self->multi_resName_resid } ) {
+        croak "Can't get_sequence for pdb containing multi-resName residues";
+    }
+    
+    my $USAGE
+        = 'get_sequence( chain_id => (chain_id), return_type => ( 1 | 3 ) )';
+    
+    my %arg = @_;
+
+    # Check args are okay
+    if (   ! (   exists  $arg{return_type} && exists  $arg{chain_id} )
+        || ! (   defined $arg{return_type} && defined $arg{chain_id} )
+        || ! ( $arg{return_type} eq '1' || $arg{return_type} eq '3'  ) ) {
+        croak $USAGE;
+    }
+
+    my %chain_resid_index = ();
+
+    # Filter out residues that are not from specified chain
+    foreach my $resid ( keys %{ $self->resid_index() } ){
+        next if substr($resid, 0, 1) ne $arg{chain_id};
+        $chain_resid_index{$resid} = $self->resid_index->{$resid};
+    }
+    
+    #  Sort values of each resid of resid index by resSeq
+    my @residue_atoms
+        = map { [ values %{ $self->resid_index->{$_} } ]  }
+            sort { substr($a, 1) <=> substr($b, 1) }
+                keys %chain_resid_index;
+
+    my @residues = ();
+    
+    # For each residue, get resName. Avoid solvent residues
+    foreach my $index_array (@residue_atoms) {
+
+        my $atom = $self->atom_array->[ $index_array->[0] ];
+        next if $atom->is_solvent();
+        
+        my $res_name = $atom->resName();
+        
+        push(@residues, $res_name);
+    }
+    
+    if ( $arg{return_type} == 1 ) {
+        for my $i ( 0 .. @residues - 1 ) {
+            my $onelc = eval { three2one_lc( $residues[$i] ) };
+            if ($@) {
+                $onelc = 'X';
+            }
+            $residues[$i] = $onelc;
+        }
+    }
+    return @residues;
+}
+
 sub read_ASA {
 
     my $self = shift;
@@ -738,11 +796,42 @@ sub highestASA {
     my @sorted = sort { $b->$ASA_type <=> $a->$ASA_type  } @atoms;
 
     my $top_ASA_atom = $sorted[0];
-
+    
     return $top_ASA_atom;
 }
 
+# Maps resSeq numbers to chainSeq count numbers (equivalent to pdbcount num
+# in pdbsws. Returns hash resSeq => chainSeq
+sub map_resSeq2chainSeq {
+    my $self = shift;
 
+    my $chain_id
+        = shift or croak "map_resSeq2chainSeq must be passed a chain id";
+
+    croak "pdb: " . $self->pdb_code() . " no residues found for chain "
+        . " $chain_id" if ! exists $self->atom_index->{$chain_id};
+    
+    my $chainSeq = 0;
+    my %return_map = ();
+    
+    my $chain_id_h = $self->atom_index->{$chain_id};
+    
+    foreach my $resSeq ( sort { $a <=> $b } keys %{ $chain_id_h  } ) {
+
+        my $atom_index = [ values %{ $chain_id_h->{$resSeq} } ]->[0];
+        
+        my $atom = $self->atom_array->[$atom_index];
+
+        next if $atom->is_solvent();
+        
+        ++$chainSeq;
+
+        $return_map{$resSeq} = $chainSeq;
+    }
+
+    return %return_map
+}
+    
 __PACKAGE__->meta->make_immutable;
 
 
@@ -827,6 +916,7 @@ around '_parse_ATOM_lines' => sub {
     return @chain_ATOM_lines;
 };
 
+### around MODIFIERS
 # Modify _is_patch_centre to assess on monomer ASAm
 around '_is_patch_centre' => sub {
     
@@ -841,6 +931,29 @@ around '_is_patch_centre' => sub {
     
 };
 
+# Automatically send chain id
+around 'get_sequence' => sub {
+
+    my $orig = shift;
+    my $self = shift;
+
+    my %arg = @_;
+
+    $arg{chain_id} = $self->chain_id();
+
+    return $self->$orig(%arg);
+    
+};
+
+# Automatically send chain id
+around 'map_resSeq2chainSeq' => sub {
+    my $orig = shift;
+    my $self = shift;
+
+    my @arg = ( $self->chain_id() );
+    
+    return $self->$orig(@arg);
+};
 
 __PACKAGE__->meta->make_immutable;
 
@@ -1210,3 +1323,4 @@ at your option, any later version of Perl 5 you may have available.
 None reported... yet.
 
 =cut
+ 

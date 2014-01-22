@@ -105,6 +105,19 @@ dies_ok(
 ok($pdb->atom_index(), "atom_index ok");
 ok($pdb->resid_index, "resid_index ok" );
 
+# test out get_sequence
+
+my $exp_seq_string = 'TLEPEGAPYWTNTEKXEKRLHAVPAANTVKFRCPAGGNPXPTXRWLKNGKEFKQEHRIGGYKVRNQHWSLIXESVVPSDKGNYTCVVENEYGSINHTYHLDVVERSPHRPILQAGLPANASTVVGGDVEFVCKVYSDAQPHIQWIKHVEKPYLKVLKAAGVNTTDKEIEVLYIRNVTFEDAGEYTCLAGNSIGISFHSAWLTVLPA';
+
+my @seq = $pdb->get_sequence( chain_id => 'A', return_type => 1, );
+my $seq_string = join ( '', @seq );
+
+is( $seq_string, $exp_seq_string, 'get_sequence works okay' );
+
+# map_resSeq2chainSeq
+
+ok($pdb->map_resSeq2chainSeq('A'), "mapresSeq2chainSeq ok");
+
 # test out chain solvent determination
 
 my $multi_term_pdb_code = '2we8';
@@ -144,6 +157,13 @@ isa_ok($chain, 'chain', "chain object created ok");
 ## are around modifiers for _parse_ATOM_lines working?
 
 $chain->_parse_atoms();
+
+# around modifier for get_sequence and map_resSeq2chainSeq working okay?
+
+ok($chain->get_sequence(return_type => 1),
+   "get_sequence works ok for chain");
+
+ok($chain->map_resSeq2chainSeq(), "mapresSeq2chainSeq ok for chain");
 
 # Chain length working?
 
