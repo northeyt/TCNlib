@@ -50,6 +50,12 @@ has form => (
     required => 1,
 );
 
+has 'chain_ids' => (
+    is => 'rw',
+    isa => 'ArrayRef[ValidChar]',
+    predicate => 'has_chain_ids',
+);
+
 has output => (
     is => 'ro',
     isa => 'ArrayRef[Str]',
@@ -89,6 +95,21 @@ sub _run_xmas2pdb {
     my $cmd = "$xmas2pdb $atoms_only $form -r $radii_file $xmas_file";
 
     my @output = `$cmd`;
+
+    if ( $self->has_chain_ids() ) {
+        my @filtered_output = ();
+        foreach my $line (@output) {
+            
+            if ( $line =~ /^(ATOM|HETATM)/ ){
+                my $chain = substr($line, 21, 1);
+                
+                next unless grep { /$chain/  }
+                    @{ $self->chain_ids() };
+            }
+            push(@filtered_output, $line);
+        }
+        @output = @filtered_output;
+    }
     
     croak "xmas2pdb produced no output. Attempted command:\n$cmd"
         if ! @output;

@@ -45,3 +45,15 @@ my $xmas2pdb = new_ok( 'xmas2pdb' => \@arg );
 
 can_ok( $xmas2pdb, ('output') );
 can_ok( $xmas2pdb, ('output_file') );
+
+# test chain selection
+
+%arg = (
+    radii_file    => $radii_file,
+    xmas2pdb_file => $xmas2pdb_file,
+    xmas_file     => $xmas_file,
+    form          => $form,
+    chain_ids => ['A'],
+);
+
+$xmas2pdb = xmas2pdb->new(%arg);
