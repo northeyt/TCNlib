@@ -64,14 +64,14 @@ sub _build_data {
 
     my $att_file = $att . '_file';
     
-    my $predicate = $self . '->'. $att . '_file';
+    my $predicate = "has_$att" . '_file';
     
     croak "Cannot get file data from $att file - no file specified"
-        if ! $predicate;
+        if ! $self->$predicate;
 
     my $file = $self->$att_file;
     
-    open(my $fh, '<', $file) or die "Cannot open file $file, $!";
+    open(my $fh, '<', $file) or die "Cannot open file '$file', $!";
 
     my @array = ();
 
@@ -141,6 +141,12 @@ has 'het_atom_cleanup' => (
 );
 
 has 'has_read_ASA' => (
+    isa => 'Bool',
+    is => 'rw',
+    default => 0,
+);
+
+has 'solvent_cleanup' => (
     isa => 'Bool',
     is => 'rw',
     default => 0,
@@ -225,7 +231,8 @@ sub _parse_atoms {
 
     my $h_clean = $self->hydrogen_cleanup();
     my $HETATM_clean = $self->het_atom_cleanup();
-
+    my $solvent_clean = $self->solvent_cleanup();
+    
     my %ter = ();
 
     # Used to find multi-residue resids
@@ -351,6 +358,7 @@ sub _parse_atoms {
             # Label all atoms after chain terminal as solvent
             for my $i ( $start + 1 .. @chain_atoms - 1 ) {
                 $chain_atoms[$i]->is_solvent(1);
+
             }
         }
         elsif ( @chain_terminal_index > 1 ) {
@@ -372,6 +380,15 @@ sub _parse_atoms {
                 }
             }
         }
+
+        if ($solvent_clean) {
+            my @nonsolvent = ();
+            foreach my $atom (@chain_atoms) {
+                push(@nonsolvent, $atom) if ! $atom->is_solvent();
+            }
+            @chain_atoms = @nonsolvent;
+        }
+        
         push(@sorted_atoms, @chain_atoms);
     }
 

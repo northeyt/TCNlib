@@ -238,3 +238,16 @@ $bad_chain->atom_array();
 
 is( scalar keys %{ $bad_chain->multi_resName_resid() }, '175',
     "multi_resName_resid captures resids with multi resName-atoms" );
+
+# solvent_cleanup flag
+
+my $solv_pdb_file = '3o0r.pdb';
+
+my $solv_chain = chain->new( pdb_code => '3o0r',
+                             pdb_file => $solv_pdb_file,
+                             chain_id => 'C',
+                             solvent_cleanup => 1,
+                         );
+
+is($solv_chain->atom_array->[-1]->serial(), 8063,
+   "cleanup_solvent flag works ok" );
