@@ -227,8 +227,10 @@ sub get_patches {
     
     foreach my $atom ( @{ $pdb_obj->atom_array() } ) {
 
-        # Avoid printing atoms to file that do not have ASA
-        next if ! $atom->$predicate;
+        # Avoid printing atoms to file that do not have ASA or are labelled
+        # solvent
+        next if ! $atom->$predicate || $atom->is_solvent();
+
         
         push( @ATOM_lines, $atom->stringify( {%swap} ) );
         if ( $atom->is_terminal() ) {
