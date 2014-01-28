@@ -702,8 +702,13 @@ sub patch_centres {
             my %atom_h = %{ $chain_h{$resSeq} };
 
             my @atom_indices = ();
+
+            my $CA_flag = 0;
+            
             foreach my $atom_name (keys %atom_h) {
 
+                $CA_flag = 1 if $atom_name eq 'CA';
+                
                 my $index = $atom_h{$atom_name};
                 my $atom  = $self->atom_array->[$index];
 
@@ -713,6 +718,10 @@ sub patch_centres {
 
             }
 
+            # Patch centre residues must have a CA atom to be run through
+            # makepatch
+            
+            next if ! $CA_flag;
 
             my $ret = $self->_is_patch_centre( $arg{ASA_threshold},
                                                        'ASAc',
@@ -927,8 +936,9 @@ around '_parse_ATOM_lines' => sub {
         }
     }
     
-    croak "No ATOM lines were parsed with chainId " . $self->chain_id
-        if ! @chain_ATOM_lines;
+    croak "No ATOM lines were parsed with chainId " . $self->chain_id()
+        . " for pdb " . $self->pdb_code()
+            if ! @chain_ATOM_lines;
 
     return @chain_ATOM_lines;
 };
