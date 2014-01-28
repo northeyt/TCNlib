@@ -174,6 +174,7 @@ sub _build_pdb_object {
             xmas_file => $self->xmas_file(),
             hydrogen_cleanup => 1,
             altLoc_cleanup => 1,
+            solvent_cleanup => 1,
         );
     
     $pdb_arg{chain_id} = $self->chain_id() if $class eq 'chain';
