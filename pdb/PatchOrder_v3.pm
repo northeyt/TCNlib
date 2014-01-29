@@ -59,7 +59,7 @@ sub PatchOrder {
             }
         }
     }
-    # CHANGE THESE LOOPS TO RETURN PATCHES
+    
     if ($skip) {
         croak "Non-natural amino acid found in patch";
     }
