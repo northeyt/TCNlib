@@ -531,9 +531,10 @@ sub _build_resid_index {
 sub get_sequence {
     my $self = shift;
 
-    if ( %{ $self->multi_resName_resid } ) {
-        croak "Can't get_sequence for pdb containing multi-resName residues";
-    }
+    croak "pdb: " . $self->pdb_code()
+        . " can't get_sequence for pdb containing multi-resName residues: "
+        . Dumper $self->multi_resName_resid()
+            if %{ $self->multi_resName_resid };
     
     my $USAGE
         = 'get_sequence( chain_id => (chain_id), return_type => ( 1 | 3 ) )';
