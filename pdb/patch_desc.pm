@@ -99,6 +99,14 @@ sub patch_order {
     croak "This method requires a parent pdb or chain object"
         if ! $self->has_parent;
 
+
+    # Keep record of all original parent atom co-ords to reset to later
+    my %orig_coords = ();
+    foreach my $atom ( @{ $self->parent->atom_array() } ) {
+        $orig_coords{ $atom->serial() }
+            = { x => $atom->x(), y => $atom->y(), z => $atom->z() }; 
+    }
+    
     # Avoid inclusion of solvent atoms in all hashes
     
     my ($surface_errors, $surface_atoms) = $self->_surface_atoms;
@@ -134,6 +142,7 @@ sub patch_order {
                                            type => 'patch_atom_no_ASA',
                                            data => { atom => $atom }, );
 
+            $self->reset_parent_coords(\%orig_coords);
             return $error;
         }
     }
@@ -182,6 +191,7 @@ sub patch_order {
                                        type => 'surface_side',
                                        parent => $posz_contacts );
 
+        $self->reset_parent_coords(\%orig_coords);
         return $error;
     }
 
@@ -219,6 +229,7 @@ sub patch_order {
         push( @return, $rev_string );
     }
     
+    $self->reset_parent_coords(\%orig_coords);
     return @return;
 }
 
@@ -391,11 +402,24 @@ sub _true_angle_from_x {
     return $angle;    
 }
 
+sub reset_parent_coords {
+    my $self = shift;
+    my $orig_coords = shift;
+
+    #return 1; #TEST
+    
+    foreach my $atom ( @{ $self->parent->atom_array() } ) {
+        foreach my $coord ( qw ( x y z ) ) {
+            $atom->$coord( $orig_coords->{$atom->serial}->{$coord} );
+        }
+    }
+}
+
 __PACKAGE__->meta->make_immutable;
 
 1;
 __END__
-
+1
 =head1 NAME
 
 pdb::patch_desc - object to generate descriptions for patches
