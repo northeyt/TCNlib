@@ -65,7 +65,7 @@ has 'pdb_object' => (
 
 has 'pdb_code' => (
     is => 'rw',
-    isa => 'ValidPDB',
+    isa => 'Str',
     required => 1
 );
 
