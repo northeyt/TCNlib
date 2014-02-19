@@ -8,6 +8,7 @@ use types;
 use Carp;
 use pdb::pdb;
 use pdb::makepatch;
+use pdb::pdb2xmas;
 
 use write2tmp;
 
@@ -148,10 +149,10 @@ sub _build_xmas_fname {
     # Attempt to build xmas file from pdb file if xmas file not found
     if ( ! -e $fname) {
         my $pdb_file = $self->pdb_file();
-        my $cmd = "$pdb2xmas -q -f $pdb_file";
-        my @output = `$cmd`;
-        croak "pdb2xmas produced no output. Command run:\n$cmd"
-            if ! @output;
+
+        my $pdb2xmas = pdb::pdb2xmas->new(pdb_file => $pdb_file);
+        
+        my @output = $pdb2xmas->output();
         
         my $tmp
             = write2tmp->new( data => [ @output ],

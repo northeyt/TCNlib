@@ -38,6 +38,9 @@ $xmas2pdb  = "/home/bsm/martin/acrm/CONSULTANCY/inpharmatica/software/xmas2pdb/x
 $radii_file = "/acrm/data/people/zcbtfo4/radii.dat";
 $pdb2xmas   = "/home/bsm/martin/acrm/CONSULTANCY/inpharmatica/software/pdb2xmas/pdb2xmas";
 
+$pdb2xmas_bin
+    = "/home/bsm/martin/acrm/CONSULTANCY/inpharmatica/software/bin/";
+
 # Command-line program paths for pdb and related classes
 $getresol = '/home/bsm/martin/bin/getresol';
 
