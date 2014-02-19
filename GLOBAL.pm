@@ -10,12 +10,16 @@ our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
 $VERSION = 1.00;
 @ISA     = qw(Exporter);
 @EXPORT  = ();
-@EXPORT_OK = qw(rm_trail one2three_lc three2one_lc);
+@EXPORT_OK = qw(is_int rm_trail one2three_lc three2one_lc);
 
 
 use Carp;
 
 ### Modules
+
+sub is_int {
+    int($_) eq eq ? return 1 : return 0;
+}
 
 sub rm_trail {
     my $str = shift;
