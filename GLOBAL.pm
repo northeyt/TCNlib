@@ -4,21 +4,47 @@ use strict;
 use warnings;
 use Exporter;
 use File::Temp;
+use Carp;
 
 our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
 
 $VERSION = 1.00;
 @ISA     = qw(Exporter);
 @EXPORT  = ();
-@EXPORT_OK = qw(is_int rm_trail one2three_lc three2one_lc);
-
-
-use Carp;
+@EXPORT_OK = qw( is_subset is_int rm_trail one2three_lc three2one_lc);
 
 ### Modules
 
+sub array_indentical {
+    my $arr1 = shift;
+    my $arr2 = shift;
+
+    if (scalar @{$arr1} eq scalar @{$arr2}) {
+        foreach my $ele (@{$arr1}) {
+            return 0 unless grep { /^$ele$/ } @{$arr2};
+        }
+        return 1;
+    }
+    else {
+        return 0;
+    }
+}
+
+sub array_is_subset {
+    my $arr1 = shift;
+    my $arr2 = shift or die "is_subset must be sent two array refs";
+    
+    my @sorted = sort { scalar @{$a} <=> scalar @{$b} } ($arr1, $arr2);
+
+    foreach my $ele ( @{ $sorted[0] } ) {
+        return 0 if ! grep /^$ele$/, @{ $sorted[1] };
+    }
+
+    return 1;
+}
+
 sub is_int {
-    int($_) eq eq ? return 1 : return 0;
+    int($_[0]) eq $_[0] ? return 1 : return 0;
 }
 
 sub rm_trail {
