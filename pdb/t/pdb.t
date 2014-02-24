@@ -163,7 +163,8 @@ $chain->_parse_atoms();
 ok($chain->get_sequence(return_type => 1),
    "get_sequence works ok for chain");
 
-ok($chain->map_resSeq2chainSeq(), "mapresSeq2chainSeq ok for chain");
+ok($chain->map_resSeq2chainSeq(), "map_resSeq2chainSeq ok for chain");
+ok($chain->map_chainSeq2resSeq(), "map_chainSeq2resSeq ok for chain");
 
 # Chain length working?
 

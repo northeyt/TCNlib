@@ -827,6 +827,25 @@ sub highestASA {
     return $top_ASA_atom;
 }
 
+# Returns hash chainSeq => resSeq, by reversing keys and values of
+# map_resSeq2chainSeq
+sub map_chainSeq2resSeq {
+    my $self = shift;
+
+    my $chain_id
+        = shift or croak "map_resSeq2chainSeq must be passed a chain id";
+    
+    croak "pdb: " . $self->pdb_code() . " no residues found for chain "
+        . " $chain_id" if ! exists $self->atom_index->{$chain_id};
+   
+    my %resSeq2chainSeq = $self->map_resSeq2chainSeq($chain_id);
+
+    my %return_map
+        = map { $resSeq2chainSeq{$_} => $_ } keys %resSeq2chainSeq;
+
+    return %return_map;
+}
+
 # Maps resSeq numbers to chainSeq count numbers (equivalent to pdbcount num
 # in pdbsws. Returns hash resSeq => chainSeq
 sub map_resSeq2chainSeq {
@@ -959,7 +978,7 @@ around '_is_patch_centre' => sub {
     
 };
 
-# Automatically send chain id
+# Automatically set arg chain_id
 around 'get_sequence' => sub {
 
     my $orig = shift;
@@ -974,13 +993,13 @@ around 'get_sequence' => sub {
 };
 
 # Automatically send chain id
-around 'map_resSeq2chainSeq' => sub {
+around [qw(map_chainSeq2resSeq map_resSeq2chainSeq)] => sub {
     my $orig = shift;
     my $self = shift;
 
     my @arg = ( $self->chain_id() );
     
-    return $self->$orig(@arg);
+    return $self->$orig(@arg);    
 };
 
 __PACKAGE__->meta->make_immutable;
