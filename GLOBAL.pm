@@ -11,11 +11,11 @@ our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
 $VERSION = 1.00;
 @ISA     = qw(Exporter);
 @EXPORT  = ();
-@EXPORT_OK = qw( is_subset is_int rm_trail one2three_lc three2one_lc);
+@EXPORT_OK = qw(array_is_identical array_is_subset is_int rm_trail one2three_lc three2one_lc);
 
 ### Modules
 
-sub array_indentical {
+sub array_is_identical{
     my $arr1 = shift;
     my $arr2 = shift;
 
