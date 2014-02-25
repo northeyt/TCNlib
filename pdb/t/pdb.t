@@ -206,6 +206,10 @@ $pdb->read_ASA($mono_x2p);
 
 ok($test_atom->ASAm(), "Monomer ASA read from xmas2pdb object" );
 
+# rASA methods
+is($test_atom->rASAc(), 0.30562081925765, "rASAc calculated for atom");
+is($test_atom->rASAm(), 0.30562081925765, "rASAm calculated for atom");
+
 # test highestASA method
 
 my $resid = 'A147';

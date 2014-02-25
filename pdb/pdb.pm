@@ -1115,6 +1115,7 @@ package atom;
 use Moose;
 use Moose::Util::TypeConstraints;
 use types;
+use Math::Trig;
 
 use Carp;
 
@@ -1132,8 +1133,6 @@ has 'ATOM_line' => (
     is  => 'rw',
 );
 
-
-
 has [ 'name', 'resName', 'element', 'charge' ]
     => ( is => 'rw', isa => 'Str' );
 
@@ -1150,10 +1149,17 @@ foreach my $name ( 'altLoc', 'chainID', 'iCode' ) {
 has [ 'serial', 'resSeq', ] => ( is => 'rw', => isa => 'Int' );
 
 foreach my $name ( 'radius', 'ASAm', 'ASAc', 'x', 'y', 'z', 'occupancy',
-                'tempFactor' ) {
+                'tempFactor', ) {
     my $predicate = 'has_' . $name;
     
     has $name => ( is => 'rw', isa => 'Num', predicate => $predicate );
+}
+
+foreach my $name ('rASAm', 'rASAc') {
+    my $predicate = 'has_' . $name;
+    my $builder = '_build_' . $name;
+    has $name => ( is => 'rw', isa => 'Num', predicate => $predicate,
+                   builder => $builder, lazy => 1,); 
 }
 
 has 'resid' => (
@@ -1174,6 +1180,34 @@ foreach my $label (@labels) {
 }
 
 use overload '""' => \&stringify, fallback => 1;
+
+sub _build_rASAm {
+    my $self = shift;
+    croak "Atom has no ASAm value, cannot calculate rASAm"
+        if ! $self->has_ASAm();
+
+    return $self->_build_rASA($self->ASAm());
+}
+
+sub _build_rASAc {
+    my $self = shift;
+    croak "Atom has no ASAc value, cannot calculate rASAc"
+        if ! $self->has_ASAc();
+
+    return $self->_build_rASA($self->ASAc());
+}
+
+sub _build_rASA {
+    my $self = shift;
+    my $ASA  = shift;
+    
+    croak "Atom has no radius, cannot calculate a rASA"
+        if ! $self->has_radius();
+
+    my $r = $self->radius();
+    
+    return $ASA / (4 * pi * $r**2); 
+}
 
 sub stringify {
     my $self = shift;
