@@ -40,7 +40,7 @@ sub _build_pdb_fname {
     
     my $pdb_code = $self->pdb_code();
     my $fname = $pdbprep . lc $pdb_code . $pdbext ;
-    croak "No file for $pdb_code was found in $pdbdir"
+    croak "No file for $pdb_code was found in $pdbdir. File name: $fname"
         if ! -e $fname;
     
     return $fname;
@@ -55,7 +55,7 @@ sub _build_xmas_fname {
     my $pdb_code = $self->pdb_code();
 
     my $fname = $xmasprep . lc $pdb_code . $xmasext;
-    croak "No file for $pdb_code was found in $xmasdir"
+    croak "No file for $pdb_code was found in $xmasdir. File name: $fname"
         if ! -e $fname;
     
     return $fname; 
