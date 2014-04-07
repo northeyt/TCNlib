@@ -93,14 +93,14 @@ sub _run_xmas2pdb {
     my $form = $self->form() eq 'monomer' ? '-m' : '-s';
 
     my $cmd = "$xmas2pdb $atoms_only $form -r $radii_file $xmas_file";
-
+    
     my @output = `$cmd`;
 
     if ( $self->has_chain_ids() ) {
         my @filtered_output = ();
         foreach my $line (@output) {
             
-            if ( $line =~ /^(ATOM|HETATM)/ ){
+            if ( $line =~ /^(ATOM|HETATM|TER)/ ){
                 my $chain = substr($line, 21, 1);
                 
                 next unless grep { /$chain/  }
