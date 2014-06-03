@@ -73,10 +73,7 @@ sub _build_data {
     
     open(my $fh, '<', $file) or die "Cannot open file '$file', $!";
 
-    my @array = ();
-
-    tie @array, 'Tie::File', $file, mode => O_RDONLY
-        or die "Cannot tie array to file $file, $!"; 
+    my @array = <$fh>;
 
     croak "No lines found in file $file" if ! @array;
    
@@ -1116,15 +1113,9 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use types;
 use Math::Trig;
+use GLOBAL qw(&rm_trail);
 
 use Carp;
-
-# Subtypes
-
-subtype 'Character',
-    as 'Str',
-    where { $_ =~ /[^\s]{1}/ },
-    message { "$_ is not a valid single-char string!" };
 
 # Attributes
 
@@ -1141,7 +1132,7 @@ foreach my $name ( 'altLoc', 'chainID', 'iCode' ) {
     my $clearer   = 'clear_' . $name;
     
     has $name => ( is => 'rw',
-                   isa => 'Character',
+                   isa => 'Str',
                    predicate => $predicate,
                    clearer => $clearer ); 
 }
@@ -1299,8 +1290,6 @@ sub stringify_ter {
 
 # Methods
 sub BUILD {
-
-    use GLOBAL qw(&rm_trail);
     
     my $self = shift;
 
