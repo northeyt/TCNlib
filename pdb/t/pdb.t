@@ -173,8 +173,8 @@ is($chain->chain_length, 206, "chain length determined ok");
 
 # get accession codes using pdbsws?
 
-is( $chain->accession_codes()->[0], 'P21802',
-    "Accession codes from pdbsws" );
+#is( $chain->accession_codes()->[0], 'P21802',
+#    "Accession codes from pdbsws" );
 
 # reading ASAs and radii from xmas2pdb object
 
