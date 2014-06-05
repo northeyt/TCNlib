@@ -1,16 +1,13 @@
 package pdb;
 
-use FileHandle;
-use Tie::File;
-
 use Moose;
 use Moose::Util::TypeConstraints;
 use types;
 use local::error;
 
 use GLOBAL qw(&rm_trail &three2one_lc);
+use TCNPerlVars;
 
-use Data::Dumper;
 use Carp;
 
 use pdb::xmas2pdb;
