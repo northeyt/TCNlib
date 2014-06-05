@@ -256,3 +256,38 @@ my $solv_chain = chain->new( pdb_code => '3o0r',
 
 is($solv_chain->atom_array->[-1]->serial(), 8063,
    "cleanup_solvent flag works ok" );
+
+# Creating chain object from a pdb object
+my @chains = $pdb->create_chains();
+
+ok(testChains($pdb, @chains), "Create chains works okay");
+
+sub testChains {
+    my $pdb = shift;
+    my @chains = @_;
+
+   my $chainsAtomCount = 0;
+    
+    # Does each chain only have atoms with the correct chain id?
+    foreach my $chain (@chains) {
+        return 0 if ! testAtoms($chain);
+        $chainsAtomCount += scalar @{$chain->atom_array()};
+    }
+
+    # Have all atoms from the original pdb been assigned?
+    my $pdbAtomCount = scalar @{$pdb->atom_array()};
+
+    return 0 if $chainsAtomCount ne $pdbAtomCount;
+    
+    return 1;
+}
+
+
+sub testAtoms {
+    my $chain = shift;
+
+    foreach my $atom (@{$chain->atom_array()}) {
+        return 0 if $chain->chain_id() ne $atom->chainID();
+    }
+    return 1;
+}

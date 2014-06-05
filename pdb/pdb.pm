@@ -6,7 +6,6 @@ use types;
 use local::error;
 
 use GLOBAL qw(&rm_trail &three2one_lc);
-use TCNPerlVars;
 
 use Carp;
 
@@ -825,21 +824,21 @@ sub highestASA {
 # map_resSeq2chainSeq
 sub map_chainSeq2resSeq {
     my $self = shift;
-
+    
     my $chain_id
         = shift or croak "map_resSeq2chainSeq must be passed a chain id";
     
     croak "pdb: " . $self->pdb_code() . " no residues found for chain "
         . " $chain_id" if ! exists $self->atom_index->{$chain_id};
-   
+    
     my %resSeq2chainSeq = $self->map_resSeq2chainSeq($chain_id);
-
+    
     my %return_map
         = map { $resSeq2chainSeq{$_} => $_ } keys %resSeq2chainSeq;
-
+    
     return %return_map;
 }
-
+    
 # Maps resSeq numbers to chainSeq count numbers (equivalent to pdbcount num
 # in pdbsws. Returns hash resSeq => chainSeq
 sub map_resSeq2chainSeq {
@@ -868,9 +867,42 @@ sub map_resSeq2chainSeq {
 
         $return_map{$resSeq} = $chainSeq;
     }
-
-    return %return_map
+    
+    return %return_map;
 }
+
+# Method to 
+sub create_chains {
+    my $self = shift;
+
+    my %atoms = map { $_ => [] } @{$self->get_chain_ids};
+
+    # Hash atoms by chain id
+    foreach my $atom (@{$self->atom_array()}) {
+        push(@{$atoms{$atom->chainID()}}, $atom);        
+    }
+
+    my @chains = ();
+    
+    foreach my $chain_id (keys %atoms) {
+        my $chain = chain->new(chain_id => $chain_id,
+                               atom_array => $atoms{$chain_id});
+
+        push(@chains, $chain);
+    }
+
+    return @chains;
+}
+
+# Returns arrayref containing chainIDs found in pdb
+sub get_chain_ids {
+    my $self = shift;
+
+    my @chain_ids = keys (%{$self->atom_index()});
+
+    return \@chain_ids;
+}
+
     
 __PACKAGE__->meta->make_immutable;
 
