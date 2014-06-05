@@ -55,8 +55,8 @@ $sstrucbindir = "/acrm/home/andrew/sstruc/bin";
 # Environment variables for Kabat related programs
 $ENV{'KABATALIGN'} = "/acrm/home/andrew/kabat/data"; # Alignment matrices
 $ENV{'KABATDIR'}   = "/acrm/data/kabat/kabatman";    # KabatMan data 
-#$ENV{'KABATALIGN'} = "/home/bsm/martin/kabat/data"; # Alignment matrices
-#$ENV{'KABATDIR'}   = "/home/bsm/martin/kabat/data";    # KabatMan data 
+$ENV{'KABATALIGN'} = "/home/bsm/martin/kabat/data"; # Alignment matrices
+$ENV{'KABATDIR'}   = "/home/bsm/martin/kabat/data";    # KabatMan data 
 
 
 
