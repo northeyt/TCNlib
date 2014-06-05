@@ -43,6 +43,7 @@ $pdb2xmas_bin
 
 # Command-line program paths for pdb and related classes
 $getresol = '/home/bsm/martin/bin/getresol';
+$idabchain = '/home/bsm/martin/bin/idabchain';
 
 # My normal binaries directory
 $bindir  = "/home/bsm/martin/bin";
@@ -53,15 +54,15 @@ $mlsabindir = "/acrm/home/andrew/mlsa";
 $sstrucbindir = "/acrm/home/andrew/sstruc/bin";
 
 # Environment variables for Kabat related programs
-$ENV{'KABATALIGN'} = "/acrm/home/andrew/kabat/data"; # Alignment matrices
+#$ENV{'KABATALIGN'} = "/acrm/home/andrew/kabat/data"; # Alignment matrices
 $ENV{'KABATDIR'}   = "/acrm/data/kabat/kabatman";    # KabatMan data 
 $ENV{'KABATALIGN'} = "/home/bsm/martin/kabat/data"; # Alignment matrices
-$ENV{'KABATDIR'}   = "/home/bsm/martin/kabat/data";    # KabatMan data 
+#$ENV{'KABATDIR'}   = "/home/bsm/martin/kabat/data";    # KabatMan data 
 
 
 
 # My general data directory
-$ENV{'DATADIR'}    = "/home/bsm/";
+$ENV{'DATADIR'}    = "/home/bsm/martin/data";
 
 
 # BLAST related
