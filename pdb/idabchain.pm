@@ -7,6 +7,7 @@ use IO::CaptureOutput qw(capture_exec);
 use TCNPerlVars;
 use types;
 use TryCatch;
+use write2tmp;
 
 ### Attributes ################################################################
 
@@ -56,10 +57,37 @@ sub chainIs {
     my $outputHref = $self->getOutput();
 
     if (exists $outputHref->{$chainID}) {
-        return $outputHref->{$chainID};
+        my $result = $outputHref->{$chainID};
+        if ($result eq 'Heavy' && $self->testForscFv($input)){
+            return 'scFv';
+        }
+        else {
+            return $result;
+        }
     }
     else {
         croak "Chain $chainID was not identified in idabchain output!";
+    }
+}
+
+sub testForscFv {
+    my $self = shift;
+    my $chain = shift;
+
+    if ($chain->chain_length() > 120 + 90) {
+
+        my @truncated = $chain->seq_range_atoms(120, -1);
+
+        my $w2t = write2tmp->new(data => [map {"$_"} @truncated]);
+
+        $self->input($w2t->file_name());
+        my $outputHref = $self->getOutput();
+        if ($outputHref->{$chain->chain_id()} eq 'Light') {
+            return 1;
+        }
+        else {
+            return 0;
+        }
     }
 }
 
@@ -94,7 +122,6 @@ sub _runExec {
         my $err = "idabchain run failed.\nCommand run: $cmd\nSTDERR: $stderr";
         croak $err;
     }
-    
     return $stdout;
 }
 
@@ -107,6 +134,13 @@ sub _getInputFile {
     # Is input a pdb or chain object?
     try {
         $inputFile = $input->pdb_file();
+        # If pdb file has not been assigned, create tmp file
+        if (! $inputFile) {
+            my @atomStrings = map {"$_"} @{$input->atom_array()};
+            my $w2t = write2tmp->new(data => [@atomStrings]);
+            $inputFile = $w2t->file_name();
+        }
+        
     }
     catch ($err) {
         # Is input a file path?

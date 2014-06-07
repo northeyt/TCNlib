@@ -44,7 +44,7 @@ $testObj->input(createDummyFile());
 # directly to terminal
 
 #throws_ok{ $testObj->_runExec() } qr/idabchain run failed/,
-    'Exception thrown if idabchain fails';
+#    'Exception thrown if idabchain fails';
 
 $testObj->input(getAntibodyPDB());
 
@@ -62,7 +62,10 @@ throws_ok{$testObj->chainIs('Antigen')} qr/no chain_id!/,
     "isChain throws error if input is not a chain";
 
 $testObj->input(getChain());
-is($testObj->chainIs, 'Antigen', "chainIs works okay");
+is($testObj->chainIs(), 'Antigen', "chainIs works okay");
+
+$testObj->input(getscFvChain());
+is($testObj->chainIs(), 'scFv', "chainIs works okay with scFv");
 cleanUp();
 
 ### Subroutines ################################################################
@@ -71,11 +74,19 @@ sub getChain {
     return chain->new(pdb_file => getAntibodyPDB(), chain_id => 'A');
 }
 
+sub getscFvChain{
+    return chain->new(pdb_file => getscFvPDB(), chain_id => 'A');
+}
+
 sub getAntibodyPDB{
     my $fName = "1afv.pdb";
     return $fName;
 }
 
+sub getscFvPDB{
+    my $fName = "1qok.pdb";
+    return $fName;
+}
 
 sub createDummyFile {
     my $fName = 'dummyFile.tmp';
