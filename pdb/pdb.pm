@@ -5,9 +5,10 @@ use Moose::Util::TypeConstraints;
 use types;
 use local::error;
 
-use GLOBAL qw(&rm_trail &three2one_lc);
+use GLOBAL qw(&rm_trail &three2one_lc &is_int);
 
 use Carp;
+use Scalar::Util qw(looks_like_number);
 
 use pdb::xmas2pdb;
 use pdb::getresol;
@@ -543,6 +544,7 @@ sub get_sequence {
 
     my %chain_resid_index = ();
 
+    
     # Filter out residues that are not from specified chain
     foreach my $resid ( keys %{ $self->resid_index() } ){
         next if substr($resid, 0, 1) ne $arg{chain_id};
@@ -578,6 +580,95 @@ sub get_sequence {
         }
     }
     return @residues;
+}
+
+# This method returns an array of atoms for residues within
+# the given range. Range acts like perl indices
+# i.e 0 = first residue, -1 = last residue
+sub seq_range_atoms {
+    my $self = shift;
+    my ($start, $end) = @_;
+
+    # Validate and inputs
+    foreach my $input ($start, $end) {
+        croak "seq_range_atoms: '$input' is not an int!"
+            if ! is_int($input);
+    }
+    
+    croak "seq_range_atoms: invalid range! $start - $end"
+        if $start > $end && $end != -1;
+
+    # Get splice of sorted_atom_arrays, then flatten arrays
+
+    my @atom_arrays = @{$self->sorted_atom_arrays()};
+    if ($end == -1) {
+        $end =  $#atom_arrays;
+    }
+    my @atom_arrays_splice = @atom_arrays[$start .. $end];
+    my @atoms = ();
+    
+    foreach my $atomARef (@atom_arrays_splice){
+        push(@atoms, @{$atomARef});
+    }
+    return @atoms;
+}
+
+# This method returns an array ref of atom arrays, sorted by
+# chain then resSeq
+sub sorted_atom_arrays {
+    my $self = shift;
+
+    my @atom_arrays = ();
+    
+    foreach my $chain_id (sort {$a cmp $b} keys %{$self->atom_index()}) {
+        my $resSeqHref = $self->atom_index->{$chain_id};
+        foreach my $resSeq (sort {compare_resSeqs($a,$b)} keys % {$resSeqHref}){
+            my @atom_indices = values %{$resSeqHref->{$resSeq}};
+            my @atoms = map {$self->atom_array()->[$_]} @atom_indices;
+            my @sorted_atoms = sort_atoms(@atoms);
+            push(@atom_arrays, \@sorted_atoms);
+        }
+    }
+    return \@atom_arrays;
+}
+
+# Given an array of atoms, sorts the atoms by serial and returns the array
+sub sort_atoms {
+    my @atoms = @_;
+    
+    @atoms = sort {$a->serial() <=> $b->serial()} @atoms;
+
+    return @atoms;
+}
+
+            
+# This functions compares two resSeqs to order them, like inbuilt cmp
+# -1 is returned if $rsA should before $rsB
+#  1 is returned is $rsA should come after $rsB
+sub compare_resSeqs {
+    my($rsA, $rsB) = @_;
+
+    if (looks_like_number($rsA) && looks_like_number($rsB)) {
+        # Both are resSeqs are numbers and can be sorted with a simple <=>
+        return $rsA <=> $rsB;
+    }
+    else {
+        my ($rsA_num) = $rsA =~ /(\d+)+/g;
+        my ($rsB_num) = $rsB =~ /(\d+)+/g;
+        
+        my ($rsA_suffix) = $rsA =~ /([A-Z]+)$/g;
+        my ($rsB_suffix) = $rsB =~ /([A-Z]+)$/g;
+
+        # If resSeq does not have a suffix, set var to empty string
+        # This will ensure that cmp orders a resSeq with no prefix
+        # before those with prefixes
+        foreach my $suffref (\$rsA_suffix, \$rsB_suffix) {
+            ${$suffref} = "" if ! ${$suffref};
+        }
+
+        # Sort first by resSeq number then suffix
+        return ($rsA_num <=> $rsB_num || $rsA_suffix cmp $rsB_suffix);
+    }
 }
 
 sub read_ASA {
@@ -871,27 +962,53 @@ sub map_resSeq2chainSeq {
     return %return_map;
 }
 
-# Method to 
+# Method to create chain objects from pdb object. Returns array of chains.
+# An array of chain ids can be passed to the method; if this is the case then
+# the returned chains will be in the order specified in the passed array
 sub create_chains {
     my $self = shift;
+    my @passed_chain_ids = @_;
 
-    my %atoms = map { $_ => [] } @{$self->get_chain_ids};
+    # If chain ids have been passed, check that all chain ids are found in
+    # this pdb
+    if (@passed_chain_ids) {
+        my %chain_ids = map { $_ => 1 } @{$self->get_chain_ids()};
+        
+        foreach my $chain_id (@passed_chain_ids) {
+            croak "Passed chain_id $chain_id was not found in pdb!"
+                if ! exists $chain_ids{$chain_id};
+        }
+    }
+    
+    my %atoms = map { $_ => [] } @{$self->get_chain_ids()};
 
     # Hash atoms by chain id
     foreach my $atom (@{$self->atom_array()}) {
         push(@{$atoms{$atom->chainID()}}, $atom);        
     }
 
-    my @chains = ();
-    
+    my %chains = ();
+
+    # Create chains
     foreach my $chain_id (keys %atoms) {
         my $chain = chain->new(chain_id => $chain_id,
                                atom_array => $atoms{$chain_id});
 
-        push(@chains, $chain);
+        $chains{$chain->chain_id()} = $chain;
     }
 
-    return @chains;
+    my @return_chains = ();
+    
+    # If chain_ids have been specified, return chains in specified order
+    if (@passed_chain_ids) {
+        foreach my $chain_id (@passed_chain_ids) {
+            push(@return_chains, $chains{$chain_id});
+        }
+    }
+    else {
+        @return_chains = values %chains;
+    }
+    return @return_chains;
 }
 
 # Returns arrayref containing chainIDs found in pdb
@@ -903,7 +1020,6 @@ sub get_chain_ids {
     return \@chain_ids;
 }
 
-    
 __PACKAGE__->meta->make_immutable;
 
 
@@ -915,6 +1031,8 @@ use types;
 use Carp;
 
 use pdb::pdbsws;
+use pdb::idabchain;
+use write2tmp;
 
 extends 'pdb';
 
@@ -988,6 +1106,22 @@ around '_parse_ATOM_lines' => sub {
 
     return @chain_ATOM_lines;
 };
+
+# This method checks if the chain is an antibody variable chain, or antigen
+# Is the chain is antibody variable, the type is returned i.e. Light or Heavy
+sub isAbVariable {
+    my $self = shift;
+
+    my $idabchain = pdb::idabchain->new(input => $self);
+
+    my $chainType = $idabchain->chainIs();
+    if ($chainType eq 'Antigen') {
+        return 0;
+    }
+    else {
+        return $chainType;
+    }
+}
 
 ### around MODIFIERS
 # Modify _is_patch_centre to assess on monomer ASAm

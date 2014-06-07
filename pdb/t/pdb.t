@@ -1,4 +1,4 @@
-#!/acrm/usr/local/bin/perl
+#!/usr/bin/perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl pdb.t'
@@ -261,6 +261,77 @@ is($solv_chain->atom_array->[-1]->serial(), 8063,
 my @chains = $pdb->create_chains();
 
 ok(testChains($pdb, @chains), "Create chains works okay");
+
+# test isAbVariable
+my $abComplex = pdb->new(pdb_code => '1afv',
+                         pdb_file => '1afv.pdb');
+
+# test compareResSeqs
+my $rsA = "52";
+my $rsB = "52A";
+
+is(pdb::compare_resSeqs($rsA, $rsB), -1, "compareResSeqs works okay");
+
+# test sorted_atom_arrays
+ok(testSortedAtomArray($pdb->sorted_atom_arrays()), "sorted_atoms works okay");
+
+# Test isAbVariable
+@chains = $abComplex->create_chains('A', 'L', 'H');
+my %return = map { $_->chain_id() => $_->isAbVariable()  } @chains;
+
+cmp_deeply(\%return, ExpChains(),
+           "isAbVariable works okay");
+
+testSeqRangeAtoms();
+
+# Test seq_range_atoms
+
+sub testSeqRangeAtoms {
+
+    my $method = "test_seq_range_atoms";
+    
+    my $chain = chain->new(pdb_code => "1afv",
+                           pdb_file => "1afv.pdb",
+                           chain_id => "A");
+
+    my @range = (0, 10);
+
+    my @atoms = $chain->seq_range_atoms(@range);
+    
+    is($atoms[0]->resSeq(), 1, "$method: range start ok");
+    is($atoms[-1]->resSeq(), 11, "$method: range end ok");
+    is(scalar @atoms, 84, "$method: got full range");
+
+    @atoms = $chain->seq_range_atoms(120, -1);
+    is($atoms[-1]->resSeq(), 151, "$method: -1 range end works ok");
+}
+
+sub testSortedAtomArray {
+    my $atomsARef = shift;
+
+    foreach my $atomARef (@{$atomsARef}) {
+        my $resSeq = "";
+        foreach my $atom (@{$atomARef}) {
+
+            # Check object is an atom
+            return 0 if ref $atom ne "atom";
+            
+            if (! $resSeq) {
+                # Assign first resSeq 
+                $resSeq = $atom->resSeq();
+            }
+            # Check if resSeqs match
+            return 0 if $atom->resSeq() ne $resSeq;
+        }
+    }
+    return 1;
+}
+
+sub ExpChains {
+    return {A =>  0,
+            L => 'Light',
+            H => 'Heavy',};
+}
 
 sub testChains {
     my $pdb = shift;
