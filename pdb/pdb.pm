@@ -9,6 +9,7 @@ use GLOBAL qw(&rm_trail &three2one_lc &is_int);
 
 use Carp;
 use Scalar::Util qw(looks_like_number);
+use TryCatch;
 
 use pdb::xmas2pdb;
 use pdb::getresol;
@@ -1058,6 +1059,13 @@ has 'chain_length' => (
     builder => '_build_chain_length',
 );
 
+has 'is_ab_variable' => (
+    isa => 'Str',
+    is => 'rw',
+    lazy => 1,
+    builder => 'isAbVariable',
+);
+
 
 # Methods
 
@@ -1280,14 +1288,15 @@ use GLOBAL qw(&rm_trail);
 
 use Carp;
 
-# Attributes
+### Attributes #################################################################
 
 has 'ATOM_line' => (
     isa => 'Str',
     is  => 'rw',
 );
 
-has [ 'name', 'resName', 'element', 'charge' ]
+has [ 'name', 'resName', 'element', 'charge', 'resSeq',
+      'kabatSeq', 'chothiaSeq', 'ichothiaSeq' ]
     => ( is => 'rw', isa => 'Str' );
 
 foreach my $name ( 'altLoc', 'chainID', 'iCode' ) {
@@ -1300,7 +1309,7 @@ foreach my $name ( 'altLoc', 'chainID', 'iCode' ) {
                    clearer => $clearer ); 
 }
 
-has [ 'serial', 'resSeq', ] => ( is => 'rw', => isa => 'Int' );
+has [ 'serial'] => ( is => 'rw', => isa => 'Int' );
 
 foreach my $name ( 'radius', 'ASAm', 'ASAc', 'x', 'y', 'z', 'occupancy',
                 'tempFactor', ) {
@@ -1323,7 +1332,7 @@ has 'resid' => (
     builder => '_get_resid',
 );
 
-my @labels = ( 'is_het_atom', 'is_terminal', 'is_solvent' );
+my @labels = ('is_het_atom', 'is_terminal', 'is_solvent', 'is_CDR');
 
 foreach my $label (@labels) {
     has $label => (
@@ -1332,6 +1341,8 @@ foreach my $label (@labels) {
         default => 0,
     );
 }
+
+### Methods ####################################################################
 
 use overload '""' => \&stringify, fallback => 1;
 

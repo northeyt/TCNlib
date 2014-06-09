@@ -1,4 +1,3 @@
-#!/acrm/usr/local/bin/perl
 package pdb::idabchain;
 
 use Moose;
@@ -8,6 +7,7 @@ use TCNPerlVars;
 use types;
 use TryCatch;
 use write2tmp;
+use pdb::pdbFunctions;
 
 ### Attributes ################################################################
 
@@ -112,7 +112,7 @@ sub _runExec {
     $ENV{'KABATALIGN'} = $self->kabatAlignDir();
     $ENV{'DATADIR'} = $self->kabatConcDir();
     
-    my $inputFile = _getInputFile($self->input());
+    my $inputFile = pdb::pdbFunctions::getPDBFile($self->input());
     my $exec = $self->execPath();
     my $cmd = "$exec $inputFile";
 
@@ -123,40 +123,6 @@ sub _runExec {
         croak $err;
     }
     return $stdout;
-}
-
-# This sub attempts to obtain an input file name from an input variable
-sub _getInputFile {
-    my $input = shift;
-
-    my $inputFile = "";
-    
-    # Is input a pdb or chain object?
-    try {
-        $inputFile = $input->pdb_file();
-        # If pdb file has not been assigned, create tmp file
-        if (! $inputFile) {
-            my @atomStrings = map {"$_"} @{$input->atom_array()};
-            my $w2t = write2tmp->new(data => [@atomStrings]);
-            $inputFile = $w2t->file_name();
-        }
-        
-    }
-    catch ($err) {
-        # Is input a file path?
-        try{
-            if (-e $input) {
-                $inputFile = $input;
-            }
-            else {
-                croak "Input file $input does not exist!";
-            }
-        }
-        catch ($err) {
-            croak $err;
-        }
-    };
-    return $inputFile;
 }
 
 # Given idabchain output, returns a hashref to hash of form

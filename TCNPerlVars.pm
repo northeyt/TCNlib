@@ -44,6 +44,7 @@ $pdb2xmas_bin
 # Command-line program paths for pdb and related classes
 $getresol = '/home/bsm/martin/bin/getresol';
 $idabchain = '/home/bsm/martin/bin/idabchain';
+$kabatnum = '/home/bsm/martin/abnum/installed/numbering/kabatnum.pl';
 
 # My normal binaries directory
 $bindir  = "/home/bsm/martin/bin";
