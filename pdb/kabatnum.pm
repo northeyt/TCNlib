@@ -39,10 +39,10 @@ has 'scheme2option' => (
 has 'CDRDefinitions' => (
     is => 'ro',
     isa => 'HashRef',
-    default => sub { {kabat => {light => {map {$_ => 1} [24 .. 34, 50 .. 56,
-                                                         89 .. 97]},
-                                heavy => {map {$_ => 1} [31 .. 35, 50 .. 65,
-                                                         96 .. 102]} } }
+    default => sub { {kabat => {light => {map {$_ => 1} (24 .. 34, 50 .. 56,
+                                                         89 .. 97)},
+                                heavy => {map {$_ => 1} (31 .. 35, 50 .. 65,
+                                                         96 .. 102)} } }
                  }
 );
 
@@ -62,7 +62,7 @@ sub sequenceChain {
         if ref $self->input() ne 'chain';
 
     my $chain = $self->input();
-    
+
     # Write atoms to tmp file
     my @atoms = map {"$_"} @{$self->input->atom_array()};
     my $w2t = write2tmp->new(data => \@atoms);
@@ -126,7 +126,7 @@ sub isAtomCDR {
     my $resSeqsHref = $self->CDRDefinitions->{$scheme}->{lc $chainType};
 
     # Get numeric characters of atom's resSeq to check against
-    my $atomRSNumber = $atom->$attr() =~ /(\d+)/g;
+    my ($atomRSNumber) = $atom->$attr() =~ /(\d+)/g;
 
     if (exists $resSeqsHref->{$atomRSNumber}){
         return 1;

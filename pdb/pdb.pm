@@ -1030,6 +1030,7 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use types;
 use Carp;
+use forks;
 
 use pdb::pdbsws;
 use pdb::idabchain;
@@ -1130,6 +1131,57 @@ sub isAbVariable {
         return $chainType;
     }
 }
+
+# This method determines the atoms that are within a given distance threshold
+# (default 4A) of the CDRs of the given antibody chains. The antibody chain
+# CDR atoms must be labelled as such (i.e. $atom->is_CDR() == 1)
+# INPUT: ref to array of antibody chains, distance threshold (optional)
+# e.g. $chain->determineEpitope(\abChains, 4);
+sub determineEpitope {
+    my($self, $abChainsAref, $distance) = shift;
+
+    # Default distance if not supplied by user
+    $distance = 4 if ! $distance;
+
+    # Get array of CDR atoms from antibody chains
+    my @CDRAtoms = ();
+    foreach my $chain (@{$abChainsAref}) {
+        push(@CDRAtoms, $chain->getCDRAtoms());
+    }
+
+    foreach my $atom (@{$self->atom_array()}) {
+        my $process
+            = async {$atom->is_epitope($atom->anyContacting(\@CDRAtoms, $distance))};
+        
+        $process->join();
+    }
+
+    my @epitopeAtoms = ();
+    # Create array of epitope atoms
+    foreach my $atom (@{$self->atom_array()}) {
+        if ($atom->is_epitope()) {
+            push(@epitopeAtoms, $atom);
+        }
+    }
+
+    print @epitopeAtoms;
+}
+
+# This method returns an array of chain atoms labelled as CDR
+# i.e. those atoms where $atom->is_CDR() is TRUE
+sub getCDRAtoms {
+    my $self = shift;
+
+    my @CDRAtoms = ();
+
+    foreach my $atom (@{$self->atom_array()}) {
+        if ($atom->is_CDR()) {
+            push(@CDRAtoms, $atom);
+        }
+    }
+    return @CDRAtoms;
+}
+
 
 ### around MODIFIERS
 # Modify _is_patch_centre to assess on monomer ASAm
@@ -1332,7 +1384,7 @@ has 'resid' => (
     builder => '_get_resid',
 );
 
-my @labels = ('is_het_atom', 'is_terminal', 'is_solvent', 'is_CDR');
+my @labels = qw(is_het_atom is_terminal is_solvent is_CDR is_epitope);
 
 foreach my $label (@labels) {
     has $label => (
@@ -1513,6 +1565,51 @@ sub _get_resid {
 
     return $resid;
 }
+
+# This method tests to see if any of the passed atoms are in contact with self
+# atom. Contact is determined using the distance threshold supplied
+# (Default = 4A)
+# Input: ref to array of atoms, distance threshold (optional)
+# e.g. $atom->anyContacting($atomsAref, 4)
+sub anyContacting {
+    my ($self, $atomsAref, $distance) = @_;
+
+    $distance = 4 if ! $distance;
+    
+    foreach my $atom (@{$atomsAref}) {
+        if ($self->contacting($atom)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+# This method tests to see if two atoms are contacting eachother,
+# based on a contact distance threshold (default = 4A)
+sub contacting {
+    my ($self, $atom2test, $distance) = @_;
+
+    $distance = 4 if ! $distance;
+    my $distSq = $distance ** 2;
+    
+    my $ax = $self->x();
+    my $ay = $self->y();
+    my $az = $self->z();
+
+    my $bx = $atom2test->x();
+    my $by = $atom2test->y();
+    my $bz = $atom2test->z();
+
+    my $d = (($ax - $bx)**2) + (($ay - $by)**2) + (($az - $bz)**2);
+
+    if ($d <= $distSq) {
+        return 1;
+    }
+    else {
+        return 0;
+    }
+}
+
 
 __PACKAGE__->meta->make_immutable;
 

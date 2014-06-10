@@ -282,9 +282,29 @@ my %return = map { $_->chain_id() => $_->isAbVariable()  } @chains;
 cmp_deeply(\%return, ExpChains(),
            "isAbVariable works okay");
 
+# Test seq_range_atoms
 testSeqRangeAtoms();
 
-# Test seq_range_atoms
+# test $atom->contacting()
+testAtomContacting();
+
+# test chain->determineEpitope
+testDetermineEpitope(@chains);
+
+sub testDetermineEpitope {
+    my($antigen, $light, $heavy) = @_;
+
+    $kabatnum->sequenceChain();
+    
+    #$antigen->determineEpitope();
+}
+
+sub testAtomContacting{
+    my $atomA = atom->new(x => 1, y => 2, z => 3);
+    my $atomB = atom->new(x => 1, y => 2.5, z => 3);
+
+    is($atomA->contacting($atomB, 4), 1, "contacting atoms detected okay");
+}
 
 sub testSeqRangeAtoms {
 

@@ -28,6 +28,8 @@ $testObj->getOutput();
 $testObj->input(getTestChain());
 $testObj->sequenceChain();
 
+is($testObj->input->atom_array->[$testObj->input->resid_index->{"H52"}->{'C'}]->is_CDR, 1);
+
 sub getTestChain {
     my $chain = chain->new(pdb_file => "1afv.pdb",
                            pdb_code => "1afv",
