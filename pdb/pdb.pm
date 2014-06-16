@@ -1522,18 +1522,12 @@ sub isInContact {
             }
         };
     }
-
-    print @allAtoms;
     
     my $cContacts = pdb::chaincontacts->new(input => \@allAtoms);
     my $contResults = $cContacts->getOutput();
 
     my $contactAref = $contResults->chain2chainContacts([$self], $chainAref);
 
-    use Data::Dumper;
-    print "DEBUG\n";
-    print Dumper $contactAref;
-    
     if (scalar @{$contactAref} >= $contactMin) {
         return 1;
     }
