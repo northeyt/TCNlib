@@ -318,6 +318,14 @@ sub testIsInContact {
 
     is($A->isInContact([$L, $H]), 1, "isInContacts finds contact ok");
     is($B->isInContact([$L, $H]), 0, "isInContacts finds no contact ok");
+
+    my @allAtoms = (@{$L->atom_array()}, @{$H->atom_array()});
+    #print @allAtoms;
+    is($A->isInContact(\@allAtoms), 1,
+       "isInContacts finds contact ok with atom array");
+    is($B->isInContact(\@allAtoms), 0,
+       "isInContacts finds no contact ok with atom array");
+    
 }
 
 

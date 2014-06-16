@@ -153,14 +153,22 @@ sub chain2chainContacts {
     my @groupA = @{$groupA};
     my @groupB = @{$groupB};
     
-    # If any input is a chain then get chain id
+    # If any input is a chain or atom then get chain id
     foreach my $group (\@groupA, \@groupB) {
         for (my $i = 0 ; $i < @{$group} ; $i++) {
             try {
+                # Chain
                 $group->[$i] = $group->[$i]->chain_id();
             }
             catch  {
-                # No need to anything, will assume var is a chain id string
+                try {
+                    # Atom
+                    $group->[$i] = $group->[$i]->chainID();
+                }
+                catch {
+                    # No need to do anything, will assume var is a chain id
+                    # string
+                };
             };
         }
     }

@@ -1221,6 +1221,7 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use types;
 use Carp;
+use TryCatch;
 
 use pdb::pdbsws;
 use pdb::idabchain;
@@ -1503,15 +1504,36 @@ sub isInContact {
 
     # Create array of atoms from all chains
     my @allAtoms = ();
-    foreach my $chain ($self, @{$chainAref}) {
-        push(@allAtoms, @{$chain->atom_array()});
+    
+    foreach my $ele ($self, @{$chainAref}) {
+        try {
+            my $chain = $ele;
+            push(@allAtoms, @{$chain->atom_array()});
+        }
+        catch ($err) {
+            # If user has passed a ref to an array containing
+            # atoms, rather than chains, push atom onto array
+            if (ref $ele eq 'atom') {
+                my $atom = $ele;
+                push(@allAtoms, $atom);
+            }
+            else {
+                croak $err;
+            }
+        };
     }
+
+    print @allAtoms;
     
     my $cContacts = pdb::chaincontacts->new(input => \@allAtoms);
     my $contResults = $cContacts->getOutput();
 
     my $contactAref = $contResults->chain2chainContacts([$self], $chainAref);
 
+    use Data::Dumper;
+    print "DEBUG\n";
+    print Dumper $contactAref;
+    
     if (scalar @{$contactAref} >= $contactMin) {
         return 1;
     }
