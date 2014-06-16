@@ -250,9 +250,7 @@ sub get_patches {
 
     my($pc_errors, $patch_centres) = $pdb_obj->patch_centres();
     
-    foreach my $atom_index ( @{$patch_centres} ) {
-
-        my $cent_atom = $pdb_obj->atom_array->[$atom_index];
+    foreach my $cent_atom ( @{$patch_centres} ) {
 
         my %mkp_arg
             = ( makepatch_file => $makepatch,

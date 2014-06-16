@@ -1,0 +1,7 @@
+* Tasks
+** TODO Extend determineEpitope
+Either:
+1. Rename determineEpitope to determineEptiopeCore. Can determineEpitope then 
+call determineEpitopeCore and extend somehow?
+2. Add extra parameter to determineEpitope that allows checking for non-core 
+residues.

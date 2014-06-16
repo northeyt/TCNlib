@@ -10,6 +10,7 @@ use Math::MatrixReal;
 use Statistics::PCA;
 
 use pdb::rotate2pc qw(:all);
+use pdb::pdbFunctions;
 
 use TCNPerlVars;
 use GLOBAL qw( three2one_lc );
@@ -39,244 +40,195 @@ has 'parent' => (
     predicate => 'has_parent',
 );
 
+# Default contact threshold - if one side of patch has < threshold
+# contacts then it is considered a surface side and a patch order for
+# that side will be returned
+has 'threshold' => (
+    is => 'rw',
+    isa => 'Int',
+    default => 4,
+);
+
+# Holds hash of orginal atom co-ordinates, so that co-ordinates can be reset
+# if error occurs, etc
+has 'orig_coords' => (
+    is => 'rw',
+    isa => 'HashRef',
+    builder => '_build_orig_coords',
+    lazy => 1,
+);
 
 # Methods
 
 sub patch_order {
     my $self = shift;
 
-    # If patch only contains one, two, or three residues
-    if ( scalar keys %{ $self->patch->resid_index } < 4 ){
-
-        my @simple_residue_order = ();
-        
-        my $central_atom = $self->patch->central_atom;
-
-        push( @simple_residue_order, $central_atom->resName() );
-        
-        foreach my $resid ( keys %{ $self->patch->resid_index() } ) {
-            
-            my %atom_names = %{ $self->patch->resid_index->{$resid} };
-            
-            my $index = [ values %atom_names ]->[0];
-            my $p_atom = $self->patch->atom_array->[$index];
-            
-            next if $p_atom->resid eq $central_atom->resid;
-            
-            push( @simple_residue_order, $p_atom->resName() );
-        }
-
-        my @aacid_order = ();
-        
-        foreach my $resName (@simple_residue_order){
-            my $onelc = eval { three2one_lc($resName) };
-            $onelc = 'X' if ! $onelc;
-            push(@aacid_order, $onelc);
-        }
-        my $string = join( '', @aacid_order );
-        return $string;
+    # If patch only contains one, two, or three residues, calculate simple
+    # patch order
+    if (scalar keys %{ $self->patch->resid_index } < 4){
+        return $self->_simplePatchOrder($self);
     }
-    
-    # Default contact threshold - if one side of patch has < threshold
-    # contacts then it is considered a surface side and a patch order for
-    # that side will be returned
-    my $threshold = 4;
-    
-    if (@_){
-        croak "Args must be passed as a hash ref"
-            if ref $_[0] ne 'HASH';
 
-        my %arg = %{ $_[0] };
-
-        if ( exists $arg{threshold} ){
-            croak "Threshold must be a positive integer"
-                unless abs( int $arg{threshold} ) eq $arg{threshold};
-
-            $threshold = $arg{threshold};
-        }
-    };
-    
     croak "This method requires a parent pdb or chain object"
         if ! $self->has_parent;
 
-
-    # Keep record of all original parent atom co-ords to reset to later
-    my %orig_coords = ();
-    foreach my $atom ( @{ $self->parent->atom_array() } ) {
-        $orig_coords{ $atom->serial() }
-            = { x => $atom->x(), y => $atom->y(), z => $atom->z() }; 
-    }
-    
-    # Avoid inclusion of solvent atoms in all hashes
-    
+    # Get surface, non-solvent atoms of chain   
     my ($surface_errors, $surface_atoms) = $self->_surface_atoms;
 
-    my %no_ASA_atom = ();
-    
     # Return error if any patch atoms do not have ASA defined
-    foreach my $error ( @{$surface_errors} ) {
-        if ( $error->type() eq 'atom_no_ASAm' ) {
-            my $atom = $error->data->{atom};
-            $no_ASA_atom{ $atom->serial() } = $atom;
-        }
-    }
-    
-    $surface_atoms = [ grep { ! $_->is_solvent() } @{ $surface_atoms } ];
+    my %no_ASA_atom = _getNoASAAtomsHash(@{$surface_errors});
    
+    # Hash all atoms of parent
     my %all_atom
         = map { $_->serial => $_ }
             grep { ! $_->is_solvent() } @{ $self->parent->atom_array };
-        
+
+    # Hash all atoms of patch
     my %patch_atom
         = map { $_->serial => $all_atom{$_->serial} }
             @{ $self->patch->atom_array };
 
-    foreach my $serial ( keys %patch_atom ) {
-        if ( grep /^$serial$/, keys %no_ASA_atom ) {
-            my $message
-                = "patch desc: patch atom " . $serial . " has no ASA value";
+    # Return error if a patch atom has no ASA value
+    my $ASACheck = $self->_checkPatchASAsError(\%patch_atom, \%no_ASA_atom);
 
-            my $atom = $patch_atom{$serial};
-            
-            my $error = local::error->new( message => $message,
-                                           type => 'patch_atom_no_ASA',
-                                           data => { atom => $atom }, );
-
-            $self->reset_parent_coords(\%orig_coords);
-            return $error;
-        }
-    }
+    return $ASACheck if $ASACheck;
     
+    # Get patch surface atoms
     my %patch_surf_atom
         = map { $_->serial => $_ }
             grep ( defined $patch_atom{$_->serial}, @{ $surface_atoms } );
-    
+
+    # Get all non patch atoms
     my %nonpatch_atom
         = map { $all_atom{$_}->serial => $all_atom{$_} }
             grep( ! defined $patch_atom{$_}, keys %all_atom );
 
-    # Set central atom to origin
-    my %cent_atom_coord = ( x => $self->patch->central_atom->x(),
-                            y => $self->patch->central_atom->y(),
-                            z => $self->patch->central_atom->z(), );
-    
-    foreach my $atom (values %all_atom) {
-        foreach my $coord ( 'x', 'y', 'z') {
-            $atom->$coord( $atom->$coord - $cent_atom_coord{$coord} ); 
-        }
-    }
-    
-    # Get rot matrix for transform  x and y ->  patch PC1 and PC2
-    my $RM = rotate2pc::rotate2pc( map { vector($_->x, $_->y, $_->z) }
-                            values %patch_surf_atom );
-
-    # Transform all atoms
-    foreach my $atom (values %all_atom) {
-        my $rVect = vector($atom->x, $atom->y, $atom->z) * $RM;
-        
-        foreach my $coord ('x', 'y', 'z') {
-            $atom->$coord($rVect->$coord);
-        }
-    }
-    
+    # Transform all points so that patch centre lies at origin and PC1 and PC2
+    # of patch lay on x and y axis
+    $self->centrePatch([values %all_atom], [values %patch_surf_atom]);
+       
+    # Get number of positive and negative-z contacts
+    # (i.e. number of contacts on either face of patch)
     my($posz_contacts, $negz_contacts)
-        = $self->_surface_sides( \%patch_surf_atom, \%all_atom );
+        = $self->_surface_sides(\%patch_surf_atom, \%all_atom);
 
-    if ( ref $posz_contacts eq 'local::error' ) {
-        my $message
-            = "Could not determine surface side: "
-             . $posz_contacts->message;
+    # Return error if _surface_sides returned error
+    my $surfaceSidesError = $self->_checkSurfaceSidesError($posz_contacts);
+    return $surfaceSidesError if $surfaceSidesError;
 
-        my $error = local::error->new( message => $message,
-                                       type => 'surface_side',
-                                       parent => $posz_contacts );
-
-        $self->reset_parent_coords(\%orig_coords);
-        return $error;
-    }
-
-    my @return = ();
-    
+    # Get order of resids
     my @residue_order = $self->_residue_order;
 
-    my @aacid_order = ();
+    my @aacid_order = $self->residTo1lc(@residue_order);
 
-    foreach my $res (@residue_order) {
-        
-        my %atom_names = %{ $self->patch->resid_index->{$res} };
-        
-        my $index = [ values %atom_names ]->[0];
-        my $resName = $self->patch->atom_array->[$index]->resName();
+    # Stringify patch order
+    my $string = join('', @aacid_order);
+    my $rev_string = reversePatchOrder($string);
 
-        my $onelc = eval { three2one_lc($resName) };
-        $onelc = 'X' if ! $onelc;
-        push(@aacid_order, $onelc);
-    }   
+    # Determine patch orders strings that represent the surface-facing
+    # sides of patch
+    my @surfaceFacingPOrders
+        = $self->_surfaceFacingPOrders($string, $rev_string,
+                                       $posz_contacts, $negz_contacts);
 
-    my $string = join( '', @aacid_order );
+    # Reset parent co-ordinates
+    $self->reset_parent_coords();
     
-    my $rev_string
-        = shift (@aacid_order) . reverse ( join( '', @aacid_order) );
-    
-    if (  abs ( scalar @{$posz_contacts} - scalar @{$negz_contacts} )
-              < $threshold ) {
-        push( @return, ($string, $rev_string) );
-        
-    }elsif ( scalar @{$posz_contacts} < scalar @{$negz_contacts} ) {
-        push( @return, $string );
-    }
-    else {
-        push( @return, $rev_string );
-    }
-    
-    $self->reset_parent_coords(\%orig_coords);
-    return @return;
+    return @surfaceFacingPOrders;
 }
 
+# This subroutine determines small patch orders (< 4 residues)
+sub _simplePatchOrder {
+    my $self = shift;
+     
+    my @simple_residue_order = ();
+    
+    my $central_atom = $self->patch->central_atom;
+    
+    push( @simple_residue_order, $central_atom->resName() );
+        
+    foreach my $resid ( keys %{ $self->patch->resid_index() } ) {
+        
+        my %atom_names = %{ $self->patch->resid_index->{$resid} };
+        
+        my $p_atom = [values %atom_names]->[0];
+        
+        next if $p_atom->resid eq $central_atom->resid;
+        
+        push(@simple_residue_order, $p_atom->resName());
+    }
+    
+    my @aacid_order = ();
+    
+    foreach my $resName (@simple_residue_order){
+        my $onelc = eval { three2one_lc($resName) };
+            $onelc = 'X' if ! $onelc;
+        push(@aacid_order, $onelc);
+    }
+    my $string = join( '', @aacid_order );
+    return $string;
+}
+
+sub centrePatch {
+    my $self = shift;
+    my ($allAtomAref, $pSurfAtomAref) = @_;
+    
+    $self->centralAtom2Origin($allAtomAref);
+
+    # Get rot matrix for transforming x and y unit vectors to patch PC1 and PC2
+    my $RM = rotate2pc::rotate2pc( map { vector($_->x, $_->y, $_->z) }
+                            @{$pSurfAtomAref} );
+
+    # Transform all atoms using rotation matrix
+    pdb::pdbFunctions::rotateAtoms($RM, $allAtomAref);
+
+}
+
+# Gets non-solvent surface atoms of parent pdb/chain
+# Returns refs to error array and surface atom array
+# e.g. ($errorAref, $surfaceAtomAref) =  $self->_surface_atoms() 
 sub _surface_atoms {
     my $self = shift;
 
     my @surface_atoms = ();
     my @errors = ();
-    
-    if ( ! $self->parent->has_read_ASA ) {
+
+    # Run read_ASA if it has not been run and check for any errors
+    if (! $self->parent->has_read_ASA) {
         my $ret = $self->parent->read_ASA();
 
-        if ( ref $ret eq 'local::error' ) {
+        if (ref $ret eq 'local::error') {
             push(@errors, $ret);
         }
-        elsif ( ref $ret eq 'ARRAY' ){
-            foreach ( @{$ret} ) {
-                if ( ref $_ eq 'local::error' ){
+        elsif (ref $ret eq 'ARRAY'){
+            foreach (@{$ret}) {
+                if (ref $_ eq 'local::error'){
                     push(@errors, $_);
                 }
             }
         }
     }
     
-    foreach my $atom ( @{ $self->parent->atom_array } ) {
-
-        if ( ! $atom->has_ASAm() ){
+    foreach my $atom (@{$self->parent->atom_array}) {
+        if (! $atom->has_ASAm()){
             my $message
                 = "atom " . $atom->serial() . " does not have ASAm assigned";
             
-            my $error = local::error->new( message => $message,
-                                           type => 'atom_no_ASAm',
-                                           data => { atom => $atom, }
-                                       );
+            my $error = local::error->new(message => $message,
+                                          type => 'atom_no_ASAm',
+                                          data => {atom => $atom});
             push(@errors, $error);
             next;
         }
         
-        if ( $atom->ASAm > 0 ) {
+        if ($atom->ASAm > 0 && ! $atom->is_solvent()) {
             push(@surface_atoms, $atom);
         }
     }
-    return ( \@errors, \@surface_atoms );
+    return (\@errors, \@surface_atoms);
 }
 
 # Returns number of atoms contacting either side of patch
-# 
 sub _surface_sides {
     my ( $self, $ps_atom_h, $all_atom_h ) = @_;
 
@@ -349,14 +301,17 @@ sub _surface_sides {
             }
         }
     }
-    return ( \@zpos, \@zneg );
+    return (\@zpos, \@zneg);
 }
 
+# This method returns resids of patch, ordered by angle around the xy plane
+# (the central residue is always the first in the array)
+# e.g. ($centralResidue, @orderedPeripheralResidues) = $self->_residue_order()
 sub _residue_order {
     my $self = shift;
     
     my @calpha
-        = map { $self->parent->atom_array->[$self->parent->resid_index->{$_}->{CA}] }
+        = map { $self->parent->resid_index->{$_}->{CA} }
             keys %{ $self->patch->resid_index };
     
     my %angle = ();
@@ -404,10 +359,8 @@ sub _true_angle_from_x {
 
 sub reset_parent_coords {
     my $self = shift;
-    my $orig_coords = shift;
+    my $orig_coords = $self->orig_coords();
 
-    #return 1; #TEST
-    
     foreach my $atom ( @{ $self->parent->atom_array() } ) {
         foreach my $coord ( qw ( x y z ) ) {
             $atom->$coord( $orig_coords->{$atom->serial}->{$coord} );
@@ -415,11 +368,157 @@ sub reset_parent_coords {
     }
 }
 
+sub residTo1lc {
+    my $self = shift;
+    
+    my @resids = @_;
+    my @oneLetterCodes = ();
+    
+    foreach my $res (@resids) {
+        
+        my @atoms = values %{$self->patch->resid_index->{$res}};
+
+        my $resName = $atoms[0]->resName();
+        
+        my $onelc = eval { three2one_lc($resName) };
+        $onelc = 'X' if ! $onelc;
+        push(@oneLetterCodes, $onelc);
+    }
+    return @oneLetterCodes;
+}
+
+# This subroutine "flips" a patch order string, so that the order of the
+# peripheral residues is reversed
+sub reversePatchOrder{
+    my $string = shift;
+
+    my @residues = split("", $string);
+    
+    my $centralResidue = shift @residues;
+
+    my $revString = $centralResidue . reverse (join('', @residues));
+
+    return $revString;
+}
+
+sub _surfaceFacingPOrders {
+    my $self = shift;
+    my($pOrder, $revpOrder, $posZConts, $negZConts) = @_;
+
+    my $threshold = $self->threshold();
+    my @return = ();
+    
+    if (abs (scalar @{$posZConts} - scalar @{$negZConts}) < $threshold) {
+        # Difference between contacts on either side of patch is not enough
+        # to choose one side over the other: return both
+        push(@return, ($pOrder, $revpOrder));
+        
+    }elsif (scalar @{$posZConts} < scalar @{$negZConts}) {
+        push(@return, $pOrder);
+    }
+    else {
+        push(@return, $revpOrder);
+    }
+    
+    return @return;
+}
+
+
+# Transforms all atoms passed in array so that patch central atom lies at
+# origin (0,0,0)
+sub centralAtom2Origin {
+    my $self = shift;
+    my $allAtomAref = shift;
+
+    # Transform all atom co-ordinates so patch central atom is at origin
+    my %cent_atom_coord = (x => $self->patch->central_atom->x(),
+                           y => $self->patch->central_atom->y(),
+                           z => $self->patch->central_atom->z(),);
+
+    foreach my $atom (@{$allAtomAref}) {
+        foreach my $coord ( 'x', 'y', 'z') {
+            $atom->$coord( $atom->$coord - $cent_atom_coord{$coord} ); 
+        }
+    }
+}
+
+# Check return value of _surface_sides for errors. If error has been returned,
+# returns error. Returns 0 if not.
+sub _checkSurfaceSidesError {
+    my $self = shift;
+    my $surfaceSidesReturn = shift;
+    
+    if ( ref $surfaceSidesReturn eq 'local::error' ) {
+        my $message
+            = "Could not determine surface side: "
+                . $surfaceSidesReturn->message;
+        
+        my $error = local::error->new(message => $message,
+                                      type => 'surface_side',
+                                      parent => $surfaceSidesReturn);
+        
+        $self->reset_parent_coords();
+        return $error;
+    }
+    else {
+        return 0;
+    }
+}
+
+sub _checkPatchASAsError {
+    my $self = shift;
+    my($pAtomHref, $noASAatomHref) = @_;
+
+    foreach my $serial (keys %{$pAtomHref}) {
+        if (exists $noASAatomHref->{$serial}) {
+            my $message
+                = "patch desc: patch atom " . $serial . " has no ASA value";
+            
+            my $atom = $pAtomHref->{$serial};
+            
+            my $error = local::error->new( message => $message,
+                                           type => 'patch_atom_no_ASA',
+                                           data => { atom => $atom }, );
+
+            $self->reset_parent_coords();
+            return $error;
+        }
+    }
+    return 0;
+}
+
+sub _build_orig_coords {
+    my $self = shift;
+
+    my %orig_coords = ();
+    foreach my $atom ( @{ $self->parent->atom_array() } ) {
+        $orig_coords{ $atom->serial() }
+            = { x => $atom->x(), y => $atom->y(), z => $atom->z() }; 
+    }
+    return \%orig_coords;
+}
+
+# Given an array of errors returned by _surface_atoms, this sub returns a hash
+# of form serial -> atom where atoms have no ASAm value
+sub _getNoASAAtomsHash {
+    my @surface_atoms_errors = @_;
+
+    my %no_ASA_atom = ();
+    
+    foreach my $error (@surface_atoms_errors) {
+        if ( $error->type() eq 'atom_no_ASAm' ) {
+            my $atom = $error->data->{atom};
+            $no_ASA_atom{ $atom->serial() } = $atom;
+        }
+    }
+    return %no_ASA_atom;
+}
+
 __PACKAGE__->meta->make_immutable;
 
 1;
 __END__
-1
+
 =head1 NAME
 
 pdb::patch_desc - object to generate descriptions for patches

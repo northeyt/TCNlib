@@ -14,7 +14,6 @@ use Carp;
 has 'pdb_code' => (
     is => 'rw',
     isa => 'ValidPDB',
-    required => 1
 );
 
 for my $name ( 'pdb', 'xmas' ) {

@@ -29,6 +29,8 @@ BEGIN { use_ok('pdb'); }
 # its man page ( perldoc Test::More ) for help writing this test script.
 
 
+### Tests ######################################################################
+
 # Atom object tests
 my $ATOM_line
     = "ATOM     13  CG  LEU A 148      13.227  45.000  23.178  1.00 47.53           C";
@@ -130,8 +132,8 @@ $mterm_pdb->atom_array();
 
 # is_terminal atom attribute
 
-my $term_atom  = $pdb->atom_array->[ $pdb->resid_index->{A362}->{CB}  ];
-my $term_atom2 = $pdb->atom_array->[ $pdb->resid_index->{B140}->{OD2} ];
+my $term_atom  = $pdb->resid_index->{A362}->{CB};
+my $term_atom2 = $pdb->resid_index->{B140}->{OD2};
 
 cmp_deeply( [ $term_atom->is_terminal, $term_atom2->is_terminal ], [ 1, 1 ],
             "terminal atom labelled");
@@ -289,14 +291,128 @@ testSeqRangeAtoms();
 testAtomContacting();
 
 # test chain->determineEpitope
-testDetermineEpitope(@chains);
+ok(testDetermineEpitope(@chains), "determineEpitope works ok");
+
+# test chain->determineEpitope2
+ok(testDetermineEpitope2(@chains),
+   "determineEpitope2 replicates determineEpitope behaviour");
+
+# Test getAbPairs()
+testGetAbPairs($abComplex);
+
+# Test isInContact
+testIsInContact($abComplex);
+
+ok($chains[0]->rotate2PCAs(qw(A95 A96 A97 A98 A105 A103)),
+   "rotate2PCAs works ok");
+
+ok($chains[0]->rotate2Face(), "rotate2face works ok");
+
+### Subroutines ################################################################
+
+sub testIsInContact {
+    my $pdb = shift;
+
+    # Get chains
+    my($A, $L, $H, $B, $M, $K) = $pdb->create_chains(qw(A L H B M K));
+
+    is($A->isInContact([$L, $H]), 1, "isInContacts finds contact ok");
+    is($B->isInContact([$L, $H]), 0, "isInContacts finds no contact ok");
+}
+
+
+sub testGetAbPairs {
+    my $pdb = shift;
+
+    my($combAref, $unpairedAref, $scFvAref) = $pdb->getAbPairs();
+
+    # Unpaired and scFv array should be empty
+    return 0 if @{$unpairedAref} || @{$scFvAref};
+
+    my @expCombs = ("HL", "KM");
+
+    my @retCombs = ();
+    
+    foreach my $comb (@{$combAref}) {
+        push(@retCombs, $comb->[0]->chain_id() . $comb->[1]->chain_id());
+    }
+
+    cmp_bag(\@expCombs, \@retCombs, "getAbPairs works ok");
+}
+
+
+sub testDetermineEpitope2 {
+    my($antigen, $light, $heavy) = @_;
+
+    clearEpitopeFlag($antigen);
+    numberAbChains($light, $heavy);
+
+    # This will label antigen epitope atoms via flag $atom->is_epitope()
+    $antigen->determineEpitope2([$light, $heavy], 4, 4);
+    
+    my @epitopeResSeqs = coreEpitope();
+
+    return checkEpitopeLabels($antigen, @epitopeResSeqs) ? 1 : 0;
+}
 
 sub testDetermineEpitope {
     my($antigen, $light, $heavy) = @_;
 
-    $kabatnum->sequenceChain();
+    clearEpitopeFlag($antigen);
+    numberAbChains($light, $heavy);
+
+    # This will label antigen epitope atoms via flag $atom->is_epitope()
+    $antigen->determineEpitope([$light, $heavy]);
     
-    #$antigen->determineEpitope();
+    my @epitopeResSeqs = coreEpitope();
+    
+    return checkEpitopeLabels($antigen, @epitopeResSeqs) ? 1 : 0;
+}
+
+sub checkEpitopeLabels {
+    my($antigen, @epitopeResSeqs) = @_;
+
+    my %epitopeResSeqs = map { $_ => 1 } @epitopeResSeqs;
+    
+    foreach my $atom (@{$antigen->atom_array()}){
+        if (exists $epitopeResSeqs{$atom->resSeq()}){
+            # Epitope atoms must be labelled is_epitope
+            if (! $atom->is_epitope()){
+                print "Epitope atom not labelled as epitope!\n$atom";
+                return 0;
+            }
+            
+        }
+        else {
+            # Non epitope atoms must not be labelled is_epitope
+            if ($atom->is_epitope()) {
+                print "Non-epitope atom labelled as epitope!\n$atom";
+                return 0;
+            }
+            
+        }
+    }
+    return 1;
+}
+
+sub coreEpitope {
+    return (qw(72 101 81 77 74 100 82 78 85 83 76 102 79 75));
+}
+
+sub clearEpitopeFlag {
+    my $antigen = shift;
+
+    foreach my $atom (@{$antigen->atom_array()}) {
+        $atom->is_epitope(0);
+    }
+}
+
+sub numberAbChains {
+    my @abChains = @_;
+
+    foreach my $abChain (@abChains) {
+        $abChain->kabatSequence();
+    }
 }
 
 sub testAtomContacting{

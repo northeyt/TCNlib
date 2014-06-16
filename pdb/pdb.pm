@@ -11,8 +11,13 @@ use Carp;
 use Scalar::Util qw(looks_like_number);
 use TryCatch;
 
+use Math::VectorReal qw(:all);
+use Math::MatrixReal;
+use Math::Trig;
+
 use pdb::xmas2pdb;
 use pdb::getresol;
+use pdb::rotate2pc;
 
 # Subtypes
 
@@ -94,7 +99,7 @@ has 'atom_index' => (
 );
 
 has 'terminal_atom_index' => (
-    isa => 'ArrayRef[Int]',
+    isa => 'ArrayRef[atom]',
     is  => 'rw',
     default => sub { [] },
 );
@@ -478,12 +483,9 @@ sub _build_atom_index {
     my $self = shift;
 
     my %hash = ();
-    
-    for (my $i = 0 ; $i <  @{ $self->atom_array() } ; ++$i ) {
-        
-        my $atom = $self->atom_array->[$i];
-        my $index = $i;
-        
+
+    foreach my $atom (@{$self->atom_array()}) {
+   
         my $chainID = $atom->chainID();
         my $resSeq  = $atom->resSeq();
         my $name    = $atom->name();
@@ -496,10 +498,10 @@ sub _build_atom_index {
             $hash{$chainID}->{$resSeq} = {};
         };
 
-        $hash{$chainID}->{$resSeq}->{$name} = $index;
+        $hash{$chainID}->{$resSeq}->{$name} = $atom;
     }
 
-    return { %hash };
+    return \%hash;
     
 }
 
@@ -520,7 +522,7 @@ sub _build_resid_index {
     croak "Nothing indexed while attempting to index by resid"
         if ! %hash;
 
-    return {%hash};
+    return \%hash;
 }
 
 sub get_sequence {
@@ -561,9 +563,9 @@ sub get_sequence {
     my @residues = ();
     
     # For each residue, get resName. Avoid solvent residues
-    foreach my $index_array (@residue_atoms) {
+    foreach my $atom_array (@residue_atoms) {
 
-        my $atom = $self->atom_array->[ $index_array->[0] ];
+        my $atom = $atom_array->[0];
         next if $atom->is_solvent();
         
         my $res_name = $atom->resName();
@@ -624,8 +626,8 @@ sub sorted_atom_arrays {
     foreach my $chain_id (sort {$a cmp $b} keys %{$self->atom_index()}) {
         my $resSeqHref = $self->atom_index->{$chain_id};
         foreach my $resSeq (sort {compare_resSeqs($a,$b)} keys % {$resSeqHref}){
-            my @atom_indices = values %{$resSeqHref->{$resSeq}};
-            my @atoms = map {$self->atom_array()->[$_]} @atom_indices;
+            my @atoms = values %{$resSeqHref->{$resSeq}};
+
             my @sorted_atoms = sort_atoms(@atoms);
             push(@atom_arrays, \@sorted_atoms);
         }
@@ -787,7 +789,7 @@ sub patch_centres {
         foreach my $resSeq ( keys %chain_h ) {
             my %atom_h = %{ $chain_h{$resSeq} };
 
-            my @atom_indices = ();
+            my @atoms = ();
 
             my $CA_flag = 0;
             
@@ -795,12 +797,11 @@ sub patch_centres {
 
                 $CA_flag = 1 if $atom_name eq 'CA';
                 
-                my $index = $atom_h{$atom_name};
-                my $atom  = $self->atom_array->[$index];
+                my $atom = $atom_h{$atom_name};
 
                 next if $atom->is_solvent();
                 
-                push( @atom_indices, $index );
+                push( @atoms, $atom );
 
             }
 
@@ -811,7 +812,7 @@ sub patch_centres {
 
             my $ret = $self->_is_patch_centre( $arg{ASA_threshold},
                                                        'ASAc',
-                                                       @atom_indices );
+                                                       @atoms );
             if ( ref $ret eq 'local::error' ) {
                 my $message
                     =  "Could not determine if residue " . $resSeq
@@ -822,16 +823,14 @@ sub patch_centres {
                     type => 'no_patch_centre_value_for_residue',
                     data => { residue => $resSeq,
                               chain_id => $chain_h,
-                              atoms =>
-                                  [ map { $self->atom_array->[$_] }
-                                      @atom_indices ],
+                              atoms => [@atoms],
                           },
                     parent => $ret,
                 );
 
                 push(@errors, $error);
             }
-            elsif ( $ret != -1 ) {
+            elsif ($ret ne "-1" ) {
                 push( @central_atoms, $ret);
             }
         }
@@ -844,37 +843,36 @@ sub _is_patch_centre {
     my $self = shift;
     my $threshold = shift;
     my $attribute = shift;
-    my @indices = @_;
+    my @atoms = @_;
 
-    foreach my $index (@indices) {
+    foreach my $atom (@atoms) {
         my $predicate = "has_$attribute";
         
-            if( ! $self->atom_array->[$index]->$predicate() ){
+            if( ! $atom->$predicate() ){
                 my $message
                     =  "Could not determine patch centre status because "
-                      . "atom " . $self->atom_array->[$index]->serial
+                      . "atom " . $atom->serial
                       . " has no $attribute value";
                 
                 my $error = local::error->new(
                     message => $message,
                     type => "no_atom_$attribute" . "_set",
-                    data => { atom => $self->atom_array->[$index], },
+                    data => { atom => $atom, },
                 );
 
                 return $error;
             }        
     }
     
-    @indices
-        = sort {    $self->atom_array->[$b]->$attribute()
-                <=> $self->atom_array->[$a]->$attribute() } @indices;
+    @atoms
+        = sort {$b->$attribute() <=> $a->$attribute()} @atoms;
 
     my $total = 0;
 
-    map { $total += $self->atom_array->[$_]->$attribute() } @indices;
+    map { $total += $_->$attribute() } @atoms;
 
     if ($total >= $threshold) {
-        return $indices[0];
+        return $atoms[0];
     }
 
     return -1;
@@ -895,9 +893,7 @@ sub highestASA {
     croak "resid '$resid' was not found in resid index"
         if ! exists $self->resid_index->{$resid};
 
-    my @atoms
-        = map { $self->atom_array->[$_] }
-            values %{ $self->resid_index->{$resid} };
+    my @atoms = values %{ $self->resid_index->{$resid} };
     
     foreach my $atom (@atoms) {
         my $predicate = "has_$ASA_type";
@@ -949,10 +945,8 @@ sub map_resSeq2chainSeq {
     
     foreach my $resSeq ( sort { $a <=> $b } keys %{ $chain_id_h  } ) {
 
-        my $atom_index = [ values %{ $chain_id_h->{$resSeq} } ]->[0];
+        my $atom = [ values %{ $chain_id_h->{$resSeq} } ]->[0];
         
-        my $atom = $self->atom_array->[$atom_index];
-
         next if $atom->is_solvent();
         
         ++$chainSeq;
@@ -1021,8 +1015,205 @@ sub get_chain_ids {
     return \@chain_ids;
 }
 
-__PACKAGE__->meta->make_immutable;
+sub getAbPairs {
+    my $self = shift;
 
+    my @chains = $self->create_chains();
+
+    my %chainTypes = (Heavy => [], Light => [],
+                      antigen => [], scFv => []);
+
+    # Hash to keep track of which chains have be paired
+    my %paired = ();
+
+    # Hash chains by chain type
+    _hashChains(\@chains, \%chainTypes, \%paired);
+
+    # Get inter-chain contacts
+    my $cContacts = pdb::chaincontacts->new(input => $self);
+    my $cResult = $cContacts->getOutput();
+    
+    my @heavyLightCombs
+        = _heavyLightCombinations($chainTypes{Heavy}, $chainTypes{Light},
+                                  $cResult);
+    
+    # Sort heavy-light chain combinations by number of inter-chain contacts
+    @heavyLightCombs = sort { $b->[2] <=> $a->[2] } @heavyLightCombs;
+
+    my @finalCombinations = _getFinalCombinations(\@heavyLightCombs, \%paired);
+    
+    my @unpaired = ();
+
+    # Get those chains that were not paired
+    foreach my $chain ( @{$chainTypes{heavy}}, @{$chainTypes{light}} ) {
+        if ( ! $paired{$chain->chain_id()} ) {
+            push(@unpaired, $chain);
+        }
+    }
+    
+    # Return refs to arrays of:
+    #  final combinations, non-paired ab chains and  scFv chains
+    return(\@finalCombinations, \@unpaired, $chainTypes{scFv});
+}
+
+# This subroutine processes an array of heavy-light chain combinations to find
+# the set of pairs where each chain is only paired once and the sum of all
+# contacts is the highest possible
+sub _getFinalCombinations {
+    my($combAref, $pairedHref) = @_;
+
+    my @finalCombinations = ();
+    
+    foreach my $combination (@{$combAref}) {
+        my $heavy = $combination->[0]->chain_id();
+        my $light = $combination->[1]->chain_id();
+        # Check that neither heavy nor light has been paired already
+        unless ($pairedHref->{$heavy} || $pairedHref->{$light}) {
+            # Set chains to paired
+            $pairedHref->{$heavy} = 1;
+            $pairedHref->{$light} = 1;
+            
+            push(@finalCombinations, $combination);
+        }
+    }
+    return @finalCombinations;
+}
+
+
+# This subroutine hashes chain by abVariable type, into two hashes, in
+# preparation for pairing.
+# Input: refs to array of chains, hash for chain types,
+# hash for heavy/light chains (to track pairing)
+sub _hashChains {
+    my($chainsAref, $chainTypesHref, $pairedHref) = @_;
+    
+    foreach my $chain (@{$chainsAref}) {
+        my $chainType = $chain->isAbVariable();
+        if (! $chainType) {
+            $chainType = 'antigen';
+        }
+        elsif ($chainType eq 'Heavy' || $chainType eq 'Light') {
+            $pairedHref->{$chain->chain_id()} = 0;
+        }
+        push(@{$chainTypesHref->{$chainType}}, $chain);
+    }
+}
+
+# Given references to arrays of heavy and light chains and a chaincontacts
+# result for the pdb, returns an array of arrays with form:
+# ( [heavyChain, lightChain, numContacts], ... )
+sub _heavyLightCombinations {
+    my($heavyAref, $lightAref, $cResult) = @_;
+
+    my @heavyLightCombinations = ();
+    
+    # Get all combinations of heavy and light chains
+    foreach my $heavy (@{$heavyAref}) {
+        foreach my $light (@{$lightAref}) {
+            # Find number of contacts between heavy and light chain
+            my $residAref = $cResult->chain2chainContacts([$heavy], [$light]);
+            my $numContacts = scalar @{$residAref};
+
+            my $combinationAref = [$heavy, $light, $numContacts];
+          
+            push(@heavyLightCombinations, $combinationAref);
+        }
+    }
+    return @heavyLightCombinations;
+}
+
+# This method rotates atoms of the pdb so that the PC1 and PC2 of the atoms
+# lay on the x and y axes respectively. An array of atoms or resids can be
+# passed; in this case, the PC1 and PC2 of this subset of atoms (or atoms from
+# resids) can be used. 
+sub rotate2PCAs {
+    my $self = shift;
+    my @centering = @_;
+
+    my @centralAtoms = $self->_validateRotate2PCAsArgs(@centering);
+
+    # Centre pdb using all atoms if no centre atoms have been passed
+    if (! @centralAtoms) {
+        @centralAtoms = @{$self->atom_array()};
+    }
+    
+    # Find centre point of centralAtoms and move this point to origin
+    my($cx, $cy, $cz) = pdb::pdbFunctions::findAtomMean(@centralAtoms);
+
+    # Translate all so that centre point is at origin (0, 0, 0)
+    foreach my $atom (@{$self->atom_array()}) {
+        $atom->x($atom->x() - $cx);
+        $atom->y($atom->y() - $cy);
+        $atom->z($atom->z() - $cz); 
+    }
+
+    # Get rot matrix for transforming x and y unit vectors to
+    # centralAtoms PC1 and PC2
+    my @vectors = map { vector($_->x, $_->y, $_->z) }  @centralAtoms;
+    my $rotationMatrix = rotate2pc::rotate2pc(@vectors);
+
+    # Rotate all points using matrix
+    pdb::pdbFunctions::rotateAtoms($rotationMatrix, $self->atom_array());
+
+    return 1;
+}
+
+# This sub obtains an array of atoms from rotate2PCAs args
+sub _validateRotate2PCAsArgs {
+    my $self = shift;
+    
+    my @args = @_;
+    my @atoms = ();
+    
+    foreach my $ele (@args) {
+        if (ref $ele eq 'atom') {
+            push(@atoms, $ele);
+        }
+        # Is element a resid?
+        elsif (exists $self->resid_index->{$ele}) {
+            push(@atoms, values %{$self->resid_index->{$ele}});
+        }
+        else {
+            croak "Invalid arg '$ele' passed to rotate2PCAs: "
+                . "args must be atoms or valid resids";
+        }
+    }
+    return @atoms;
+}
+
+# This method checks the number of +z and -z atom co-ordinates and flips the pdb
+# 180degrees around the z axis so that the z axis points through the "body" of
+# the pdb; i.e. flips the pdb so that you are NOT looking through the body of
+# the pdb, if you are looking down the z axis
+sub rotate2Face {
+    my $self = shift;
+
+    my $zPlusCount = 0;
+    my $zMinusCount = 0;
+
+    # Get counts of atoms that have positive or minus z co-ordinates
+    foreach my $atom (@{$self->atom_array()}) {
+        abs $atom->z() == $atom->z() ? ++$zPlusCount : ++$zMinusCount;
+    }
+
+    if ($zPlusCount > $zMinusCount) {
+        # Rotate pdb 180 degrees around Z axis
+
+        # Get rotation matrix
+        my $RM = Math::MatrixReal->new_from_rows(
+            [ [cos(pi), -sin(pi), 0],
+              [sin(pi), cos(pi), 0],
+              [0, 0, 1] ]
+        );
+
+        # Rotate all atoms
+        pdb::pdbFunctions::rotateAtoms($RM, $self->atom_array());
+    }
+    return 1;
+}
+
+
+__PACKAGE__->meta->make_immutable;
 
 package chain;
 
@@ -1030,10 +1221,12 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use types;
 use Carp;
-use forks;
 
 use pdb::pdbsws;
 use pdb::idabchain;
+use pdb::kabatnum;
+use pdb::chaincontacts;
+
 use write2tmp;
 
 extends 'pdb';
@@ -1079,9 +1272,9 @@ sub _build_chain_length {
     my $count = 0;
 
     foreach my $resid (keys %resid_h) {
-        my @atom_index = values %{ $resid_h{$resid} };
+        my @atoms = values %{ $resid_h{$resid} };
         
-        ++$count if ! $self->atom_array->[ $atom_index[0] ]->is_solvent();
+        ++$count if ! $atoms[0]->is_solvent();
     }
     return $count;
 }
@@ -1132,13 +1325,23 @@ sub isAbVariable {
     }
 }
 
+# This method runs kabatnum using pdb::kabatnum
+sub kabatSequence {
+    my $self = shift;
+
+    my $kabatnum = pdb::kabatnum->new(input => $self);
+
+    $kabatnum->sequenceChain();
+}
+
+
 # This method determines the atoms that are within a given distance threshold
 # (default 4A) of the CDRs of the given antibody chains. The antibody chain
 # CDR atoms must be labelled as such (i.e. $atom->is_CDR() == 1)
 # INPUT: ref to array of antibody chains, distance threshold (optional)
 # e.g. $chain->determineEpitope(\abChains, 4);
 sub determineEpitope {
-    my($self, $abChainsAref, $distance) = shift;
+    my($self, $abChainsAref, $distance) = @_;
 
     # Default distance if not supplied by user
     $distance = 4 if ! $distance;
@@ -1149,23 +1352,127 @@ sub determineEpitope {
         push(@CDRAtoms, $chain->getCDRAtoms());
     }
 
-    foreach my $atom (@{$self->atom_array()}) {
-        my $process
-            = async {$atom->is_epitope($atom->anyContacting(\@CDRAtoms, $distance))};
-        
-        $process->join();
+    # Create array of CDR atoms and antibody chain atoms
+    my @allAtoms = (@CDRAtoms, @{$self->atom_array()});
+
+    # Test for contacts
+    my $chainContacts = pdb::chaincontacts->new(input => \@allAtoms);
+    my $cContactResult = $chainContacts->getOutput();
+
+    # Get resids of antigen residues that are in contact with ab chains
+    my $residAref
+        = $cContactResult->chain2chainContacts($abChainsAref, [$self]);
+
+    # Label atoms from resids as epitope
+    $self->labelEpitopeAtoms(@{$residAref});
+}
+
+
+# This method determines the atoms that are within a given distance threshold
+# (default 4A) of the CDRs of the given antibody chains. The antibody chain
+# CDR atoms must be labelled as such (i.e. $atom->is_CDR() == 1).
+#
+# Non-CDR contacting residues can be included by passing an additional, larger
+# distance parameter. This distance parameter is used to find antigen residues
+# close to the CDRs that are also in contact with any antibody residue. The
+# larger the second distance threshold, the larger the epitope.
+# INPUT: ref to array of antibody chains, two distance thresholds (optional)
+# e.g. $chain->determineEpitope(\abChains, 4, 8);
+sub determineEpitope2 {
+    my($self, $abChainsAref, $normDistance, $exDistance) = @_;
+
+    # Default distances if not supplied by user.
+    $normDistance = 4 if ! $normDistance;
+    $exDistance = 4 if ! $exDistance;
+    
+    ## STEP 1: CDR Atoms - Ag Chain Contacts, EXTENDED Distance 
+    # Get array of CDR atoms from antibody chains
+    my @CDRAtoms = ();
+    foreach my $chain (@{$abChainsAref}) {
+        push(@CDRAtoms, $chain->getCDRAtoms());
     }
 
-    my @epitopeAtoms = ();
-    # Create array of epitope atoms
-    foreach my $atom (@{$self->atom_array()}) {
-        if ($atom->is_epitope()) {
-            push(@epitopeAtoms, $atom);
+    # Create array of CDR atoms and antigen chain atoms
+    my @CDRAndAgAtoms = (@CDRAtoms, @{$self->atom_array()});
+
+    # Test for contacts between CDRs and antigen
+    my $chainContacts = pdb::chaincontacts->new(input => \@CDRAndAgAtoms,
+                                                threshold => $exDistance);
+    my $exContactResult = $chainContacts->getOutput();
+
+    # STEP 2: All Ab Atoms - Ag Chain Contacts, NORMAL Distance
+    
+    # Create array of all atoms (all ab + antigen)
+    my $allAtomsAref
+        = pdb::pdbFunctions::generateAtomAref($self, @{$abChainsAref});
+
+    # Test for contacts between whole ab chains and antigen, NORMAL distance
+    $chainContacts->input($allAtomsAref);
+    $chainContacts->threshold($normDistance);
+    
+    my $allcContactResult = $chainContacts->getOutput();
+
+    # Get array of resids that are contacting ab chains and in proximity to CDRs
+    my $residAref = _determineEpitopeResids($abChainsAref, $self, $exContactResult,
+                                      $allcContactResult);
+    
+    # Label atoms from resids as epitope
+    $self->labelEpitopeAtoms(@{$residAref});
+}
+
+# This subroutine determines the residues that are part of the epitope, from the
+# two chaincontact::result objects that are generated within determineEpitope
+# INPUT: AbChainsAref, AgChain, ExtendedContactResult, AllContactResult
+sub _determineEpitopeResids {
+    my($abChainsAref, $AgChain, $eCR, $aCR) = @_;
+
+    my @residHrefs = ();
+    
+    foreach my $result ($eCR, $aCR) {
+        my $residAref = $result->chain2chainContacts($abChainsAref, [$AgChain]);
+
+        my %resids = map { $_ => 1 } @{$residAref};
+        
+        push(@residHrefs, \%resids);
+    }
+    
+    # Keep any resid that is within EXTENDED distance of the CDRs AND normal
+    # distance of any ab residue
+    my @epitopeResids
+        = grep ($residHrefs[0]->{$_}, keys %{$residHrefs[1]});
+
+    return \@epitopeResids;
+}
+
+# Labels atoms of chain as epitope according to the array of resids passed to it
+sub labelEpitopeAtoms {
+    my $self = shift;
+    my @resids = @_;
+
+    foreach my $resid (@resids) {
+        # Remove chain-resSeq "." separator if present
+        $resid =~ s/\.//;
+
+        foreach my $atom (values %{$self->resid_index->{$resid}}) {
+            $atom->is_epitope(1);
         }
     }
-
-    print @epitopeAtoms;
 }
+
+# Returns array of residue resSeqs, where each residue has at least one atom
+# labelled as epitope
+sub getEpitopeResSeqs {
+    my $self = shift;
+
+    my %epitopeResSeqs = ();
+    
+    foreach my $atom (@{$self->atom_array()}) {
+        $epitopeResSeqs{$atom->resSeq()} = 1
+            if $atom->is_epitope();
+    }
+    return keys %epitopeResSeqs;
+}
+
 
 # This method returns an array of chain atoms labelled as CDR
 # i.e. those atoms where $atom->is_CDR() is TRUE
@@ -1180,6 +1487,37 @@ sub getCDRAtoms {
         }
     }
     return @CDRAtoms;
+}
+
+# This method checks if the chain is in contact with the other chains passed.
+# A tolerance can be used to set the minimum of residue-residue contacts that
+# must exist for the chains to be considered contacting. Default = 1
+# e.g. $antigenChain->isInContact([$heavyChain, $lightChain], 5)
+# returns 1 if chain is in contact with any of the other chains passed. 
+sub isInContact {
+    my $self = shift;
+    my($chainAref, $contactMin) = @_;
+
+    # Set default is contactMin not passed
+    $contactMin = 1 if ! $contactMin;
+
+    # Create array of atoms from all chains
+    my @allAtoms = ();
+    foreach my $chain ($self, @{$chainAref}) {
+        push(@allAtoms, @{$chain->atom_array()});
+    }
+    
+    my $cContacts = pdb::chaincontacts->new(input => \@allAtoms);
+    my $contResults = $cContacts->getOutput();
+
+    my $contactAref = $contResults->chain2chainContacts([$self], $chainAref);
+
+    if (scalar @{$contactAref} >= $contactMin) {
+        return 1;
+    }
+    else {
+        return 0;
+    }
 }
 
 

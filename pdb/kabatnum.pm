@@ -7,7 +7,6 @@ use IO::CaptureOutput qw(capture_exec);
 use write2tmp;
 use TCNPerlVars;
 use types;
-use pdb::pdb;
 use pdb::pdbFunctions;
 
 ### Attributes ################################################################

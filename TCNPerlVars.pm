@@ -45,7 +45,11 @@ $pdb2xmas_bin
 $getresol = '/home/bsm/martin/bin/getresol';
 $idabchain = '/home/bsm/martin/bin/idabchain';
 $kabatnum = '/home/bsm/martin/abnum/installed/numbering/kabatnum.pl';
+$chaincontacts = '/home/bsm/martin/bin/chaincontacts';
 
+# SACS Antibody-containing PDB XML File 
+$SACSxml = '/acrm/data/abs/xml/all.xml';
+    
 # My normal binaries directory
 $bindir  = "/home/bsm/martin/bin";
 
