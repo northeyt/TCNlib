@@ -52,6 +52,20 @@ has 'pdb_file' => (
     required => 1,
 );
 
+# This needs to be set if new_atoms is false
+has 'pdb_object' => (
+    is => 'rw',
+    predicate => 'has_pdb_object',
+);
+
+# If this flag is set to false, then atom objects the pdb object specified will
+# assigned to any new patch objects created
+has 'new_atoms' => (
+    is => 'rw',
+    isa => 'Bool',
+    default => 1, 
+);
+    
 has 'pdb_code' => (
     is  => 'rw',
     isa => 'Str',

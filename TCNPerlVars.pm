@@ -47,6 +47,16 @@ $idabchain = '/home/bsm/martin/bin/idabchain';
 $kabatnum = '/home/bsm/martin/abnum/installed/numbering/kabatnum.pl';
 $chaincontacts = '/home/bsm/martin/bin/chaincontacts';
 
+# CDhit and related
+$cdhit = '/home/bsm3/zcbtfo4/cd-hit-4.6.1/cd-hit';
+$clstr2xml = '/home/bsm3/zcbtfo4/cd-hit-4.6.1/clstr2xml.pl';
+
+# ClustalW
+$clustalw = '/acrm/usr/local/bin/clustalw';
+
+# asurf64
+$asurf64 = "/home/bsm/martin/bin/asurf64";
+
 # SACS Antibody-containing PDB XML File 
 $SACSxml = '/acrm/data/abs/xml/all.xml';
     

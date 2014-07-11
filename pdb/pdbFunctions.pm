@@ -7,6 +7,7 @@ use TryCatch;
 use write2tmp;
 use TCNPerlVars;
 use Math::VectorReal;
+use Scalar::Util qw(looks_like_number);
 
 # This subroutine returns a filename of a pdb file from either a pdb or chain
 # object. If the input is already a valid filename then the filename is returned
@@ -17,7 +18,7 @@ sub getPDBFile {
     
     # Is input a pdb or chain object?
     try {
-        $inputFile = $input->pdb_file();
+        $inputFile = eval {$input->pdb_file()};
         # If pdb file has not been assigned, create tmp file
         if (! $inputFile) {
             $inputFile = _atoms2tmp($input->atom_array());
@@ -143,6 +144,62 @@ sub rotateAtoms {
             $atom->$coord($rVect->$coord);
         }
     }
+}
+            
+# This functions compares two resSeqs to order them, like inbuilt cmp
+# -1 is returned if $rsA should before $rsB
+#  1 is returned is $rsA should come after $rsB
+sub compare_resSeqs {
+    my($rsA, $rsB) = @_;
+
+    croak "Two resSeqs must be passed to compare_resSeqs!"
+        if (! (defined $rsA && defined $rsB));
+    
+    if (looks_like_number($rsA) && looks_like_number($rsB)) {
+        # Both are resSeqs are numbers and can be sorted with a simple <=>
+        return $rsA <=> $rsB;
+    }
+    else {
+        my ($rsA_num) = $rsA =~ /(\d+)+/g;
+        my ($rsB_num) = $rsB =~ /(\d+)+/g;
+        
+        my ($rsA_suffix) = $rsA =~ /([A-Z]+)$/g;
+        my ($rsB_suffix) = $rsB =~ /([A-Z]+)$/g;
+
+        # If resSeq does not have a suffix, set var to empty string
+        # This will ensure that cmp orders a resSeq with no prefix
+        # before those with prefixes
+        foreach my $suffref (\$rsA_suffix, \$rsB_suffix) {
+            ${$suffref} = "" if ! ${$suffref};
+        }
+
+        # Sort first by resSeq number then suffix
+        return ($rsA_num <=> $rsB_num || $rsA_suffix cmp $rsB_suffix);
+    }
+}
+
+# This functions compares two resids to order them, like inbuilt cmp
+# -1 is returned if $riA should before $riB
+#  1 is returned is $riA should come after $riB
+sub compare_resids {
+    my ($riA, $riB) = @_;
+
+    # Attempt to split on "." to get chainID and resSeq
+    my ($riAChainID, $rsA) = split(/\./, $riA);
+    if ($riAChainID eq $riA) {
+        # No "." to split on, so assume that first character is a chainID
+        $riAChainID = substr($riA, 0, 1);
+        $rsA = substr($riA, 1);
+    }
+    my ($riBChainID, $rsB) = split(/\./, $riB);
+    if ($riBChainID eq $riB) {
+        # No "." to split on, so assume that first character is a chainID
+        $riBChainID = substr($riB, 0, 1);
+        $rsB = substr($riB, 1);
+    }
+
+    # Sort first by chainID, then resSeq
+    return($riAChainID cmp $riBChainID || compare_resSeqs($rsA, $rsB));
 }
 
 1;

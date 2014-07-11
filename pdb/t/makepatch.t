@@ -52,4 +52,22 @@ print "patch->new() okay when passed a makepatch object directly?\n";
 
 my $dir_patch = new_ok( 'patch' => [ $makepatch ] );
 
-$dir_patch->run_PatchOrder;
+# Create patches from makepatch object, using a pdb object to assign pre-existing
+# atom objects, rather than creating new atom objects
+
+my $pdbObject = pdb->new(pdb_file => $pdb_file);
+
+$makepatch = makepatch->new( makepatch_file => $makepatch_file,
+                             pdb_file       => $pdb_file,
+                             patch_type     => $patch_type,
+                             radius         => $radius,
+                             central_atom   => $atom,
+                             pdb_object     => $pdbObject,
+                             new_atoms      => 0,
+                            );
+
+$patch = patch->new($makepatch);
+is($pdbObject->atom_serial_hash->{$patch->atom_array->[0]->serial()},
+   $patch->atom_array->[0], "new_atoms => 0 works ok");
+
+#$dir_patch->run_PatchOrder;

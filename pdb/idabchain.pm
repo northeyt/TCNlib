@@ -8,6 +8,7 @@ use types;
 use TryCatch;
 use write2tmp;
 use pdb::pdbFunctions;
+use local::error;
 
 ### Attributes ################################################################
 
@@ -66,7 +67,10 @@ sub chainIs {
         }
     }
     else {
-        croak "Chain $chainID was not identified in idabchain output!";
+        my $errStr = "Chain $chainID was not identified in idabchain output!";
+        my $newErr = local::error->new(message => $errStr,
+                                       data => {chainID => $chainID},
+                                       type => 'NoOutputForChainID');
     }
 }
 
@@ -97,10 +101,66 @@ sub testForscFv {
 sub getOutput {
     my $self = shift;
 
-    my $output = $self->_runExec();
+    my $output = "";
+    
+    try {
+        $output = $self->_runExec();
+    }
+    catch ($err where {$_->type() eq 'runExecError'}){
+        process_runExecError($err);
+    };
+    
     my $outputHref = $self->_parseOutput($output);
 
     return $outputHref;
+}
+
+# Processes error returned by _runExec by checking input file
+sub process_runExecError {
+
+    my $err = shift;
+    
+    # Investigate input file
+    my $inputFile = $err->data->{inputFile};
+
+    # Is input file empty?
+    if (-z $inputFile) {
+        # Construct error
+        my $errStr =  "idabchain: Input file $inputFile is empty!";
+        my $newErr = local::error->new(message => $errStr,
+                                       parent => $err,
+                                       data => {inputFile => $inputFile},
+                                       type => 'EmptyInputFile');
+        croak $newErr;
+    }
+    else {
+        # Check to see if input file is all HETATMs
+        open(my $FH, "<", $inputFile)
+            or croak "Cannot open input file $inputFile";
+        my $allHETATM = 0;
+        while (my $line = <$FH>) {
+            $allHETATM = 1 if $line =~ /^HETATM/;
+            $allHETATM = 0 if $line =~ /^ATOM/;
+        }
+
+        my $errStr = "";
+
+        if ($allHETATM) {
+            $errStr
+                = "Input file $inputFile is invalid - only HETATM lines present"
+                    . " (inputfile must contain ATOM lines)";
+        }
+        else {
+            $errStr = "Something is wrong with inputfile $inputFile";
+        }
+
+        # Construct error
+        my $newErr = local::error->new(message => $errStr,
+                                       type => 'AllHETATMInputFile',
+                                       data => {inputFile => $inputFile},
+                                       parent => $err);
+        croak $newErr;
+    }
 }
 
 
@@ -113,13 +173,22 @@ sub _runExec {
     $ENV{'DATADIR'} = $self->kabatConcDir();
     
     my $inputFile = pdb::pdbFunctions::getPDBFile($self->input());
+    
     my $exec = $self->execPath();
     my $cmd = "$exec $inputFile";
 
     my($stdout, $stderr, $success, $exit_code) = capture_exec($cmd);
 
-    if (! $success ) {
-        my $err = "idabchain run failed.\nCommand run: $cmd\nSTDERR: $stderr";
+    if (! $success) {
+        # Retain temporary file for error checking
+        if (exists write2tmp->Cache->{$inputFile}){
+            write2tmp->retain_file(file_name => $inputFile);
+        }
+        
+        my $errStr = "idabchain run failed.\nCmd run: $cmd\nSTDERR: $stderr";
+        my $err = local::error->new(message => $errStr, type => 'runExecError',
+                                    data => {inputFile => $inputFile});
+        
         croak $err;
     }
     return $stdout;

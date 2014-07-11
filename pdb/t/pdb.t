@@ -20,6 +20,7 @@ use lib ( '..' );
 use Test::More qw( no_plan );
 use Test::Deep;
 use Test::Exception;
+use pdb::pdbFunctions;
 
 BEGIN { use_ok('pdb'); }
 
@@ -108,13 +109,18 @@ ok($pdb->atom_index(), "atom_index ok");
 ok($pdb->resid_index, "resid_index ok" );
 
 # test out get_sequence
-
+ 
 my $exp_seq_string = 'TLEPEGAPYWTNTEKXEKRLHAVPAANTVKFRCPAGGNPXPTXRWLKNGKEFKQEHRIGGYKVRNQHWSLIXESVVPSDKGNYTCVVENEYGSINHTYHLDVVERSPHRPILQAGLPANASTVVGGDVEFVCKVYSDAQPHIQWIKHVEKPYLKVLKAAGVNTTDKEIEVLYIRNVTFEDAGEYTCLAGNSIGISFHSAWLTVLPA';
 
 my @seq = $pdb->get_sequence( chain_id => 'A', return_type => 1, );
 my $seq_string = join ( '', @seq );
 
-is( $seq_string, $exp_seq_string, 'get_sequence works okay' );
+is($seq_string, $exp_seq_string, 'get_sequence works okay');
+
+# test getFASTAStr
+my $expFASTAStr = ">1djsA\n" . $exp_seq_string;
+
+is($pdb->getFASTAStr(chain_id => "A"), $expFASTAStr, "getFASTAStr works oK");
 
 # map_resSeq2chainSeq
 
@@ -272,7 +278,7 @@ my $abComplex = pdb->new(pdb_code => '1afv',
 my $rsA = "52";
 my $rsB = "52A";
 
-is(pdb::compare_resSeqs($rsA, $rsB), -1, "compareResSeqs works okay");
+is(pdb::pdbFunctions::compare_resSeqs($rsA, $rsB), -1, "compareResSeqs works okay");
 
 # test sorted_atom_arrays
 ok(testSortedAtomArray($pdb->sorted_atom_arrays()), "sorted_atoms works okay");
@@ -308,8 +314,58 @@ ok($chains[0]->rotate2PCAs(qw(A95 A96 A97 A98 A105 A103)),
 
 ok($chains[0]->rotate2Face(), "rotate2face works ok");
 
+# Test pdb->store()
+my $storedObjFname = "testStoredPDB.obj"; 
+ok($chains[0]->storeInFile($storedObjFname) && -e $storedObjFname,
+   "store works okay");
+unlink($storedObjFname);
+
+# Test processAlnStr
+my $testAlnStr = getTestAlnStr();
+my $testAlignedChain = getTestAlignedChain();
+$testAlignedChain->processAlnStr(alnStr => $testAlnStr,
+                                 includeMissing => 1);
+is($testAlignedChain->resid_index->{P168}->{CA}->alnSeq(), 298,
+   "processAlnStr ok");
+
+# Test missing_residues
+my $expHash = { P => { 164 => "GLU", 165 => "LEU", 166 => "ARG",
+                       167 => "ASP", 179 => "LEU", 180 => "ASP",
+                       181 => "ILE", 182 => "VAL" } };
+
+cmp_deeply($testAlignedChain->missing_residues(), $expHash,
+           "missing_residues ok");
+
+# Test remark_hash
+like(${$pdb->remark_hash()->{290}->[0]}, qr/REMARK 290\s+/,
+   "remark_hash ok");
+
 ### Subroutines ################################################################
 
+sub getTestAlignedChain {
+    my $pdbFile = "4hpy.pdb";
+    my $chain = chain->new(chain_id => "P",
+                           pdb_file => $pdbFile,
+                           pdb_code => "4hpy");
+    return $chain;
+}
+
+
+sub getTestAlnStr {    
+    my $alnStr
+        = "--------------------------------------------------------------------"
+        . "--------------------------------------------------------------------"
+        . "--------------------------------------------------------------------"
+        . "--------------------------------------------------------------------"
+        . "---------------------ELRDKKQKV--------------------HALFYKLDIV--------"
+        . "--------------------------------------------------------------------"
+        . "--------------------------------------------------------------------"
+        . "---";
+
+    return $alnStr;
+}
+
+    
 sub testIsInContact {
     my $pdb = shift;
 

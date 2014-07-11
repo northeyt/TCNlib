@@ -54,7 +54,7 @@ sub _parseOutput {
     foreach my $line (@lines) {
             
         if ($line =~ /^Chain/) {
-           
+
             # Process line
             my ($chIDA, $resA, $chIDB, $resB, $contacts) = _parseLine($line);
 
@@ -96,9 +96,9 @@ sub _parseLine {
 
     my ($chIDA, $resA, $chIDB, $resB, $contacts)
         = $line =~ m{Chain: \s* (\S+) \s*
-                     Res: \s* (\d+) \s* - \s*
+                     Res: \s* (\S+) \s* - \s*
                      Chain: \s* (\S+) \s*
-                     Res: \s* (\d+) \s*
+                     Res: \s* (\S+) \s*
                      Contacts: \s* (\d+)
                 }gxms;
     
@@ -146,6 +146,7 @@ has 'resultHash' => (
 # resids from the SECOND group of chains that are in contact with residues
 # the FIRST chain group. Chain IDs or chains can be input.
 # e.g. $result->chain2chainContacts([$chainA, $chainB], [$chainC, $chainD]);
+# Returns an REF to array of group 2 resids that in contact with group 1 chains
 sub chain2chainContacts {
     my $self = shift;
     my($groupA, $groupB) = @_;
@@ -173,7 +174,7 @@ sub chain2chainContacts {
         }
     }
     
-    my @resids = ();
+    my %resids = ();
 
     # Loop through chains that have been supplied to test contacts for
     foreach my $chB (@groupB) {
@@ -183,12 +184,10 @@ sub chain2chainContacts {
         
             # Hash contacts, as resSeqs from B can be in contact with multiple
             # resSeqs from A
-            my %resids = map { "$chB." . $_->[1] => 1 } @{$contactAref};
-
-            push(@resids, keys %resids);
+            map { $resids{"$chB." . $_->[1]} = 1 } @{$contactAref};
         }
     }
-        return \@resids;
+        return [keys %resids];
 }
 
 
