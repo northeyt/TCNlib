@@ -25,6 +25,9 @@ sub readASAb {
         $atom->ASAb($ASA);
         $atom->radius($radius);
     }
+
+    # Set has_read_ASA for chain objects
+    map { $_->has_read_ASA(1) } @{$chainAref};
 }
 
 # Given a ref to an array of chains, this functions return a ref to a hash

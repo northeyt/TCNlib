@@ -911,32 +911,15 @@ sub patch_centres {
     
     my %arg = @_;
 
-    my %opt = (
-        ASA_threshold => [ 25, 'num' ],
-        #makepatch     => [ '', 'required.object', 'makepatch' ],
-    );
+    my $threshold = exists $arg{threshold} ? $arg{threshold} : 25;
 
-    # Get opts
-    foreach my $value (keys %opt) {
-        if ( ! exists $arg{$value} ) {
-            croak "$value arg must be specified"
-                  if $opt{$value}->[1] =~ /required/; 
-
-            # Set to default
-            $arg{$value} = $opt{$value}->[0];
-        }
-        elsif ( $opt{$value}->[1] =~ /object/ ){
-            my $ref = ref $arg{$value};
-            croak "$value arg must be a $ref object"
-                if $ref ne $opt{$value}->[2];
-        }
-        elsif ( $opt{$value}->[1] =~ /int/ ) {
-            croak "$value arg must be an int"
-                if int $arg{$value} ne $arg{$value};
-        }
-           
-    }
-
+    # If type has been supplied, supplied type - else, use ASAm if self is a
+    # chain, otherwise use ASAc
+    my $type
+        = exists $arg{type} ? $arg{type}
+        : ref $self eq 'chain' ? 'ASAm'
+        : 'ASAc';
+        
     my @central_atoms = ();
 
     my @errors = ();
@@ -968,9 +951,7 @@ sub patch_centres {
             
             next if ! $CA_flag;
 
-            my $ret = $self->_is_patch_centre( $arg{ASA_threshold},
-                                                       'ASAc',
-                                                       @atoms );
+            my $ret = $self->_is_patch_centre($threshold, $type, @atoms);
             if ( ref $ret eq 'local::error' ) {
                 my $message
                     =  "Could not determine if residue " . $resSeq
@@ -1822,21 +1803,6 @@ sub processAlnStr {
         }
     }
 }
-
-### around MODIFIERS
-# Modify _is_patch_centre to assess on monomer ASAm
-around '_is_patch_centre' => sub {
-    
-    my $orig = shift;
-    my $self = shift;
-    
-    my @arg = @_;
-    
-    $arg[1] = 'ASAm';
- 
-    return $self->$orig(@arg);
-    
-};
 
 # Automatically set arg chain_id
 around [qw(get_sequence getFASTAStr)] => sub {

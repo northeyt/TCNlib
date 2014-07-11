@@ -84,16 +84,21 @@ has surf_min => (
     default => 0,
 );
 
-for my $name ( 'pdb', 'xmas' ) {
+has 'ASA_type' => (
+    is => 'rw',
+    isa => 'Str',
+    builder => '_build_ASA_type',
+    lazy => 1,
+);
+
+for my $name (qw(pdb xmas)) {
     my $att_name = $name . '_file';
     my $builder = "_build_$name" . "_fname";
     
-    has $att_name => ( is => 'rw',
-                       isa => 'FileReadable',
-                       builder => $builder,
-                       lazy => 1,
-                   );
-    
+    has $att_name => (is => 'rw',
+                      isa => 'FileReadable',
+                      builder => $builder,
+                      lazy => 1);
 }
 
 # Methods
@@ -121,6 +126,17 @@ around BUILDARGS => sub {
     }
     return $class->$orig(%arg);
 };
+
+sub _build_ASA_type {
+    my $self = shift;
+
+    # Assign ASA type based on the pdb object assigned
+    my $type
+        = ref $self->pdb_object eq 'pdb' ? 'ASAc'
+        : 'ASAm';
+
+    return $type;
+}
 
 sub _build_pdb_fname {
     my $self = shift;
@@ -187,26 +203,20 @@ sub get_patches {
     my $self = shift;
 
     my $pdb_code = lc $self->pdb_code();
-    
-    # Get xmas file
 
-    my $xmas_file = $self->xmas_file();
-    croak "Could not read $xmas_file" if ! -r $xmas_file;
-    
     my $class = $self->has_chain_id ? 'chain' : 'pdb';
     my $form = $class eq 'chain' ? 'monomer' : 'multimer' ; 
     
-
     my $pdb_obj = $self->pdb_object();
     
-    if ( ! $pdb_obj->has_read_ASA() ) {
+    if (! $pdb_obj->has_read_ASA()) {
         
         $pdb_obj->read_ASA();
        
         my @ASA_read_err = ();
         
         # Read ASA values for pdb object, check for errors
-        foreach my $ret ( $pdb_obj->read_ASA() ) {
+        foreach my $ret ($pdb_obj->read_ASA()) {
             if (ref $ret eq 'local::error'){
                 if ( $ret->type() eq 'ASA_read' ) {
                     push(@ASA_read_err, $ret);
@@ -220,29 +230,28 @@ sub get_patches {
     }
     
     # Create tmp pdb file with modified atom lines ala xmas2pdb output
-    my $ASA_type = $form eq 'monomer' ? 'ASAm' : 'ASAc' ;
+    my $ASA_type = $self->ASA_type();
     my $predicate = 'has_' . $ASA_type;
     
-    my %swap = ( occupancy => 'radius', tempFactor => $ASA_type );
+    my %swap = (occupancy => 'radius', tempFactor => $ASA_type);
 
     my @ATOM_lines = ();
     
-    foreach my $atom ( @{ $pdb_obj->atom_array() } ) {
+    foreach my $atom (@{$pdb_obj->atom_array()}) {
 
         # Avoid printing atoms to file that do not have ASA or are labelled
         # solvent
         next if ! $atom->$predicate || $atom->is_solvent();
 
-        
-        push( @ATOM_lines, $atom->stringify( {%swap} ) );
-        if ( $atom->is_terminal() ) {
-            push( @ATOM_lines, $atom->stringify_ter() );
+        # Get atom string with occupancy replaced with radius, and tempFactor
+        # replaced with ASA
+        push(@ATOM_lines, $atom->stringify(\%swap));
+        if ($atom->is_terminal()) {
+            push(@ATOM_lines, $atom->stringify_ter());
         }
     }
     
-    my $tmp = write2tmp->new( suffix => '.pdb',
-                              data => [ @ATOM_lines ],
-                          );
+    my $tmp = write2tmp->new(suffix => '.pdb', data => \@ATOM_lines);
     
     my $tmp_file_name = $tmp->file_name();
     
@@ -250,7 +259,7 @@ sub get_patches {
 
     my($pc_errors, $patch_centres) = $pdb_obj->patch_centres();
     
-    foreach my $cent_atom ( @{$patch_centres} ) {
+    foreach my $cent_atom (@{$patch_centres}) {
 
         my %mkp_arg
             = ( makepatch_file => $makepatch,
