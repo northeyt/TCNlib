@@ -30,18 +30,18 @@ sub parse_how_file {
     my @entry_hash_arr = ();
     
     # Records are seperated by a blank line
-    my @entries = split( "\n\n", $record );
+    my @entries = split("\n\n", $record );
     
     foreach my $entry (@entries) {
         my($antigen_seqlength, $pdb_code, $antigen_chid,
-           $antigen_seq, $contacts, @antibody_chainids )
+           $antigen_seq, $contacts, @antibody_chainids)
             = _parse_entry($entry);
 
-        push ( @entry_hash_arr,
-	       { pdb_code => $pdb_code,
-                 antibody_chain_ids => \@antibody_chainids,
-		 antigen_chain_id   => $antigen_chid,
-		 antigen_seq_length => $antigen_seqlength, } );
+        push (@entry_hash_arr,
+              { pdb_code => $pdb_code,
+                antibody_chain_ids => \@antibody_chainids,
+                antigen_chain_id   => $antigen_chid,
+                antigen_seq_length => $antigen_seqlength, } );
     }
     return @entry_hash_arr;
 }
@@ -53,34 +53,37 @@ sub parse_how_file {
 sub _parse_entry {
     my ($entry) = @_;
 
-    my( $ant_seqlength, $pdb_code, $ant_chainid, $ant_seq, $contacts )
+    my ($ant_seqlength, $pdb_code, $ant_chainid, $antAndContactSeq)
         = $entry =~ m{ \s+ (\d+)     # Antigen seq length
                        \s  (\w+)     # PDB code
                        \.  (\S)      # Antigen chain id
-                       \n  ([A-Z\n]+) # Antigen Sequence w/ newlines
-                       ([A-Z.\n]+)    # Antibody contacts ( '.' = no contct )
-                   }xms;
+                       \n  ([A-Z.\n]+) # Antigen + Contact Sequence w/ newlines
+                 }xms;
     
     croak "Something went wrong trying to parse .how entry"
-        if ! defined (   $ant_seqlength && $pdb_code && $ant_chainid
-                             && $ant_seq && $contacts );
+        if ! defined ($ant_seqlength && $pdb_code && $ant_chainid
+                          && $antAndContactSeq);
 
-    # Remove newlines from antigen sequence and contacts
-    foreach ( \$ant_seq, \$contacts ) {
-        ${ $_ } =~ s{\s}{}gxms;
+    # Remove newlines from antigen and contact sequence
+    foreach (\$antAndContactSeq) {
+        ${$_} =~ s{\s}{}gxms;
     }
 
+    # Antigen sequence length determines the substring length of the
+    # antigen and contact sequence that corresponds to the antigen sequence
+    my $antigenSeq = substr($antAndContactSeq, 0, $ant_seqlength);
+    my $contactSeq = substr($antAndContactSeq, $ant_seqlength);
+    
     # Get antibody chains
-    my @contacting_chains = $contacts =~ m{[A-Z]}gxms;
+    my @contacting_chains = $contactSeq =~ m{[A-Z]}gxms;
 
     croak "No antibody chains parsed from .how entry"
         if ! @contacting_chains;
     
-    my %ab_chains = map { $_ => 1 } @contacting_chains;
+    my %ab_chains = map {$_ => 1} @contacting_chains;
 
-    return( $ant_seqlength, $pdb_code, $ant_chainid, $ant_seq, $contacts,
-            sort keys ( %ab_chains ) );
-    
+    return($ant_seqlength, $pdb_code, $ant_chainid, $antigenSeq, $contactSeq,
+            sort keys (%ab_chains)); 
 }
 
 
