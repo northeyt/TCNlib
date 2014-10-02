@@ -27,6 +27,13 @@ has 'radiiFile' => (
     required => 1,
 );
 
+has 'standardDataFile' => (
+    is => 'rw',
+    isa => 'FileReadable',
+    default => $TCNPerlVars::standardData,
+    required => 1,
+);
+
 has 'probeRadius' => (
     is => 'rw',
     isa => 'Num',
@@ -38,14 +45,69 @@ has 'input' => (
     is => 'rw',
 );
 
+has 'resid2RelASAHref' => (
+    is => 'rw',
+    isa => 'HashRef',
+    default => sub { {} },
+    lazy => 1,
+);
+
 # Methods
 
 sub getOutput {
     my $self = shift;
 
-    my $outFile = $self->runExec();
+    my ($outASAFile, $outRSAFile) = $self->runExec();
 
-    open(my $fh, "<", $outFile) or die "Cannot open file $outFile, $!";
+    my %atomSerialHash = $self->getAtomSerialHash($outASAFile);
+
+    my %resid2RelASA = $self->getResid2RelASAHash($outRSAFile);
+    $self->resid2RelASAHref(\%resid2RelASA);
+
+    return \%atomSerialHash;
+}
+
+sub getResid2RelASAHash {
+    my $self = shift;
+    my $outRSAFile = shift;
+    
+   open(my $fh, "<", $outRSAFile) or die "Cannot open file $outRSAFile, $!";
+
+   my %resid2RelASA = ();
+
+   my $headerStr
+       = "REM                ABS   REL    ABS   REL    ABS   REL    ABS   REL    ABS   REL\n";
+
+   my $reachedHeader = 0;
+   
+   while (my $line = <$fh>) {
+       if ($line eq $headerStr) {
+           $reachedHeader = 1;
+           next;
+       }
+
+       next unless $reachedHeader;
+       last if substr($line, 0, 3) eq 'END';
+
+       chomp $line;
+       
+       my @fields = split(/\s+/, $line);
+       
+       my $chainID = $fields[2];
+       my $resSeq  = $fields[3];
+       my $resid   = $chainID . "." . $resSeq;
+
+       $resid2RelASA{$resid} = {allAtoms => $fields[5]};
+   }   
+   return %resid2RelASA;
+}
+
+
+sub getAtomSerialHash {
+    my $self = shift; 
+    my $outASAFile = shift;
+
+    open(my $fh, "<", $outASAFile) or die "Cannot open file $outASAFile, $!";
 
     my %atomSerialHash = ();
 
@@ -53,8 +115,10 @@ sub getOutput {
         my($serial, $ASA, $radius) = $self->parseLine($line);
         $atomSerialHash{$serial} = [$ASA, $radius];
     }
-    return \%atomSerialHash;
+    return %atomSerialHash;
 }
+
+
 
 sub parseLine {
     my $self = shift;
@@ -87,9 +151,16 @@ sub runExec {
     my $newCwd = "/tmp/";
     chdir($newCwd);
 
+    # Create symbolic link to standard data file (if not present already)
+    unless (-e $self->standardDataFile()) {
+        symlink($self->standardDataFile(), "standard.data")
+            or croak "asurf64.pm : unable to create symbolic link to standard data file";
+    }
+    
     my $cmd = "$exec -r $radiiFile -p $probeRadius -h $inputFile";
-    my $outputFile = File::Spec->rel2abs($baseName) . ".asa";
-
+    my $outputASAFile = File::Spec->rel2abs($baseName) . ".asa";
+    my $outputRSAFile = File::Spec->rel2abs($baseName) . ".rsa";
+    
     my($stdout, $stderr, $success, $exit_code) = capture_exec($cmd); 
 
     chdir($oldCwd);
@@ -97,10 +168,10 @@ sub runExec {
     if (! $success) {
         croak "asurf64 failed: $stderr\n";
     }
-    elsif (! -e $outputFile) {
+    elsif (! -e $outputASAFile) {
         croak "asurf64 failed to create an output file";
     }
-    return $outputFile;
+    return ($outputASAFile, $outputRSAFile);
 }
 1;
 __END__

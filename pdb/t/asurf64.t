@@ -24,7 +24,8 @@ BEGIN { use_ok( 'pdb::asurf64' ); }
 
 my $testObj = new_ok('pdb::asurf64', [input => "1djs.pdb"]);
 
-is($testObj->runExec(), "/tmp/1djs.asa", "runExec works ok");
+cmp_deeply([$testObj->runExec()], ["/tmp/1djs.asa", "/tmp/1djs.rsa"],
+           "runExec works ok");
 
 my $line
     = "ATOM      1  N   THR A 147      18.358  47.738  23.896  43.469  1.60\n";
@@ -32,4 +33,7 @@ my @exp = qw(1 43.469 1.60);
 
 cmp_deeply([$testObj->parseLine($line)], \@exp, "parseLine works okay");
 
-ok($testObj->getOutput(), "getOutput works ok);
+ok($testObj->getOutput(), "getOutput works ok");
+
+is($testObj->resid2RelASAHref->{"A.147"}->{allAtoms}, "116.4",
+   "getResid2RelASAHash works ok")
