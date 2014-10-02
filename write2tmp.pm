@@ -75,7 +75,7 @@ sub _write_file {
 
     my $tmp = File::Temp->new(%arg);
 
-    croak "data array contains no data" if ! @{ $self->data };
+    confess "data array contains no data" if ! @{ $self->data };
                 
     print $tmp @{ $self->data };
 

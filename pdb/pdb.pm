@@ -160,6 +160,15 @@ has 'missing_resid_index' => (
     builder => '_build_missing_resid_index',    
 );
 
+# This index is the same as resid_index, except that resids are prepended with
+# the object's pdb code
+has 'pdbresid_index' => (
+    isa => 'HashRef',
+    is => 'ro',
+    lazy => 1,
+    builder => '_build_pdbresid_index',
+);
+
 has 'atom_serial_hash' => (
     isa => 'HashRef',
     is => 'ro',
@@ -210,18 +219,24 @@ has 'experimental_method' => (
     is => 'rw',
     isa => 'Str',
     predicate => 'has_experimental_method',
+    lazy => 1,
+    builder => '_build_experimental_method',
 );
 
 has 'resolution' => (
     is => 'rw',
     isa => 'Num',
     predicate => 'has_resolution',
+    lazy => 1,
+    builder => '_build_resolution',
 );
 
 has 'r_value' => (
     is => 'rw',
     isa => 'Num',
     predicate => 'has_r_value',
+    lazy => 1,
+    builder => '_build_r_value',
 );
 
 has 'missing_residues' => (
@@ -230,6 +245,14 @@ has 'missing_residues' => (
     builder => '_parse_remark465',
     lazy => 1,
 );
+
+has 'resid2RelASAHref' => (
+    is => 'rw',
+    isa => 'HashRef',
+    default => sub { {} },
+    lazy => 1,
+);
+
 
 # Consume antigen role
 with 'pdb::antigen';
@@ -243,14 +266,12 @@ sub BUILD {
 
     return if ! $self->has_pdb_file();
 
-    my $getresol = pdb::getresol->new( pdb_file => $self->pdb_file );
+    my ($expMethod, $resolution, $rValue) = eval {$self->_run_getresol()};
 
-    if ( ref $getresol->run() ne 'local::error' ){
-        $self->experimental_method( $getresol->experimental_method() );
-        $self->resolution( $getresol->resolution() );
-        $self->r_value( $getresol->r_value() );
-    }
- 
+    $self->experimental_method($expMethod) if $expMethod;
+    $self->resolution($resolution) if $resolution;
+    $self->r_value($rValue) if $rValue;
+     
     if ( $self->pdb_data && $self->_multi_model) {
         my $message
             = "pdb is a multi-model record: currently cannot handle these";
@@ -264,6 +285,67 @@ sub BUILD {
         croak $error;
     }
 }
+
+sub _build_experimental_method {
+    my $self = shift;
+
+    my($expMethod, $resolution, $rValue) = $self->_run_getresol();
+
+    # Set the other two values
+    $self->resolution($resolution);
+    $self->r_value($rValue);
+    
+    return $expMethod;
+}
+
+sub _build_resolution {
+    my $self = shift;
+
+    my($expMethod, $resolution, $rValue) = $self->_run_getresol();
+
+    # Set the other two values
+    $self->experimental_method($expMethod);
+    $self->r_value($rValue);
+    
+    return $resolution;
+}
+
+sub _build_r_value {
+    my $self = shift;
+
+    my($expMethod, $resolution, $rValue) = $self->_run_getresol();
+
+    # Set the other two values
+    $self->experimental_method($expMethod);
+    $self->resolution($resolution);
+   
+    return $rValue;
+}
+
+sub _run_getresol {
+
+    my $self = shift;
+    
+    my $getresol = pdb::getresol->new(pdb_file => $self->pdb_file);
+
+    my $expMethod;
+    my $resolution;
+    my $rValue;
+
+    my $ret = $getresol->run();
+    
+    if (ref $ret  ne 'local::error'){
+        $expMethod  = $getresol->experimental_method();
+        $resolution = $getresol->resolution();
+        $rValue     = $getresol->r_value();
+    }
+    else {
+        croak $ret;
+    }
+
+    return ($expMethod, $resolution, $rValue);
+}
+
 
 sub _build_atom_serial_hash {
     my $self = shift;
@@ -281,7 +363,7 @@ sub _build_atom_serial_hash {
 # remarkNumber => Ref to array of scalar refs to pdb_data lines
 sub _build_remark_hash {
     my $self = shift;
-
+    
     my %remarks = ();
     
     for (my $i = 0 ; $i < @{$self->pdb_data()} ; ++$i){
@@ -299,22 +381,34 @@ sub _build_remark_hash {
 
 sub _parse_remark465 {
     my $self = shift;
-
+    
     # Return ref to empty hash if remark 465 d.n.e
-    # (means that there are no missing atoms) 
+    # (means that there are no missing residues) 
     return {}
         if ! exists $self->remark_hash->{465};
 
     my %resSeqs = ();
 
-    # Start on eighth line to skip header
-    for (my $i = 7 ; $i < @{$self->remark_hash()->{465}} ; ++$i){
-        my $line = ${$self->remark_hash()->{465}->[$i]};
+    my $headerFlag = 0;
+    
+    foreach my $lineRef (@{$self->remark_hash()->{465}}) {
+
+        if (${$lineRef} =~ /REMARK 465   M RES C SSSEQI/){
+            $headerFlag = 1;
+            next;
+        }
+        
+        # Skip lines until past header
+        next if ! $headerFlag;
+        
+        my $line = ${$lineRef};
 
         my $resType = substr($line, 15, 3);
         my $chainID = substr($line, 19, 1);
         my $resSeq  = substr($line, 21, 5);
+
         $resSeq = rm_trail($resSeq);
+
         if (! exists $resSeqs{$chainID}) {
             $resSeqs{$chainID} = {$resSeq => $resType};
         }
@@ -322,6 +416,7 @@ sub _parse_remark465 {
             $resSeqs{$chainID}->{$resSeq} = $resType;
         }
     }
+    
     return \%resSeqs;
 }
 
@@ -626,6 +721,20 @@ sub _build_atom_index {
     
 }
 
+sub _build_pdbresid_index {
+    my $self = shift;
+
+    my %pdbresid_index = ();
+    
+    foreach my $resid (keys %{$self->resid_index()}) {
+        my $pdbresid = lc($self->pdb_code()) . $resid;
+        my $value = $self->resid_index->{$resid};
+
+        $pdbresid_index{$pdbresid} = $value;
+    }
+    return \%pdbresid_index;
+}
+
 sub _build_resid_index {
     my $self = shift;
 
@@ -684,7 +793,7 @@ sub get_sequence {
 
     my $inc_missing = 0;
     
-    if (! exists $arg{include_missing_res}) {
+    if (exists $arg{include_missing_res}) {
         $inc_missing = $arg{include_missing_res};
     }
     
@@ -702,10 +811,13 @@ sub get_sequence {
 
     if ($inc_missing) {
         # Get missing residues for specified chain and add them to chain hash
-        my %missingResSeq = %{$self->missing_residues->{$arg{chain_id}}};
+        if (exists $self->missing_residues->{$arg{chain_id}}) {
 
-        foreach my $resSeq (keys %missingResSeq) {
-            $chain_resSeq_index{$resSeq} = $missingResSeq{$resSeq};
+            my %missingResSeq = %{$self->missing_residues->{$arg{chain_id}}};
+            
+            foreach my $resSeq (keys %missingResSeq) {
+                $chain_resSeq_index{$resSeq} = $missingResSeq{$resSeq};
+            }
         }
     }
     
@@ -715,7 +827,7 @@ sub get_sequence {
 
 
     my @residues = ();
-    
+
     foreach my $resSeq (@sortedResSeqs){
         # If hashed value is a ref to a hash where values are atoms
         if (ref $chain_resSeq_index{$resSeq} eq 'HASH'){
@@ -766,7 +878,7 @@ sub getFASTAStr {
                                   return_type => 1,
                                   include_missing_res => $includeMissing);
     
-    my $seqStr = join("", @seq);
+    my $seqStr = join("", @seq) . "\n";
     $header = ">" . $self->pdb_code() . $chainID . "\n" if ! $header;
    
     return $header . $seqStr;
@@ -835,7 +947,6 @@ sub sort_atoms {
 sub read_ASA {
 
     my $self = shift;
-
     my $xmas2pdb;
     
     # Use xmas2pdb object if it has been passed, otherwise create one
@@ -860,7 +971,7 @@ sub read_ASA {
     my $form = $xmas2pdb->form();
 
     my $attribute = 'ASA' . ( $form eq 'monomer' ? 'm' : 'c' ) ;
-
+    
     my  %ASAs  = ();
     my  %radii = ();
     
@@ -919,7 +1030,7 @@ sub patch_centres {
         = exists $arg{type} ? $arg{type}
         : ref $self eq 'chain' ? 'ASAm'
         : 'ASAc';
-        
+    
     my @central_atoms = ();
 
     my @errors = ();
@@ -966,7 +1077,7 @@ sub patch_centres {
                           },
                     parent => $ret,
                 );
-
+                
                 push(@errors, $error);
             }
             elsif ($ret ne "-1" ) {
@@ -984,10 +1095,13 @@ sub _is_patch_centre {
     my $attribute = shift;
     my @atoms = @_;
 
-    foreach my $atom (@atoms) {
+    my @nonHydAtoms = grep {$_->element() ne 'H'} @atoms;
+
+    foreach my $atom (@nonHydAtoms) {
         my $predicate = "has_$attribute";
         
             if( ! $atom->$predicate() ){
+                                
                 my $message
                     =  "Could not determine patch centre status because "
                       . "atom " . $atom->serial
@@ -1003,15 +1117,15 @@ sub _is_patch_centre {
             }        
     }
     
-    @atoms
-        = sort {$b->$attribute() <=> $a->$attribute()} @atoms;
+    @nonHydAtoms
+        = sort {$b->$attribute() <=> $a->$attribute()} @nonHydAtoms;
 
     my $total = 0;
 
-    map { $total += $_->$attribute() } @atoms;
+    map { $total += $_->$attribute() } @nonHydAtoms;
 
     if ($total >= $threshold) {
-        return $atoms[0];
+        return $nonHydAtoms[0];
     }
 
     return -1;
@@ -1445,6 +1559,11 @@ has 'is_het_chain' => (
     builder => '_build_is_het_chain',
 );
 
+has 'cluster_id' => (
+    is => 'rw',
+    isa => 'Num',
+);
+
 # Methods
 
 # Returns number of non-solvent residues found in chain
@@ -1498,10 +1617,16 @@ around '_parse_remark465' => sub {
     my $self = shift;
 
     my $chain_id = $self->chain_id();
-    
-    my $chainOnly = {$chain_id => $self->$orig->{$chain_id}};
 
-    return $chainOnly;
+    my $origOutput =  $self->$orig;
+    if (exists $origOutput->{$chain_id}) {
+        my $chainOnly = {$chain_id => $origOutput->{$chain_id}};
+        return $chainOnly;
+    }
+    else {
+        return {};
+    }
+    
 };
 
 sub _is_het_chain {
@@ -1804,6 +1929,35 @@ sub processAlnStr {
     }
 }
 
+sub labelAtomsWithClusterSeq {
+    my $self = shift;
+    my $cluster_id = $self->cluster_id();
+
+    # clusterSeq is formed from chain cluster id and atom alnSeq
+    foreach my $atom (@{$self->atom_array()}) {
+        if (! defined $atom->alnSeq()) {
+            # If atom is hetatm, assume that atom is solvent (and therefore
+            # should not have an aln or cluster seq)
+            if ($atom->is_het_atom()) {
+                next;
+            }
+            else {
+                use Data::Dumper;
+                print "Atom has no alnSeq: $atom\n";
+                print $self->get_sequence(include_missing_res => 1,
+                                          return_type => 1),  "\n";
+                print Dumper $self;
+                exit;
+            }
+        }
+        else {
+            $atom->clusterSeq($cluster_id . "." . $atom->alnSeq());
+        }
+    }
+    #map {$_->clusterSeq($cluster_id . $_->alnSeq())} @{$self->atom_array()};
+}
+
+
 # Automatically set arg chain_id
 around [qw(get_sequence getFASTAStr)] => sub {
 
@@ -1813,7 +1967,7 @@ around [qw(get_sequence getFASTAStr)] => sub {
     my %arg = @_;
 
     $arg{chain_id} = $self->chain_id();
-
+    
     return $self->$orig(%arg);
     
 };
@@ -1855,6 +2009,8 @@ has central_atom => (
 has summary => (
     is => 'rw',
     isa => 'Str',
+    lazy => 1,
+    builder => '_build_summary',
 );
 
 has 'porder' => (
@@ -1869,18 +2025,18 @@ has 'parent_pdb' => (
     predicate => 'has_parent_pdb',
 );
 
-has 'ASAc_hash' => (
+has 'ASAb_hash' => (
     is => 'ro',
     isa => 'HashRef',
     lazy => 1,
-    builder => '_build_ASAm_hash',
+    builder => '_build_ASAb_hash',
 );
 
-has 'total_ASAc' => (
+has 'total_ASAb' => (
     isa => 'Num',
     is => 'ro',
     lazy => 1,
-    builder => '_build_total_ASAc',
+    builder => '_build_total_ASAb',
 );
 
 has 'is_epitope' => (
@@ -1895,6 +2051,13 @@ has 'id' => (
     builder => '_build_patch_id',
 );
 
+has 'is_multi_chain' => (
+    is => 'ro',
+    isa => 'Bool',
+    lazy => 1,
+    builder => '_build_is_multi_chain',
+);
+
 # Methods
 
 sub BUILD {
@@ -1903,11 +2066,19 @@ sub BUILD {
     my @atom_array = ();
     
     if ($self->has_parent_pdb()) {
+        
+        # If parent pdb is actually a ref to an array of chains, then create a
+        # multi-chain atom hash. Otherwise, take atom hash of single parent pdb
+        my $atomSerialHref
+            = ref $self->parent_pdb eq 'ARRAY' ?
+                pdb::multiChain::multiChainAtomSerialHref($self->parent_pdb())
+              : $self->parent_pdb->atom_serial_hash();
+
+        
         # Replace atoms with corresponding atoms from parent pdb
         # (including central atom)
         foreach my $atom (@{$self->atom_array()}, $self->central_atom()) {
-            push(@atom_array,
-                 $self->parent_pdb->atom_serial_hash->{$atom->serial()});
+            push(@atom_array, $atomSerialHref->{$atom->serial()});
         }
         $self->atom_array(\@atom_array);
     }
@@ -1973,30 +2144,72 @@ sub _build_patch_id {
 }
 
 
-sub _build_total_ASAc {
+sub _build_total_ASAb {
     my $self = shift;
 
-    my $totalASAc = 0;
-    map {$totalASAc += $_->ASAc()} @{$self->atom_array()};
+    my $totalASAb = 0;
+    map {$totalASAb += $_->ASAb()} @{$self->atom_array()};
 
-    return $totalASAc;
+    return $totalASAb;
 }
 
 
-sub _build_ASAc_hash {
+sub _build_ASAb_hash {
     my $self = shift;
 
     my %ASAmHash = ();
     
-    foreach my $residAtomAref (@{values %{$self->resid_index()}}) {
+    foreach my $residAtomHref (values %{$self->resid_index()}) {
         my $totalASA = 0;
-        map { $totalASA += $_->ASAc() } @{$residAtomAref};
+        my $residAtomAref = [values %{$residAtomHref}];
+        foreach my $atom (@{$residAtomAref}) {
+            croak "ASAb not defined for atom:\n$atom"
+                if ! defined $atom->ASAb();
+        }
+        map { $totalASA += $_->ASAb() } @{$residAtomAref};
         my $key
             = $residAtomAref->[0]->alnSeq() . $residAtomAref->[0]->resName();
 
         $ASAmHash{$key} = $totalASA;
     }
+    return \%ASAmHash;
 }
+
+sub _build_summary {
+    my $self = shift;
+
+    my @chainIDAndResSeqs = ();
+
+    foreach my $chain (keys %{$self->atom_index}) {
+        foreach my $resSeq (keys %{$self->atom_index->{$chain}}) {
+            push(@chainIDAndResSeqs, [$chain, $resSeq]);
+        }
+    }
+
+    @chainIDAndResSeqs
+        = sort { $a->[0] cmp $b->[0] ||
+                     pdb::pdbFunctions::compare_resSeqs($a->[1],$b->[1]) }
+            @chainIDAndResSeqs;
+
+    my $cA = $self->central_atom();
+
+    my $resSeqListStr
+        = join(" ", map {$_->[0] . ":" . $_->[1]} @chainIDAndResSeqs);
+    
+    my $summary = "<patch " . $cA->chainID() . "." . $cA->resSeq()
+        . "> $resSeqListStr\n";
+
+    return $summary;
+}
+
+sub _build_is_multi_chain {
+    my $self = shift;
+
+    my %chainIDs = map {$_->chainID() => 1} @{$self->atom_array()};
+
+    return keys %chainIDs > 1 ? 1 : 0;
+}
+
 
 sub run_PatchOrder {    
     my $self = shift;
@@ -2039,8 +2252,8 @@ has 'ATOM_line' => (
     is  => 'rw',
 );
 
-has [ 'name', 'resName', 'element', 'charge', 'resSeq',
-      'kabatSeq', 'chothiaSeq', 'ichothiaSeq', 'alnSeq' ]
+has [qw(name resName element charge resSeq kabatSeq chothiaSeq ichothiaSeq
+        alnSeq clusterSeq) ]
     => ( is => 'rw', isa => 'Str' );
 
 foreach my $name ( 'altLoc', 'chainID', 'iCode' ) {
@@ -2243,9 +2456,14 @@ sub BUILD {
     }
     
     delete $record{ATOM};
+
+    # If iCode is defined, append to resSeq
+    if ($record{iCode} ne ''){
+        $record{resSeq} = $record{resSeq} . $record{iCode};
+    }
     
     foreach my $value (keys %record) {
-        next if $record{$value} eq '' ;
+        next if $record{$value} eq '';
         $self->$value( $record{$value} );
     }
 }

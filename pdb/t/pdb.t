@@ -103,14 +103,19 @@ dies_ok(
     sub { pdb->new( pdb_file => $multimodel_file, pdb_code => '2q1z' )
       },  "Croak  if pdb is multimodel" );
 
-# atom_ and resid_ index
+# atom_, resid_ and pdbresid_index
 
 ok($pdb->atom_index(), "atom_index ok");
 ok($pdb->resid_index, "resid_index ok" );
 
+ok($pdb->pdbresid_index, "pdbresid_index ok");
+
 # test out get_sequence
  
-my $exp_seq_string = 'TLEPEGAPYWTNTEKXEKRLHAVPAANTVKFRCPAGGNPXPTXRWLKNGKEFKQEHRIGGYKVRNQHWSLIXESVVPSDKGNYTCVVENEYGSINHTYHLDVVERSPHRPILQAGLPANASTVVGGDVEFVCKVYSDAQPHIQWIKHVEKPYLKVLKAAGVNTTDKEIEVLYIRNVTFEDAGEYTCLAGNSIGISFHSAWLTVLPA';
+my $exp_seq_string
+    = "TLEPEGAPYWTNTEKXEKRLHAVPAANTVKFRCPAGGNPXPTXRWLKNGKEFKQEHRIGGYKVRNQHWSLIX"
+    . "ESVVPSDKGNYTCVVENEYGSINHTYHLDVVERSPHRPILQAGLPANASTVVGGDVEFVCKVYSDAQPHIQW"
+    . "IKHVEKPYLKVLKAAGVNTTDKEIEVLYIRNVTFEDAGEYTCLAGNSIGISFHSAWLTVLPA";
 
 my @seq = $pdb->get_sequence( chain_id => 'A', return_type => 1, );
 my $seq_string = join ( '', @seq );
@@ -118,7 +123,7 @@ my $seq_string = join ( '', @seq );
 is($seq_string, $exp_seq_string, 'get_sequence works okay');
 
 # test getFASTAStr
-my $expFASTAStr = ">1djsA\n" . $exp_seq_string;
+my $expFASTAStr = ">1djsA\n" . $exp_seq_string . "\n";
 
 is($pdb->getFASTAStr(chain_id => "A"), $expFASTAStr, "getFASTAStr works oK");
 
@@ -323,6 +328,7 @@ unlink($storedObjFname);
 # Test processAlnStr
 my $testAlnStr = getTestAlnStr();
 my $testAlignedChain = getTestAlignedChain();
+
 $testAlignedChain->processAlnStr(alnStr => $testAlnStr,
                                  includeMissing => 1);
 is($testAlignedChain->resid_index->{P168}->{CA}->alnSeq(), 298,
@@ -340,7 +346,34 @@ cmp_deeply($testAlignedChain->missing_residues(), $expHash,
 like(${$pdb->remark_hash()->{290}->[0]}, qr/REMARK 290\s+/,
    "remark_hash ok");
 
+# Test _build_summary
+my ($testPatch, $expSummary) = getTestSummaryPatch();
+
+is($testPatch->summary(), $expSummary, "_build_summary works ok");
+
 ### Subroutines ################################################################
+
+sub getTestSummaryPatch {
+
+    my @atomArray = ();
+    
+    foreach my $chain (qw(B A)) {
+        foreach my $resSeq (qw(2 3 1)) {
+            my $atom = atom->new(chainID => $chain, resSeq => $resSeq,
+                                 name => 'CA');
+            push(@atomArray, $atom);
+        }
+    }
+    
+    my $patch = patch->new(pdb_code => '1abc',
+                           central_atom => $atomArray[0],
+                           atom_array => \@atomArray);
+    
+    my $expSummary = "<patch B.2> A:1 A:2 A:3 B:1 B:2 B:3\n";
+
+    return($patch, $expSummary);
+}
+
 
 sub getTestAlignedChain {
     my $pdbFile = "4hpy.pdb";

@@ -139,7 +139,14 @@ sub _run_makepatch {
                                    );
         return [$error];
     }
-    return [ split ("\n", $stdout) ];
+    my @returnLines = ();
+
+    # Only return atom lines that are found in the patch
+    foreach my $line (split("\n", $stdout)) {
+        push(@returnLines, $line)
+            if  $line =~ /^(?:ATOM|HETATM)/ && substr($line, 60, 6) =~ /1\.00/;
+    }
+    return \@returnLines;
 }
 
 # methods

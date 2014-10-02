@@ -174,6 +174,9 @@ sub compare_resSeqs {
         }
 
         # Sort first by resSeq number then suffix
+        if (! defined $rsA_num || ! defined $rsB_num) {
+            confess "ResSeq A: $rsA, ResSeq B: $rsB\n";
+        }
         return ($rsA_num <=> $rsB_num || $rsA_suffix cmp $rsB_suffix);
     }
 }

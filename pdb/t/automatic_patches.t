@@ -33,7 +33,7 @@ BEGIN { use_ok( 'automatic_patches' ); }
 my %arg
     = ( radius => 8,
         patch_type => 'normal',
-        pdb_code => '1djs',
+        pdb_code => '1afv',
     );
 
 my $auto = automatic_patches->new(%arg);
@@ -90,3 +90,37 @@ my $ap_from_pdb = new_ok('automatic_patches', [ pdb_object => $chain,
                                                 radius => 8,
                                                 patch_type => 'contact' ]
                                             );
+
+# Test production of patches from multiple chains
+my @chains = getChainArray();
+
+my $multiChainAP
+    = automatic_patches->new(pdb_object => [@chains[0..1]], radius => 8,
+                             patch_type => 'contact');
+
+ok(testForMultiChainPatches($multiChainAP), "multi-chain input works ok");
+
+# Test must be run on automatic_patches initialized with 1djs chains A and B
+sub testForMultiChainPatches {
+    my $autoPatches = shift;
+
+    my $expSumm
+        = "<patch A.163> A:159  A:160  A:162  A:163  A:164  A:165  B:35";
+    
+    foreach my $patch ($multiChainAP->get_patches()) {
+        
+        if ($patch->central_atom()->resSeq()  == 163
+            && $patch->central_atom->chainID() eq 'A'
+            && $patch->summary() eq $expSumm) {
+            return 1;
+        }
+    }
+    return 0;
+}
+    
+sub getChainArray {
+    my $pdb = pdb->new(pdb_code => '1djs', pdb_file => '1djs.pdb');
+    my @chains = $pdb->create_chains();
+
+    return @chains;
+}

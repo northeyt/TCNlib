@@ -9,6 +9,11 @@ use Carp;
 use pdb::pdb;
 use pdb::makepatch;
 use pdb::pdb2xmas;
+use pdb::pdbFunctions;
+use pdb::multiChain;
+use GLOBAL qw(&rm_trail);
+
+use Parallel::ForkManager;
 
 use write2tmp;
 
@@ -25,6 +30,13 @@ subtype 'ValidPDBObject',
     as 'Ref',
     where { ref $_ eq 'pdb' || ref $_ eq 'chain' },
     message { "$_ is not a valid pdb object (pdb or chain)" };
+
+subtype 'ArrayRefOfValidPDBObjects',
+    as 'ArrayRef[ValidPDBObject]';
+
+coerce 'ArrayRefOfValidPDBObjects',
+    from 'ValidPDBObject',
+    via { [$_] };
 
 # Import vars
 my $pdbprep = $TCNPerlVars::pdbprep;
@@ -59,15 +71,16 @@ has 'patch_type' => (
 
 has 'pdb_object' => (
     is => 'rw',
-    isa => 'ValidPDBObject',
+    isa => 'ArrayRefOfValidPDBObjects',
     lazy => 1,
+    coerce => 1,
     builder => '_build_pdb_object',
 );
 
 has 'pdb_code' => (
     is => 'rw',
     isa => 'Str',
-    required => 1
+    required => 1,
 );
 
 has 'chain_id' => (
@@ -101,6 +114,25 @@ for my $name (qw(pdb xmas)) {
                       lazy => 1);
 }
 
+has 'build_patches_from_parent' => (
+    is => 'rw',
+    isa => 'Bool',
+    default => 0,
+);
+
+has 'forkFlag' => (
+    is => 'rw',
+    isa => 'Bool',
+    default => 0,
+);
+
+has 'numForks' => (
+    is => 'rw',
+    isa => 'Int',
+    default => `nproc` - 1,
+);
+
+
 # Methods
 
 # Build an automatic_patches object straight from a pdb object
@@ -111,8 +143,11 @@ around BUILDARGS => sub {
     my %arg = @_;
 
     if ( exists $arg{pdb_object} ) {
-        my $pdb_obj = $arg{pdb_object};
-        
+
+        my $pdb_obj
+            = ref $arg{pdb_object} eq 'ARRAY' ? $arg{pdb_object}->[0]
+            : $arg{pdb_object};
+
         $arg{pdb_code} = $pdb_obj->pdb_code;
         $arg{chain_id} = $pdb_obj->chain_id if ref $pdb_obj eq 'chain';
         
@@ -130,11 +165,25 @@ around BUILDARGS => sub {
 sub _build_ASA_type {
     my $self = shift;
 
-    # Assign ASA type based on the pdb object assigned
-    my $type
-        = ref $self->pdb_object eq 'pdb' ? 'ASAc'
-        : 'ASAm';
+    # Assign ASA type based on the pdb objects assigned
+    # If array of chains, assume ASAb
+    # Otherwise, use object class of first element to set ASA type
 
+    if (@{$self->pdb_object()} > 1) {
+        my $multipleChainArrayTest = 1;
+        foreach my $pdb_obj (@{$self->pdb_object()}) {
+            if (ref $pdb_obj ne 'chain') {
+                $multipleChainArrayTest = 0;
+                last;
+            }
+        }
+        return 'ASAb' if $multipleChainArrayTest;
+    }
+    
+    my $type
+        = ref $self->pdb_object->[0] eq 'pdb' ? 'ASAc'
+            : 'ASAm';
+        
     return $type;
 }
 
@@ -207,28 +256,34 @@ sub get_patches {
     my $class = $self->has_chain_id ? 'chain' : 'pdb';
     my $form = $class eq 'chain' ? 'monomer' : 'multimer' ; 
     
-    my $pdb_obj = $self->pdb_object();
+    my $pdb_obj_aref = $self->pdb_object();
+
+    # Use pdb::multiChain::readASAb to read ASAs if ASA type = ASAb
+    # and ASA have not yet been read
+    if ($self->ASA_type() eq 'ASAb' && ! $self->pdb_object->[0]->has_read_ASA) {
+        pdb::multiChain::readASAb($self->pdb_object());
+    }
     
-    if (! $pdb_obj->has_read_ASA()) {
+    foreach my $pdb_obj (@{$pdb_obj_aref}) {
+        if (! $pdb_obj->has_read_ASA()) {
+            
+            my @ASA_read_err = ();
         
-        $pdb_obj->read_ASA();
-       
-        my @ASA_read_err = ();
-        
-        # Read ASA values for pdb object, check for errors
-        foreach my $ret ($pdb_obj->read_ASA()) {
-            if (ref $ret eq 'local::error'){
-                if ( $ret->type() eq 'ASA_read' ) {
-                    push(@ASA_read_err, $ret);
-                }
-                else {
-                    croak "Unrecognised error type '" . $ret->error()
-                    . "' returned by read_ASA";
+            # Read ASA values for pdb object, check for errors
+            foreach my $ret ($pdb_obj->read_ASA()) {
+                if (ref $ret eq 'local::error'){
+                    if ( $ret->type() eq 'ASA_read' ) {
+                        push(@ASA_read_err, $ret);
+                    }
+                    else {
+                        croak "Unrecognised error type '" . $ret->error()
+                            . "' returned by read_ASA";
+                    }
                 }
             }
         }
     }
-    
+        
     # Create tmp pdb file with modified atom lines ala xmas2pdb output
     my $ASA_type = $self->ASA_type();
     my $predicate = 'has_' . $ASA_type;
@@ -236,13 +291,15 @@ sub get_patches {
     my %swap = (occupancy => 'radius', tempFactor => $ASA_type);
 
     my @ATOM_lines = ();
-    
-    foreach my $atom (@{$pdb_obj->atom_array()}) {
 
+    my $atomAref = pdb::pdbFunctions::generateAtomAref(@{$self->pdb_object});
+    
+    foreach my $atom (@{$atomAref}) {
+        
         # Avoid printing atoms to file that do not have ASA or are labelled
         # solvent
         next if ! $atom->$predicate || $atom->is_solvent();
-
+        
         # Get atom string with occupancy replaced with radius, and tempFactor
         # replaced with ASA
         push(@ATOM_lines, $atom->stringify(\%swap));
@@ -250,41 +307,113 @@ sub get_patches {
             push(@ATOM_lines, $atom->stringify_ter());
         }
     }
-    
+
     my $tmp = write2tmp->new(suffix => '.pdb', data => \@ATOM_lines);
     
     my $tmp_file_name = $tmp->file_name();
-    
-    my @patches = ();
 
-    my($pc_errors, $patch_centres) = $pdb_obj->patch_centres();
+    my $all_pc_errors = [];
+    my $all_patch_centres = [];
     
-    foreach my $cent_atom (@{$patch_centres}) {
+    foreach my $pdb_obj (@{$self->pdb_object()}) {
+        my($pc_errors, $patch_centres)
+            = $pdb_obj->patch_centres(type => $self->ASA_type());
 
-        my %mkp_arg
-            = ( makepatch_file => $makepatch,
-                patch_type     => $self->patch_type,
-                radius         => $self->radius,
-                pdb_file       => $tmp_file_name,
-                pdb_code       => $pdb_code,
-                central_atom   => $cent_atom,
-                surf_min       => $self->surf_min,
-            );
-
-        my $mkp_obj = makepatch->new(%mkp_arg);
-    
-        my $return = do {
-            local $@;
-            my $ret;
-            eval { $ret = patch->new($mkp_obj); 1 };
-            $ret ? $ret : $@;
-        };
-        
-        push(@patches, $return);
+        push(@{$all_patch_centres}, @{$patch_centres});
     }
-    return  @patches;
+    
+    my $patchAref = $self->forkMakePatch($all_patch_centres, $tmp_file_name);
+
+    return @{$patchAref};
 }
 
+sub forkMakePatch {
+    my $self = shift;
+    
+    my $patchCentreAref = shift;
+    my $pdbDataFile = shift;
+    
+    my $forkFlag = $self->forkFlag();
+    
+    my %mPatchArgs = (makepatch_file => $makepatch,
+                      patch_type     => $self->patch_type,
+                      radius         => $self->radius,
+                      pdb_file       => $pdbDataFile,
+                      pdb_code       => lc $self->pdb_code,
+                      surf_min       => $self->surf_min,
+                  );
+   
+    if ($self->build_patches_from_parent()) {
+        $mPatchArgs{pdb_object} = $self->pdb_object();
+        $mPatchArgs{new_atoms} = 0;
+    }
+
+    # If parent pdb is actually a ref to an array of chains, then create a
+    # multi-chain atom hash. Otherwise, take atom hash of single parent pdb
+    my $atomSerialHref
+        = ref $self->pdb_object eq 'ARRAY' ?
+            pdb::multiChain::multiChainAtomSerialHref($self->pdb_object())
+              : $self->pdb_object->atom_serial_hash();
+
+    my $pm = $forkFlag ? Parallel::ForkManager->new($self->numForks) : 0;
+
+    for (my $i = 0 ; $i < @{$patchCentreAref} ; ++$i) {
+        
+        my $pid;
+
+        if ($pm) {
+            $pid = $pm->start and next;
+        }
+
+        my $centAtom = $patchCentreAref->[$i];
+        
+        $mPatchArgs{central_atom} = $centAtom;
+        
+        my $mkpObj = makepatch->new(%mPatchArgs);
+
+        my @atomSerials = ();
+        
+        foreach my $atomLine (@{$mkpObj->output()}) {
+            # Get atom serial
+            my $atomSerial = rm_trail(substr($atomLine, 6, 5));
+            push(@atomSerials, $atomSerial);
+        }
+
+        open(my $OUT, ">", "/tmp/$i") or die "Cannot open out file $i, $!";
+        
+        print {$OUT} "@atomSerials\n";
+             
+        $pm->finish if $pm;
+    }
+
+    $pm->wait_all_children if $pm;
+
+    my @patches = ();
+    
+    foreach (my $i = 0 ; $i < @{$patchCentreAref} ; ++$i){
+        
+        open(my $IN, "<", "/tmp/$i") or die $!;
+        my $serialLine = <$IN>;
+        chomp $serialLine;
+        my $atomSerialAref = [split(" ", $serialLine)];
+        
+        my $centralAtom = $patchCentreAref->[$i];
+
+        # Get corresponding atom object for patch atom serial
+        my @atoms = map {$atomSerialHref->{$_}} @{$atomSerialAref};
+        
+        my %patchArgs = (pdb_code => $self->pdb_code(),
+                         parent_pdb => $self->pdb_object,
+                         central_atom => $centralAtom,
+                         atom_array => \@atoms);
+
+        my $patch = patch->new(%patchArgs);
+        
+        push(@patches, $patch);
+
+    }    
+    return \@patches;
+}
 
 __PACKAGE__->meta->make_immutable;
 
