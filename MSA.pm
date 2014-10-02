@@ -17,6 +17,18 @@ has 'clustalwExec' => (
     default => $TCNPerlVars::clustalw
 );
 
+has 'clustalOExec' => (
+    is => 'rw',
+    isa => 'FileExecutable',
+    default => $TCNPerlVars::clustalO
+);
+
+has 'program' => (
+    is => 'rw',
+    isa => 'Str',
+    default => 'o',
+);
+
 has 'input' => (
     is => 'rw',
 );
@@ -139,33 +151,48 @@ sub _getOutput {
     my $self = shift;
     my $inputFile = shift;
 
-    my $rawOutputFile = $self->_runClustalw($inputFile);
+    my $rawOutputFile = $self->_runClustal($inputFile);
 
-    return $self->_parseClustalwOutput($rawOutputFile);
+    return $self->_parseClustalOutput($rawOutputFile);
 }
 
 
-sub _runClustalw {
+sub _runClustal {
     my $self = shift;
-    my $inputFile = shift;    
-    my $exec = $self->clustalwExec();
+    my $inputFile = shift;
+
+    my ($prog, $exec) = $self->_getProgAndExec();
 
     my $inputFileBaseName = basename($inputFile);
     my $outputFile = '/tmp/' . $inputFileBaseName . '.aln';
-    
+
     my $cmd = "$exec -OUTFILE=$outputFile -INFILE=$inputFile";
 
     my($stdout, $stderr, $success, $exit_code) = capture_exec($cmd);
     
     if (! $success) {
-        my $err = "clustalw run failed.\nCommand run: $cmd\nSTDERR: $stderr";
+        foreach my $file ($outputFile, $inputFile) {
+            # If files are temporary, retain for error checking
+            if (exists write2tmp->Cache->{$file}) {
+                write2tmp->retain_file(file_name => $file);
+            }
+        }
+        my $err = "$prog run failed.\nCommand run: $cmd\nSTDERR: $stderr";
         croak $err;
     }
 
     return $outputFile;
 }
 
-sub _parseClustalwOutput {
+sub _getProgAndExec {
+    my $self = shift;
+
+    return lc($self->program()) eq 'o' ? ('ClustalO', $self->clustalOExec())
+         : lc($self->program()) eq 'w' ? ('ClustalW', $self->clustalwExec())
+         : croak "program type is invalid! Either w = clustalw or O = clustalO";
+}
+
+sub _parseClustalOutput {
     my $self = shift;
     my $rawOutputFile = shift;
 
@@ -175,8 +202,8 @@ sub _parseClustalwOutput {
     my %id2AlnStr = ();
     
     while (my $line = <$FH>) {
-        # Skip header and blank lines
-        next if $. < 4 || $line =~ /^\s+$/;
+        # Skip header and any non-alignment lines
+        next if $. < 4 || $line =~ /^\s/;
 
         my($id, $alnStr) = $line =~ /(\S+)\s+(\S+)/g;
 

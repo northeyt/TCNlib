@@ -53,9 +53,11 @@ $clstr2xml = '/home/bsm3/zcbtfo4/cd-hit-4.6.1/clstr2xml.pl';
 
 # ClustalW
 $clustalw = '/acrm/usr/local/bin/clustalw';
+$clustalO = '/home/bsm3/zcbtfo4/clustalo-1.2.0-Ubuntu-x86_64';
 
-# asurf64
+# asurf64 and related
 $asurf64 = "/home/bsm/martin/bin/asurf64";
+$standardData = "/home/bsm3/zcbtfo4/scripts/lib/pdb/standard.data";
 
 # SACS Antibody-containing PDB XML File 
 $SACSxml = '/acrm/data/abs/xml/all.xml';
