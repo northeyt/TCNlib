@@ -1,7 +1,7 @@
 package pdb::multiChain;
-
 use strict; 
 use warnings;
+use Carp;
 
 use pdb::asurf64;
 
@@ -19,13 +19,28 @@ sub readASAb {
 
     my $asurf = pdb::asurf64->new(input => $atomAref);
     my $atomSerial2ASARadHref = $asurf->getOutput();
-
+    
     foreach my $atom (@{$atomAref}) {
+        next if $atom->is_solvent()
+            || ! $atomSerial2ASARadHref->{$atom->serial()};
+
         my ($ASA, $radius) = @{$atomSerial2ASARadHref->{$atom->serial()}};
+        
         $atom->ASAb($ASA);
         $atom->radius($radius);
     }
 
+    # Set each chain object's resid2relASAHref to asurf output
+    my %chainID2chain = map {$_->chain_id() => $_} @{$chainAref};
+
+    foreach my $resid (keys %{$asurf->resid2RelASAHref()}) {
+        my ($chainID, $resSeq) = split(/\./, $resid);
+        
+        my $relASA = $asurf->resid2RelASAHref()->{$resid};
+
+        $chainID2chain{$chainID}->resid2RelASAHref->{$resid} = $relASA;
+    }
+    
     # Set has_read_ASA for chain objects
     map { $_->has_read_ASA(1) } @{$chainAref};
 }
@@ -45,6 +60,30 @@ sub multiChainAtomSerialHref {
     return \%atomSerialHash;
 }
 
+# Given a ref to an array with two elements, where each element is a ref to an
+# array of chains (i.e. a complex), this function will compare the sequences of
+# chains between complexes. If the complexes are identical in sequence, then
+# the function will return 1, else it will return 0.
+sub areComplexesIdentical {
+    my $chainArraysAref = shift;
+    
+    my $sequenceArraysAref = [];
+    
+    for (my $i = 0 ; $i < @{$chainArraysAref} ; ++$i){
+        
+        my @chains = @{$chainArraysAref->[$i]};
+        for (my $j = 0 ; $j < @chains ; ++$j){
+            my $seq = join("", $chains[$j]->get_sequence(return_type => 1,
+                                                         include_missing => 1));
+            push(@{$sequenceArraysAref->[$i]}, $seq);
+        }
+    }
+
+    my @seqStrs
+        = map {join("", sort {$a cmp $b} @{$_})} @{$sequenceArraysAref};
+    
+    return $seqStrs[0] eq $seqStrs[1] ? 1 : 0;
+}
 
 1;
 __END__

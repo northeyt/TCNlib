@@ -24,6 +24,12 @@ my @complexChains = getComplexChains();
 
 pdb::multiChain::readASAb(\@complexChains);
 
+use Data::Dumper;
+
+is($complexChains[0]->resid2RelASAHref->{"L.130"}->{allAtoms},
+   84.2,
+   "resid2RelASAHref assigned correctly to chain");
+
 my $testAtom = $complexChains[0]->atom_array()->[0];
 is($testAtom->ASAb(), 42.473, "readASAb works ok");
 sub getComplexChains {
@@ -34,8 +40,13 @@ sub getComplexChains {
     return($L, $H);
 }
 
+my $matchingComplexes = [ [$complexChains[0], $complexChains[1]],
+                          [$complexChains[1], $complexChains[0]] ];
+is(pdb::multiChain::areComplexesIdentical($matchingComplexes), 1,
+   "areComplexesIdentical true for identical complexes");
+                         
+my $misMatchingComplexes = [ [$complexChains[0], $complexChains[1]],
+                             [$complexChains[0]] ];
 
-# Insert your test code below, the Test::More module is used here so read
-# its man page ( perldoc Test::More ) for help writing this test script.
-
-
+is(pdb::multiChain::areComplexesIdentical($misMatchingComplexes), 0,
+   "areComplexesIdentical false for non-identical complexes");
