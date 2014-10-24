@@ -440,73 +440,79 @@ sub _parse_atoms {
     my $self = shift;
     
     my @ATOM_lines = $self->_parse_ATOM_lines();
-  
+    
     my @atoms = ();
-
+    
     my $aL_clean = $self->altLoc_cleanup();
     my %altLoc = ();
-
+    
     my $h_clean = $self->hydrogen_cleanup();
     my $HETATM_clean = $self->het_atom_cleanup();
     my $solvent_clean = $self->solvent_cleanup();
     
     my %ter = ();
-
+    
     # Used to find multi-residue resids
     my %test_unique = ();
-
-    my $test_i = 0;
     
     foreach my $line (@ATOM_lines) {
-        ++$test_i;
         
-        if ( $line =~ /^TER/ ) {
-            my($serial, $chainID) = _parse_ter($line);
-
-            $ter{ $serial - 1 } = $chainID;
+        if ($line =~ /^TER/) {
+            # Label previous atom as terminal
+            my $prevAtom = $atoms[-1];
+            $prevAtom->is_terminal(1);
+        
+            $ter{$prevAtom->chainID} = []
+                if ! exists $ter{$prevAtom->chainID};
+            
+            push(@{$ter{$prevAtom->chainID}}, $prevAtom->serial());
             next;
         }
         
-        my $atom = atom->new( ATOM_line => $line );
+        my $atom = atom->new(ATOM_line => $line);
 
         my $chain   = $atom->chainID();
         my $resSeq  = $atom->resSeq();
         my $resName = $atom->resName();
 
-        if ( ! exists $test_unique{$chain} ) {
+        if (! exists $test_unique{$chain}) {
             $test_unique{$chain} = {};
         }
         
-        if ( ! exists $test_unique{$chain}->{$resSeq} ) {
+        if (! exists $test_unique{$chain}->{$resSeq}) {
             $test_unique{$chain}->{$resSeq} = $resName;
         }
         else {
             my $recorded_resName = $test_unique{$chain}->{$resSeq};
             if ($recorded_resName ne $resName){
                
-                my %multi = %{ $self->multi_resName_resid };
+                my %multi = %{$self->multi_resName_resid};
                 $multi{ $atom->_get_resid } = 1;
                 
-                $self->multi_resName_resid( { %multi } );
+                $self->multi_resName_resid({%multi});
             }
         }
         
-        next if ( $h_clean && $atom->element eq 'H'
-                      || $HETATM_clean && $atom->is_het_atom );
+        next if ($h_clean && $atom->element eq 'H'
+                      || $HETATM_clean && $atom->is_het_atom);
         
-        if ( $aL_clean && $atom->has_altLoc ) {
-            
+        if ($aL_clean && $atom->has_altLoc) {
+
             my $string
                 =  $atom->name . $atom->resName . $atom->chainID
                  . $atom->resSeq;
 
-            if ( exists $altLoc{$string} ) {
-                push( @{ $altLoc{$string} }, $atom );
+            if (exists $altLoc{$string}) {
+                push(@{$altLoc{$string}}, $atom);
             }
             else {
-                $altLoc{$string} = [ $atom ];
+                $altLoc{$string} = [$atom];
+                
+                # If this is first location of altLocs, add this to atom hash
+                # (this makes is possible to assign atoms with altlocs as
+                # terminal)
+                push(@atoms, $atom);
             }
-            
         }
         else {   
             push(@atoms, $atom);   
@@ -514,57 +520,62 @@ sub _parse_atoms {
     }
 
     if ($aL_clean) {
-        foreach my $arr ( values %altLoc ) {
+        foreach my $arr (values %altLoc) {
 
+            # Sort altlocs by occupancy
             my @sorted
                 = map { $_->[0] }
                     sort { $b->[1] <=> $a->[1] }
                         map { [ $_, $_->occupancy ] }
                             @{$arr};
 
-            # Clear altLoc
-            $sorted[0]->clear_altLoc();
+            my $top = $sorted[0];
             
-            push( @atoms, $sorted[0] );
-        }
+            # Assign top occupant's x,y,z and serial to first element of array
+            # (as this is the member that is contained within atom list)
+            foreach my $attr (qw(x y z serial)) {
+                $arr->[0]->$attr($top->$attr());
+            }
+            
+            # Clear altLoc
+            $arr->[0]->clear_altLoc();
+        }        
     }
+
 
     # Order all atoms by chain, then serial
     my %chain = ();
     foreach my $atom (@atoms) {
         my $chainID = $atom->chainID();
 
-        if ( ! exists $chain{$chainID} ) {
-            $chain{$chainID} = { $atom->serial => $atom };
+        if (! exists $chain{$chainID}) {
+            $chain{$chainID} = {$atom->serial => $atom};
         }
         else {
-            $chain{$chainID}->{ $atom->serial } = $atom;
+            $chain{$chainID}->{$atom->serial} = $atom;
         }
-    }
-
+    }    
+    
     my @sorted_atoms = ();
     my @term_array   = ();
     
     foreach my $chainID (sort keys %chain) {
         my @chain_atoms = ();
         
-        foreach my $atom ( sort { $a <=> $b } keys %{ $chain{$chainID} } ) {
-            push( @chain_atoms, $chain{$chainID}->{$atom} );
+        foreach my $atom ( sort {$a <=> $b} keys %{$chain{$chainID}}) {
+            push(@chain_atoms, $chain{$chainID}->{$atom});
         }
 
         my @chain_terminal_index = ();
         
         # Label terminal atoms
-        for my $i ( 0 .. @chain_atoms - 1 ) {
+        for my $i (0 .. @chain_atoms - 1) {
             my $atom = $chain_atoms[$i];
             my $serial = $atom->serial();
             if (! defined $serial) {
                 croak "Undefined $serial!";
             }
-            if ( exists $ter{$serial} && $atom->has_chainID
-                     && $atom->chainID eq $ter{$serial} ){
-                $atom->is_terminal(1);
-                
+            if ($atom->is_terminal()){
                 push(@chain_terminal_index, $i);
             }
         }
