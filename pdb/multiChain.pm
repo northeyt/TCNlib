@@ -16,8 +16,8 @@ sub readASAb {
     my $chainAref = shift;
     # Get array of all atoms from all chains
     my $atomAref = pdb::pdbFunctions::generateAtomAref(@{$chainAref});
-
     my $asurf = pdb::asurf64->new(input => $atomAref);
+    
     my $atomSerial2ASARadHref = $asurf->getOutput();
     
     foreach my $atom (@{$atomAref}) {
@@ -32,7 +32,7 @@ sub readASAb {
 
     # Set each chain object's resid2relASAHref to asurf output
     my %chainID2chain = map {$_->chain_id() => $_} @{$chainAref};
-
+    
     foreach my $resid (keys %{$asurf->resid2RelASAHref()}) {
         my ($chainID, $resSeq) = split(/\./, $resid);
         

@@ -47,7 +47,7 @@ foreach my $patch ($auto->get_patches) {
         next;
     }
     else {
-        $summ_hash{$patch->summary. "\n"} = 1;
+        $summ_hash{$patch->summary()} = 1;
     }    
 }
 
@@ -79,7 +79,6 @@ $noxmas->{pdb_file} = '1nox.pdb';
 
 ok($noxmas->xmas_file, "xmas file created when not found in xmas dir");
 
-
 print "Testing  BUILDARGS for when given a pdb object ...\n";
 
 my $chain = chain->new( pdb_code => '1djs', chain_id => 'A',
@@ -105,11 +104,11 @@ sub testForMultiChainPatches {
     my $autoPatches = shift;
 
     my $expSumm
-        = "<patch A.163> A:159  A:160  A:162  A:163  A:164  A:165  B:35";
+        = "<patch A.281> A:280 A:281 A:282 B:6 B:7\n";
     
     foreach my $patch ($multiChainAP->get_patches()) {
         
-        if ($patch->central_atom()->resSeq()  == 163
+        if ($patch->central_atom()->resSeq()  == 281
             && $patch->central_atom->chainID() eq 'A'
             && $patch->summary() eq $expSumm) {
             return 1;

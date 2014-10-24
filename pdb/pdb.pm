@@ -20,6 +20,7 @@ use pdb::xmas2pdb;
 use pdb::getresol;
 use pdb::rotate2pc;
 use pdb::get_files;
+use pdb::asurf64;
 
 # Subtypes
 
@@ -654,6 +655,8 @@ sub _determine_solvent {
     croak "No ranges found containing non-HETATM atoms for chain"
         if $hatom_range_count < 1;
 
+    # Return the index for the atom that signals the end of non-solvent segment
+    # of chain
     for my $i ( 0 .. @ordered_indices - 1 ) {
         return $i if $hash{ $ordered_indices[$i] };
     }
@@ -948,25 +951,48 @@ sub read_ASA {
 
     my $self = shift;
     my $xmas2pdb;
+
+    my @errors = ();
+
+   # asurf64 must also be run in order to get relative ASAs
+    my $asurf = pdb::asurf64->new(input => $self);
+    my $atomSerial2ASARadHref = $asurf->getOutput();
     
     # Use xmas2pdb object if it has been passed, otherwise create one
     if (@_) {
         $xmas2pdb = shift;
-       
+        
         croak "read_ASA must be passed an xmas2pdb object"
             if ref $xmas2pdb ne 'xmas2pdb';
+        
+        @errors = $self->_parseXmas2PDBOutput($xmas2pdb);
     }
     else {
-        croak "read_ASA: pdb object must have an xmas file\n"
-            if ! $self->has_xmas_file();
 
-        my $form = ref $self eq 'pdb' ? 'multimer' : 'monomer' ;
+        my $ASAType = ref $self eq 'pdb' ? 'ASAc' : 'ASAm' ;
         
-        my %x2p_arg = ( xmas_file     => $self->xmas_file(),
-                        form          => $form, );
-
-        $xmas2pdb = xmas2pdb->new(%x2p_arg);
+        # Use asurf64 per atom output
+        foreach my $atom (@{$self->atom_array()}) {
+            next if $atom->is_solvent()
+                || ! $atomSerial2ASARadHref->{$atom->serial()};
+            
+            my ($ASA, $radius) = @{$atomSerial2ASARadHref->{$atom->serial()}};
+            
+            $atom->$ASAType($ASA);
+            $atom->radius($radius);
+        }
     }
+    
+    $self->resid2RelASAHref($asurf->resid2RelASAHref());    
+    $self->has_read_ASA(1);
+    
+    return \@errors;
+}
+
+sub _parseXmas2PDBOutput {
+    my $self = shift;
+    my $xmas2pdb = shift;
+
     
     my $form = $xmas2pdb->form();
 
@@ -1010,21 +1036,35 @@ sub read_ASA {
         $atom->radius( $radii{$serial} );
         $atom->$attribute( $ASAs{$serial} );
     }
+    return @errors;
+}
 
-    $self->has_read_ASA(1);
-    
-    return \@errors;
-};
 
 sub patch_centres {
-
     my $self = shift;
     
     my %arg = @_;
 
+    my @errors = ();
+ 
+    if (! %{$self->resid2RelASAHref()}) {
+        my $message
+            = "read_ASA must be run before patches_centres "
+                . "to supply a resid2RelASAHref";
+        my $error = local::error->new(
+            message => $message,
+            type => 'no resid2RelASAHref',
+            data => {},
+        );
+        push(@errors, $error);
+
+        return \@errors;
+    }
+    
     my $threshold = exists $arg{threshold} ? $arg{threshold} : 25;
 
-    # If type has been supplied, supplied type - else, use ASAm if self is a
+    # Get ASA type to decide on patch central atom from each path centre
+    # If type has been supplied, use supplied type - else, use ASAm if self is a
     # chain, otherwise use ASAc
     my $type
         = exists $arg{type} ? $arg{type}
@@ -1032,59 +1072,38 @@ sub patch_centres {
         : 'ASAc';
     
     my @central_atoms = ();
-
-    my @errors = ();
     
-    foreach my $chain_h ( keys %{ $self->atom_index } ) {
-        my %chain_h = %{ $self->atom_index->{$chain_h} };
+    foreach my $chain ( keys %{ $self->atom_index } ) {
+        my %chain_h = %{ $self->atom_index->{$chain} };
         
         foreach my $resSeq ( keys %chain_h ) {
+            
             my %atom_h = %{ $chain_h{$resSeq} };
-
-            my @atoms = ();
-
+                       
             my $CA_flag = 0;
             
             foreach my $atom_name (keys %atom_h) {
-
                 $CA_flag = 1 if $atom_name eq 'CA';
                 
                 my $atom = $atom_h{$atom_name};
 
-                next if $atom->is_solvent();
-                
-                push( @atoms, $atom );
-
+                next if $atom->is_solvent();                
             }
 
             # Patch centre residues must have a CA atom to be run through
             # makepatch
-            
             next if ! $CA_flag;
 
-            my $ret = $self->_is_patch_centre($threshold, $type, @atoms);
-            if ( ref $ret eq 'local::error' ) {
-                my $message
-                    =  "Could not determine if residue " . $resSeq
-                      . " is valid patch center: " . $ret->message();
+            # Test to see if residue rASA is over threshold
+            my $resid = $chain . "." . $resSeq;
+            my $relASA =  $self->resid2RelASAHref->{$resid}->{allAtoms};
 
-                my $error = local::error->new(
-                    message => $message,
-                    type => 'no_patch_centre_value_for_residue',
-                    data => { residue => $resSeq,
-                              chain_id => $chain_h,
-                              atoms => [@atoms],
-                          },
-                    parent => $ret,
-                );
-                
-                push(@errors, $error);
-            }
-            elsif ($ret ne "-1" ) {
-                push( @central_atoms, $ret);
-            }
+            next if $relASA < $threshold;
+
+            my $central_atom = $self->highestASA($resid, $type);
+            push(@central_atoms, $central_atom);
         }
-    }
+    }  
     return(\@errors, \@central_atoms);
 }
 
@@ -1136,22 +1155,30 @@ sub highestASA {
     my $resid = shift or croak "highestASA must be passed a resid";
 
     my $ASA_type
-        =  ref $self eq 'pdb'   ? 'ASAc'
+        =  $_[0] ? $_[0] :
+           ref $self eq 'pdb'   ? 'ASAc'
          : ref $self eq 'chain' ? 'ASAm'
          : '' ;
 
     croak "highestASA: something went wrong assigning ASA type"
         if ! $ASA_type;
 
+    # Remove any . separators from resid, e.g. A.133 -> A133
+    $resid =~ s/\.//;
+    
     croak "resid '$resid' was not found in resid index"
         if ! exists $self->resid_index->{$resid};
 
     my @atoms = values %{ $self->resid_index->{$resid} };
+
+    # Avoid hydrogen atoms
+    @atoms = grep {$_->element() ne 'H'} @atoms;
     
-    foreach my $atom (@atoms) {
+    foreach my $atom (@atoms) {        
         my $predicate = "has_$ASA_type";
-        croak 'atom ' . $atom->serial() . " has no $ASA_type value"
-            if ! $atom->$predicate();
+        croak 'atom ' . $atom->serial() . " has no $ASA_type value\n"
+            . $atom . "\n"
+                if ! $atom->$predicate();
     }
 
     my @sorted = sort { $b->$ASA_type <=> $a->$ASA_type  } @atoms;
@@ -2100,7 +2127,6 @@ around BUILDARGS => sub {
         my %arg
             = ( central_atom => $makepatch->central_atom,
                 pdb_data     => $makepatch->output,
-                summary      => rm_trail( $makepatch->output->[-1] ),
                 pdb_code     => $makepatch->pdb_code,
             );
 
@@ -2274,13 +2300,6 @@ foreach my $name (qw(radius ASAm ASAc ASAb x y z occupancy tempFactor)) {
     has $name => (is => 'rw', isa => 'Num', predicate => $predicate);
 }
 
-foreach my $name ('rASAm', 'rASAc') {
-    my $predicate = 'has_' . $name;
-    my $builder = '_build_' . $name;
-    has $name => ( is => 'rw', isa => 'Num', predicate => $predicate,
-                   builder => $builder, lazy => 1,); 
-}
-
 has 'resid' => (
     is => 'ro',
     isa => 'Str',
@@ -2301,34 +2320,6 @@ foreach my $label (@labels) {
 ### Methods ####################################################################
 
 use overload '""' => \&stringify, fallback => 1;
-
-sub _build_rASAm {
-    my $self = shift;
-    croak "Atom has no ASAm value, cannot calculate rASAm"
-        if ! $self->has_ASAm();
-
-    return $self->_build_rASA($self->ASAm());
-}
-
-sub _build_rASAc {
-    my $self = shift;
-    croak "Atom has no ASAc value, cannot calculate rASAc"
-        if ! $self->has_ASAc();
-
-    return $self->_build_rASA($self->ASAc());
-}
-
-sub _build_rASA {
-    my $self = shift;
-    my $ASA  = shift;
-    
-    croak "Atom has no radius, cannot calculate a rASA"
-        if ! $self->has_radius();
-
-    my $r = $self->radius();
-    
-    return $ASA / (4 * pi * $r**2); 
-}
 
 sub stringify {
     my $self = shift;

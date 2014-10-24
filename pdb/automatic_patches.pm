@@ -1,5 +1,4 @@
 package automatic_patches;
-
 use Moose;
 use Moose::Util::TypeConstraints;
 

@@ -91,13 +91,12 @@ sub getResid2RelASAHash {
 
        chomp $line;
        
-       my @fields = split(/\s+/, $line);
-       
-       my $chainID = $fields[2];
-       my $resSeq  = $fields[3];
+       my $chainID = rm_trail(substr($line, 7, 2));
+       my $resSeq  = rm_trail(substr($line, 9, 4));
+                                                     
        my $resid   = $chainID . "." . $resSeq;
 
-       $resid2RelASA{$resid} = {allAtoms => $fields[5]};
+       $resid2RelASA{$resid} = {allAtoms => rm_trail(substr($line, 22, 6))};
    }   
    return %resid2RelASA;
 }
@@ -152,8 +151,9 @@ sub runExec {
     chdir($newCwd);
 
     # Create symbolic link to standard data file (if not present already)
-    unless (-e $self->standardDataFile()) {
-        symlink($self->standardDataFile(), "standard.data")
+    my $link = "standard.data";
+    unless (-e $link) {
+        symlink($self->standardDataFile(), $link)
             or croak "asurf64.pm : unable to create symbolic link to standard data file";
     }
     
