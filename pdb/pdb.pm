@@ -29,9 +29,21 @@ use pdb::asurf64;
 has 'pdb_code' => (
     isa => 'Str',
     is  => 'rw',
-    default => '????', # Add a builder that attempts to determine a code
-                       # from pdb_file, if has_pdb_file ?
+    builder => '_build_pdb_code',
+    lazy => 1,
 );
+
+sub _build_pdb_code {
+    my $self = shift;
+
+    if ($self->has_parent_pdb()) {
+        return $self->parent_pdb->pdb_code();
+    }
+    else {
+        croak "No pdb code has been set!";
+    }
+}
+
 
 for my $name ( 'pdb', 'xmas' ) {
     
@@ -2070,12 +2082,16 @@ has 'ASAb_hash' => (
     builder => '_build_ASAb_hash',
 );
 
-has 'total_ASAb' => (
-    isa => 'Num',
-    is => 'ro',
-    lazy => 1,
-    builder => '_build_total_ASAb',
-);
+foreach my $ASAtype (qw(ASAc ASAm ASAb)) {
+    my $attr = 'total_' . $ASAtype; 
+    my $builder = '_build_ASA';
+    has $attr => (
+        isa => 'Num',
+        is => 'ro',
+        lazy => 1,
+        builder => $builder,
+    );
+}
 
 has 'is_epitope' => (
     isa => 'Bool',
@@ -2102,7 +2118,7 @@ sub BUILD {
     my $self = shift;
 
     my @atom_array = ();
-    
+
     if ($self->has_parent_pdb()) {
         
         # If parent pdb is actually a ref to an array of chains, then create a
@@ -2124,11 +2140,15 @@ sub BUILD {
 
 
 # Allow a makepatch object to be passed directly to new method
+# Or, if summary line and parent pdb object has been passed,
+# parse summary line
 around BUILDARGS => sub {
     my $orig  = shift;
     my $class = shift;
 
-    if ( ref $_[0] eq 'makepatch' ) {
+    my %arg = int (scalar @_ / 2) == (scalar @_ / 2) ? @_ : ();
+    
+    if (ref $_[0] eq 'makepatch') {
         my $makepatch = $_[0];
         
         if ( ref $makepatch->output()->[0] eq 'local::error' ) {
@@ -2146,7 +2166,40 @@ around BUILDARGS => sub {
             # Patch will contain atoms from parent pdb, rather than new atoms
             $arg{parent_pdb} = $makepatch->pdb_object;
         }
+        $class->$orig(%arg);
+    }
+    elsif ($arg{summary} && $arg{parent_pdb}) {
         
+        # Build from summary and parent pdb
+        my @resids = parseSummaryLine($arg{summary});
+
+        # Remove separators from resids
+        map {s/\.//} @resids;
+        
+        my @atoms = map {values %{$arg{parent_pdb}->resid_index->{$_}}} @resids;
+        
+        $arg{atom_array} = \@atoms;
+        
+        if ($arg{central_atom}) {
+            # To be consistent, ensure central atom is from parent pdb
+            $arg{central_atom}
+                = $arg{parent_pdb}->atom_index->{$arg{central_atom}->serial()};
+        }
+        else {
+            # If no central atom has been supplied, assign central residue
+            # C-alpha
+            
+            foreach my $atom (@atoms) {
+                next if $atom->name() ne 'CA';
+
+                # First C-alpha should be from central residue
+                croak "Central residue has no C-alpha atom!"
+                    if $atom->resid() ne $resids[0]; # 1st ele is central resid
+
+                $arg{central_atom} = $atom;
+                last;
+            }
+        }
         
         $class->$orig(%arg);
     }
@@ -2174,6 +2227,25 @@ around '_parse_ATOM_lines' => sub {
     return @patch_ATOM_lines;
 };
 
+sub parseSummaryLine {
+    my $summaryLine = shift;
+
+    # example summary line : <patch G.409> G:335 G:397 G:398 G:407 G:408 G:409
+    # parse all resids
+    my @resids = $summaryLine =~ /(\w+[\.:]\w+)/g;
+    
+    # change any : separators to .
+    map {s/:/./} @resids;
+    
+    my $centralResid = shift @resids;
+
+    # Remove repeat of central residue
+    @resids = grep {$_ ne $centralResid} @resids;
+    
+    return ($centralResid, @resids);
+}
+
+
 sub _build_patch_id {
     my $self = shift;
 
@@ -2181,13 +2253,18 @@ sub _build_patch_id {
 }
 
 
-sub _build_total_ASAb {
+sub _build_ASA {
     my $self = shift;
 
-    my $totalASAb = 0;
-    map {$totalASAb += $_->ASAb()} @{$self->atom_array()};
-
-    return $totalASAb;
+    # Looking at calling attribute to determine ASA type to sum
+    my $toBeBuilt = (caller(1))[3];
+    # example toBeBuilt = patch::total_ASAb
+    my $ASAtype = [split("_", $toBeBuilt)]->[-1];
+    
+    my $totalASA = 0;
+    map {$totalASA += $_->$ASAtype()} @{$self->atom_array()};
+    
+    return $totalASA;
 }
 
 

@@ -347,6 +347,27 @@ my ($testPatch, $expSummary) = getTestSummaryPatch();
 
 is($testPatch->summary(), $expSummary, "_build_summary works ok");
 
+# Test parseSummaryLine
+my $testSummaryLine
+    = "<patch G.409> G:335 G:397 G:398 G:407 G:408 G:409 G:410\n";
+my @expResids = qw(G.409 G.335 G.397 G.398 G.407 G.408 G.410);
+
+cmp_deeply([patch::parseSummaryLine($testSummaryLine)], \@expResids,
+           "parseSummaryLine works okay");
+
+# Test building patch from summary and parent pdb
+$testSummaryLine = "<patch A.147> A:147 A:148 A:149 A:150 A:151";
+my $testPatchFomSummary = patch->new(parent_pdb => $pdb,
+                                     summary => $testSummaryLine);
+
+my $expCentralAtomStr = "ATOM      2  CA  THR A 147      17.142  46.945  24.205  1.00 49.31           C\n";
+my $retCentralAtomStr = $testPatchFomSummary->central_atom->stringify();
+is($testPatchFomSummary->central_atom(), $retCentralAtomStr,
+   "patch built from summary: central atom ok ");
+
+is($testPatchFomSummary->summary(), $testSummaryLine,
+   "patch built from summary: input summary returned after build");
+
 ### Subroutines ################################################################
 
 sub getTestSummaryPatch {
