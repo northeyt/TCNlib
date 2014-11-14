@@ -92,7 +92,7 @@ sub getResid2RelASAHash {
        chomp $line;
        
        my $chainID = rm_trail(substr($line, 7, 2));
-       my $resSeq  = rm_trail(substr($line, 9, 4));
+       my $resSeq  = rm_trail(substr($line, 9, 5));
                                                      
        my $resid   = $chainID . "." . $resSeq;
 
