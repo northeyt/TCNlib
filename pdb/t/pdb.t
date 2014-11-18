@@ -143,8 +143,8 @@ $mterm_pdb->atom_array();
 
 # is_terminal atom attribute
 
-my $term_atom  = $pdb->resid_index->{A362}->{CB};
-my $term_atom2 = $pdb->resid_index->{B140}->{OD2};
+my $term_atom  = $pdb->resid_index->{"A.362"}->{CB};
+my $term_atom2 = $pdb->resid_index->{"B.140"}->{OD2};
 
 cmp_deeply( [ $term_atom->is_terminal, $term_atom2->is_terminal ], [ 1, 1 ],
             "terminal atom labelled");
@@ -221,7 +221,7 @@ ok($test_atom->ASAm(), "Monomer ASA read from xmas2pdb object" );
 
 # test highestASA method
 
-my $resid = 'A147';
+my $resid = 'A.147';
 
 is($pdb->highestASA($resid)->ASAc(), '69.01',
    "highestASA returns highest ASA atom");
@@ -310,7 +310,7 @@ testGetAbPairs($abComplex);
 # Test isInContact
 testIsInContact($abComplex);
 
-ok($chains[0]->rotate2PCAs(qw(A95 A96 A97 A98 A105 A103)),
+ok($chains[0]->rotate2PCAs(qw(A.95 A.96 A.97 A.98 A.105 A.103)),
    "rotate2PCAs works ok");
 
 ok($chains[0]->rotate2Face(), "rotate2face works ok");
@@ -327,7 +327,7 @@ my $testAlignedChain = getTestAlignedChain();
 
 $testAlignedChain->processAlnStr(alnStr => $testAlnStr,
                                  includeMissing => 1);
-is($testAlignedChain->resid_index->{P168}->{CA}->alnSeq(), 298,
+is($testAlignedChain->resid_index->{"P.168"}->{CA}->alnSeq(), 298,
    "processAlnStr ok");
 
 # Test missing_residues

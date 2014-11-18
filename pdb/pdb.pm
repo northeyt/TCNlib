@@ -730,6 +730,8 @@ sub _build_atom_index {
    
         my $chainID = $atom->chainID();
         my $resSeq  = $atom->resSeq();
+        $resSeq .= $atom->iCode() if $atom->has_iCode();
+        
         my $name    = $atom->name();
 
         if ( ! exists $hash{$chainID} )  {
@@ -770,7 +772,7 @@ sub _build_resid_index {
         my %chain_h = %{ $self->atom_index->{$chain} };
         
         foreach my $resSeq (keys %chain_h) {
-            my $resid = $chain . $resSeq;
+            my $resid = "$chain.$resSeq";
             $hash{$resid} = $chain_h{$resSeq};
         }
     }
@@ -788,7 +790,7 @@ sub _build_missing_resid_index {
     my %missing_resids = ();
     foreach my $chain (keys %{$self->missing_residues()}) {
         foreach my $resSeq (keys %{$self->missing_residues->{$chain}}){
-            my $resid = $chain . $resSeq;
+            my $resid = "$chain.$resSeq";
             $missing_resids{$resid} = {};
         }
     }
@@ -1187,7 +1189,7 @@ sub highestASA {
         if ! $ASA_type;
 
     # Remove any . separators from resid, e.g. A.133 -> A133
-    $resid =~ s/\.//;
+    #$resid =~ s/\.//;
     
     croak "resid '$resid' was not found in resid index"
         if ! exists $self->resid_index->{$resid};
@@ -1851,7 +1853,7 @@ sub labelEpitopeAtoms {
 
     foreach my $resid (@resids) {
         # Remove chain-resSeq "." separator if present
-        $resid =~ s/\.//;
+        #$resid =~ s/\.//;
 
         foreach my $atom (values %{$self->resid_index->{$resid}}) {
             $atom->is_epitope(1);
@@ -2172,9 +2174,6 @@ around BUILDARGS => sub {
         
         # Build from summary and parent pdb
         my @resids = parseSummaryLine($arg{summary});
-
-        # Remove separators from resids
-        map {s/\.//} @resids;
         
         my @atoms = map {values %{$arg{parent_pdb}->resid_index->{$_}}} @resids;
         
@@ -2370,14 +2369,14 @@ has [qw(name resName element charge resSeq kabatSeq chothiaSeq ichothiaSeq
         alnSeq clusterSeq) ]
     => ( is => 'rw', isa => 'Str' );
 
-foreach my $name ( 'altLoc', 'chainID', 'iCode' ) {
+foreach my $name ('altLoc', 'chainID', 'iCode') {
     my $predicate = 'has_'   . $name;
     my $clearer   = 'clear_' . $name;
     
-    has $name => ( is => 'rw',
-                   isa => 'Str',
-                   predicate => $predicate,
-                   clearer => $clearer ); 
+    has $name => (is => 'rw',
+                  isa => 'Str',
+                  predicate => $predicate,
+                  clearer => $clearer); 
 }
 
 has ['serial'] => (is => 'rw', => isa => 'Int');
@@ -2455,7 +2454,7 @@ sub stringify {
          : $ordered_attr[1];
 
     unshift (@ordered_attr, ( $self->is_het_atom ? 'HETATM' : 'ATOM' ) );
-    
+
     for my $i ( 0 .. @ordered_attr) {
         if ( ! defined $ordered_attr[$i] ) {
             $ordered_attr[$i] = '';
@@ -2535,11 +2534,6 @@ sub BUILD {
     }
     
     delete $record{ATOM};
-
-    # If iCode is defined, append to resSeq
-    if ($record{iCode} ne ''){
-        $record{resSeq} = $record{resSeq} . $record{iCode};
-    }
     
     foreach my $value (keys %record) {
         next if $record{$value} eq '';
@@ -2549,7 +2543,7 @@ sub BUILD {
 
 sub _get_resid {
     my $self = shift;
-    my $resid = $self->chainID . $self->resSeq;
+    my $resid = join(".", ($self->chainID, $self->resSeq));
 
     return $resid;
 }
