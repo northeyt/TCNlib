@@ -18,8 +18,8 @@ sub getPDBFile {
     
     # Is input a pdb or chain object?
     try {
-        $inputAtomArray = eval {$input->atom_array()};
-        $inputAtomArray = _atoms2tmp($inputAtomArray);
+        my $inputAtomArray = eval {$input->atom_array()};
+        $inputFile = _atoms2tmp($inputAtomArray);
         
     }
     catch ($err) {
