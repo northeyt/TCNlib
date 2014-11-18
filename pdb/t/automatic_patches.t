@@ -56,7 +56,7 @@ foreach my $patch ($auto->get_patches) {
 my $exp_patch_file = 'automatic_patches_expected.out';
 
 open(my $fh, '<', $exp_patch_file)
-    or die "Canot open file $exp_patch_file, $!\n"; 
+    or die "Cannot open file $exp_patch_file, $!\n"; 
 
 my @exp_summary = <$fh>;
 
