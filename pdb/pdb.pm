@@ -1736,40 +1736,6 @@ sub kabatSequence {
     $kabatnum->sequenceChain();
 }
 
-
-# This method determines the atoms that are within a given distance threshold
-# (default 4A) of the CDRs of the given antibody chains. The antibody chain
-# CDR atoms must be labelled as such (i.e. $atom->is_CDR() == 1)
-# INPUT: ref to array of antibody chains, distance threshold (optional)
-# e.g. $chain->determineEpitope(\abChains, 4);
-sub determineEpitope {
-    my($self, $abChainsAref, $distance) = @_;
-
-    # Default distance if not supplied by user
-    $distance = 4 if ! $distance;
-
-    # Get array of CDR atoms from antibody chains
-    my @CDRAtoms = ();
-    foreach my $chain (@{$abChainsAref}) {
-        push(@CDRAtoms, $chain->getCDRAtoms());
-    }
-
-    # Create array of CDR atoms and antibody chain atoms
-    my @allAtoms = (@CDRAtoms, @{$self->atom_array()});
-
-    # Test for contacts
-    my $chainContacts = pdb::chaincontacts->new(input => \@allAtoms);
-    my $cContactResult = $chainContacts->getOutput();
-
-    # Get resids of antigen residues that are in contact with ab chains
-    my $residAref
-        = $cContactResult->chain2chainContacts($abChainsAref, [$self]);
-
-    # Label atoms from resids as epitope
-    $self->labelEpitopeAtoms(@{$residAref});
-}
-
-
 # This method determines the atoms that are within a given distance threshold
 # (default 4A) of the CDRs of the given antibody chains. The antibody chain
 # CDR atoms must be labelled as such (i.e. $atom->is_CDR() == 1).
@@ -1780,7 +1746,7 @@ sub determineEpitope {
 # larger the second distance threshold, the larger the epitope.
 # INPUT: ref to array of antibody chains, two distance thresholds (optional)
 # e.g. $chain->determineEpitope(\abChains, 4, 8);
-sub determineEpitope2 {
+sub determineEpitope {
     my($self, $abChainsAref, $normDistance, $exDistance) = @_;
 
     # Default distances if not supplied by user.
@@ -1815,11 +1781,21 @@ sub determineEpitope2 {
     my $allcContactResult = $chainContacts->getOutput();
 
     # Get array of resids that are contacting ab chains and in proximity to CDRs
-    my $residAref = _determineEpitopeResids($abChainsAref, $self, $exContactResult,
-                                      $allcContactResult);
+    my $eptiopeResidAref = _determineEpitopeResids($abChainsAref, $self,
+                                                   $exContactResult,
+                                                   $allcContactResult);
 
+    # Filter these residues so that only those residues that are also labelled
+    # interface are included
+    my @interfaceResidues = $self->getInterfaceResidues($abChainsAref);
+
+    my %epitopeResids = map {$_ => 1} @{$eptiopeResidAref};
+
+    my @epitopeAndInterface
+        = grep {exists $epitopeResids{$_}} @interfaceResidues;
+    
     # Label atoms from resids as epitope
-    $self->labelEpitopeAtoms(@{$residAref});
+    $self->labelEpitopeAtoms(@epitopeAndInterface);
 }
 
 # This subroutine determines the residues that are part of the epitope, from the
@@ -1873,6 +1849,39 @@ sub getEpitopeResSeqs {
             if $atom->is_epitope();
     }
     return keys %epitopeResSeqs;
+}
+
+sub getInterfaceResidues {
+    my $self = shift;
+    my $otherChainsAref = shift;
+
+    $self->read_ASA() if ! $self->has_read_ASA();
+
+    my $atomAref
+        = pdb::pdbFunctions::generateAtomAref($self, @{$otherChainsAref});
+    
+    # Calculate ASAb values of self + otherChains
+    my $asurf = pdb::asurf64->new(input => $atomAref);
+    my $atomSerialHref = $asurf->getOutput();
+    my $complexResid2RelASAHref = $asurf->resid2RelASAHref();
+
+    my @interfaceResidues = ();
+    
+    foreach my $resid (keys %{$self->resid_index()}) {
+        
+        my $complexRelASA = $complexResid2RelASAHref->{$resid}->{allAtoms};
+        my $molRelASA = $self->resid2RelASAHref->{$resid}->{allAtoms};
+
+        unless (defined $complexRelASA && defined $molRelASA) {
+            croak "Undefined value for " . $self->pdb_code()
+                . $self->chain_id() . " $resid!\n";
+        }
+        
+        my $ASAdiff = $molRelASA - $complexRelASA;
+        
+        push(@interfaceResidues, $resid) if $ASAdiff >= 10;
+    }
+    return @interfaceResidues;
 }
 
 

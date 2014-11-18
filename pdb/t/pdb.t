@@ -298,11 +298,8 @@ testSeqRangeAtoms();
 testAtomContacting();
 
 # test chain->determineEpitope
-ok(testDetermineEpitope(@chains), "determineEpitope works ok");
-
-# test chain->determineEpitope2
 ok(testDetermineEpitope2(@chains),
-   "determineEpitope2 replicates determineEpitope behaviour");
+   "determineEpitope identifies epitope residues ok");
 
 # Test getAbPairs()
 testGetAbPairs($abComplex);
@@ -510,7 +507,7 @@ sub checkEpitopeLabels {
 }
 
 sub coreEpitope {
-    return (qw(72 101 81 77 74 100 82 78 85 83 76 102 79 75));
+    return (qw(81 74 100 82 78 85 83 76 102 79 75));
 }
 
 sub clearEpitopeFlag {
