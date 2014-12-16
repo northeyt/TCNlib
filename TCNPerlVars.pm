@@ -1,9 +1,7 @@
 package TCNPerlVars;
-use File::Basename;
 
 # Where this file lives
-($name, $path, $suffix) = fileparse($INC{"TCNPerlVars.pm"});
-$libdir = $path;
+$libdir = "/home/bsm3/zcbtfo4/scripts/lib";
 
 # Data
 $datadir = "/acrm/data/people/zcbtfo4";
@@ -34,31 +32,32 @@ $xmasprep  = "/acrm/data/xmas/pdb/pdb";
 $xmasext   = ".xmas";
 
 # makepatch and related
-$makepatch = "$libdir/bin/makepatch";
-$xmas2pdb  = "$libdir/bin/xmas2pdb";
+$makepatch = "/home/bsm/martin/bin/makepatch";
+$xmas2pdb  = "/home/bsm/martin/acrm/CONSULTANCY/inpharmatica/software/xmas2pdb/xmas2pdb";
 
-$radii_file = "$libdir/bin/data/radii.dat";
-$pdb2xmas   = "$libdir/bin/pdb2xmas";
+$radii_file = "/acrm/data/people/zcbtfo4/radii.dat";
+$pdb2xmas   = "/home/bsm/martin/acrm/CONSULTANCY/inpharmatica/software/pdb2xmas/pdb2xmas";
 
-$pdb2xmas_bin = "$libdir/bin/pdb2xmasbin";
+$pdb2xmas_bin
+    = "/home/bsm/martin/acrm/CONSULTANCY/inpharmatica/software/bin/";
 
 # Command-line program paths for pdb and related classes
-$getresol = "$libdir/bin/getresol";
-$idabchain = "$libdir/bin/idabchain";
-$kabatnum = "$libdir/bin/kabatnum.pl";
-$chaincontacts = "$libdir/bin/chaincontacts";
+$getresol = '/home/bsm/martin/bin/getresol';
+$idabchain = '/home/bsm/martin/bin/idabchain';
+$kabatnum = '/home/bsm/martin/abnum/installed/numbering/kabatnum.pl';
+$chaincontacts = '/home/bsm/martin/bin/chaincontacts';
 
 # CDhit and related
-$cdhit = "$libdir/bin/cd-hit";
-$clstr2xml = "$libdir/bin/clstr2xml.pl";
+$cdhit = '/home/bsm3/zcbtfo4/cd-hit-4.6.1/cd-hit';
+$clstr2xml = '/home/bsm3/zcbtfo4/cd-hit-4.6.1/clstr2xml.pl';
 
 # ClustalW
-$clustalw = "$libdir/bin/clustalw";
-$clustalO = "$libdir/bin/clustalo-1.2.0-Ubuntu-x86_64";
+$clustalw = '/acrm/usr/local/bin/clustalw';
+$clustalO = '/home/bsm3/zcbtfo4/clustalo-1.2.0-Ubuntu-x86_64';
 
 # asurf64 and related
-$asurf64 = "$libdir/bin/asurf64";
-$standardData = "$libdir/pdb/standard.data";
+$asurf64 = "/home/bsm/martin/bin/asurf64";
+$standardData = "/home/bsm3/zcbtfo4/scripts/lib/pdb/standard.data";
 
 # SACS Antibody-containing PDB XML File 
 $SACSxml = '/acrm/data/abs/xml/all.xml';
