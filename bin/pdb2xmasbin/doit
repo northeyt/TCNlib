@@ -1,0 +1,10 @@
+pdb2xmas /data/pdb/pdb2bpy.ent 2bpy.xmas
+solv 2bpy.xmas 2bpy.solv
+ss 2bpy.solv 2bpy.ss
+hb 2bpy.ss 2bpy.hb
+
+pdb2xmas /data/pdb/pdb2bpz.ent 2bpz.xmas
+solv 2bpz.xmas 2bpz.solv
+ss 2bpz.solv 2bpz.ss
+hb 2bpz.ss 2bpz.hb
+
