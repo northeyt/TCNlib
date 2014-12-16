@@ -10,6 +10,8 @@ use IO::CaptureOutput qw(capture_exec);
 use File::Spec;
 use File::Basename;
 use Cwd;
+use write2tmp;
+write2tmp->Cache_Limit(100);
 
 # Attributes
 
@@ -64,6 +66,10 @@ sub getOutput {
     my %resid2RelASA = $self->getResid2RelASAHash($outRSAFile);
     $self->resid2RelASAHref(\%resid2RelASA);
 
+    # Remove output ASA and RSA files
+    unlink($outASAFile);
+    unlink($outRSAFile);
+    
     return \%atomSerialHash;
 }
 
@@ -166,7 +172,10 @@ sub runExec {
     chdir($oldCwd);
    
     if (! $success) {
-        croak "asurf64 failed: $stderr\n";
+        if (exists write2tmp->Cache->{$inputFile}) {
+            write2tmp->retain_file(file_name => $inputFile);
+        }
+        croak "asurf64 failed: $stderr\nCmd run: $cmd\n";
     }
     elsif (! -e $outputASAFile) {
         croak "asurf64 failed to create an output file";
