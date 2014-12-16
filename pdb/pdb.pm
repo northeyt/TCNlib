@@ -1,5 +1,32 @@
 package pdb;
 
+=head1 NAME
+
+pdb - A class for creating pdb objects from pdb files.
+
+=cut
+
+=head1 SYNOPSIS
+
+use pdb;
+$pdbObject = pdb->new(pdb_code => '1adjs',
+                         pdb_file => '1adjs.pdb');
+
+# Or ...
+$pdbObject = pdb->new(pdb_code => '1djs'); # Grab file automatically!
+
+=cut
+
+
+=head1 DESCRIPTION
+
+pdb is one of the classes I have used for the majority of my PhD work. It is a
+class whose primary function is to parse information from PDB files in order
+to create atom objects, then supply a range of attributes and methods for
+accessing those atoms. pdb is the parent class of the chain and patch objects
+
+=cut
+
 use Moose;
 use Moose::Util::TypeConstraints;
 use types;
@@ -22,9 +49,20 @@ use pdb::rotate2pc;
 use pdb::get_files;
 use pdb::asurf64;
 
-# Subtypes
+=head1 Methods
 
-### Attributes
+=over 12
+
+=cut
+
+### Attributes #################################################################
+################################################################################
+
+=item C<pdb_code>
+
+Returns pdb code of object
+
+=cut
 
 has 'pdb_code' => (
     isa => 'Str',
@@ -33,18 +71,28 @@ has 'pdb_code' => (
     lazy => 1,
 );
 
-sub _build_pdb_code {
-    my $self = shift;
+=item C<pdb_file>
 
-    if ($self->has_parent_pdb()) {
-        return $self->parent_pdb->pdb_code();
-    }
-    else {
-        croak "No pdb code has been set!";
-    }
-}
+Returns pdb filename of object. This can be automatically assigned by
+pdb::get_files if pdb_code is supplied by user during object construction.
 
+=item C<xmas_file>
 
+Returns the xmas filename of object. This can also be assigned automatically
+by pdb::get_files if pdb_code is supplied by user during object construction.
+
+=item C<pdb_data>
+
+Ref to array of lines from object's pdb file.
+
+=item C<xmas_data>
+
+Ref to array of lines from object's xmas file.
+
+=cut
+
+# pdb_file, pdb_data, xmas_file, xmas_data atributes. If any are not supplied,
+# builder methods will attempt to find files using pdb::get_files
 for my $name ( 'pdb', 'xmas' ) {
     
     my $att_file = $name . '_file';
@@ -67,6 +115,285 @@ for my $name ( 'pdb', 'xmas' ) {
         builder => '_build_' . $att_data,
         predicate => 'has_' . $att_data,
     );
+}
+
+=item C<remark_hash>
+
+Hash of remark lines parsed from pdb data
+Hash is of form:
+    remarkNumber => Ref to array of scalar refs to pdb_data lines
+
+=cut
+
+has 'remark_hash' => (
+    isa => 'HashRef',
+    is => 'ro',
+    builder => '_build_remark_hash',
+    lazy => 1,
+);
+
+=item C<atom_array>
+
+Ref to array of atom objects parsed from PDB data, or assigned by user
+
+=cut
+
+has 'atom_array' => (
+    isa => 'ArrayRef[atom]',
+    is  => 'rw',
+    lazy => 1,
+    builder => '_parse_atoms',
+);
+
+=item C<terminal_atom_array>
+
+Ref to array of atoms labelled is_terminal()
+
+=cut
+
+has 'terminal_atom_array' => (
+    isa => 'ArrayRef[atom]',
+    is  => 'rw',
+    builder => '_build_terminal_atom_array',
+    lazy => 1,
+);
+
+=item C<atom_index>
+
+Ref to hash of atoms, indexed as so:
+    chainID -> resSeq -> atom_name -> atom
+
+e.g.
+    $firstCAlpha = $pdb->atom_index->{A}->{1}->{CA};
+
+=cut
+
+has 'atom_index' => (
+    isa => 'HashRef',
+    is => 'ro',
+    lazy => 1,
+    builder => '_build_atom_index',
+);
+
+=item C<resid_index>
+
+Ref to hash of atoms, indexed as so:
+    resid -> atom_name -> atom
+
+Where resid = chainID.resSeq (e.g. A.12)
+
+=cut
+
+has 'resid_index' => (
+    isa => 'HashRef',
+    is => 'ro',
+    lazy => 1,
+    builder => '_build_resid_index',
+);
+
+=item C<missing_resid_index>
+
+Index in form of resid -> {} (i.e. ref to empty hash)
+Where each resid has been identified as missing from structure,
+e.g. information parsed from pdb file remarks
+
+=cut
+
+has 'missing_resid_index' => (
+    isa => 'HashRef',
+    is => 'ro',
+    lazy => 1,
+    builder => '_build_missing_resid_index',    
+);
+
+=item C<pdbresid_index>
+
+This index is the same as resid_index, except that resids are prepended with
+the object's pdb code, e.g. 4houA.213
+
+=cut
+
+has 'pdbresid_index' => (
+    isa => 'HashRef',
+    is => 'ro',
+    lazy => 1,
+    builder => '_build_pdbresid_index',
+);
+
+=item C<atom_serial_hash>
+
+Hash of form atomSerial => atom, e.g.
+    $firstAtom = $pdb->atom_serial_hash->{1};
+
+=cut
+
+has 'atom_serial_hash' => (
+    isa => 'HashRef',
+    is => 'ro',
+    lazy => 1,
+    builder => '_build_atom_serial_hash',
+);
+
+=item C<multi_resName_resid>
+
+Hash of resids with multiple resNames with form resid => 1, e.g.
+    @multiNameResids = keys %{$pdb->multi_resName_resids()};
+
+=cut
+
+has 'multi_resName_resids' => (
+    isa => 'HashRef',
+    is => 'rw',
+    lazy => 1,
+    builder => '_build_multi_resName_resids',
+);
+
+=item C<altLoc_cleanup(BOOL)>
+
+Flag that if set to TRUE, then atom altLocs will be processed so that only the
+altLoc for a given residue atom with highest occupancy will be added to the
+object's atom_array
+
+DEFAULT = TRUE
+
+=cut
+
+has 'altLoc_cleanup' => (
+    isa => 'Bool',
+    is  => 'rw',
+    default => 1,
+);
+
+=item C<hydrogen_cleanup(BOOL)>
+
+Flag that if set to TRUE, then no hydrogen atoms will be included in
+object's atom_array.
+
+DEFAULT = 0
+
+=cut
+
+has 'hydrogen_cleanup' => (
+    isa => 'Bool',
+    is => 'rw',
+    default => 0,
+);
+
+=item C<het_atom_cleanup(BOOL)>
+
+Flag that if set to TRUE, then not HETATM atoms will be included in the object's
+atom_array.
+
+=cut
+
+has 'het_atom_cleanup' => (
+    isa => 'Bool',
+    is => 'rw',
+    default => 0,
+);
+
+=item C<solvent_cleanup>
+
+Flag that if set to TRUE, then not solvent atoms will be included in the
+object's atom_array.
+
+=cut
+
+# Avoid parsing solvent atoms from pdb data
+has 'solvent_cleanup' => (
+    isa => 'Bool',
+    is => 'rw',
+    default => 0,
+);
+
+# Used by methods to indicate that the object has had
+# accessible surface area (ASA) measures taken in some form
+has 'has_read_ASA' => (
+    isa => 'Bool',
+    is => 'rw',
+    default => 0,
+);
+
+=item C<experimental_method>
+
+Experimental method of structure determination, parsed from pdb data.
+
+=cut
+
+has 'experimental_method' => (
+    is => 'rw',
+    isa => 'Str',
+    predicate => 'has_experimental_method',
+    lazy => 1,
+    builder => '_build_experimental_method',
+);
+
+=item C<resolution>
+
+Resolution of structure, parsed from pdb data.
+
+=cut
+
+has 'resolution' => (
+    is => 'rw',
+    isa => 'Num',
+    predicate => 'has_resolution',
+    lazy => 1,
+    builder => '_build_resolution',
+);
+
+=item C<r_value>
+
+R-value of strucure, parsed from pdb data.
+
+=cut
+
+has 'r_value' => (
+    is => 'rw',
+    isa => 'Num',
+    predicate => 'has_r_value',
+    lazy => 1,
+    builder => '_build_r_value',
+);
+
+
+has 'missing_residues' => (
+    is => 'rw',
+    isa => 'HashRef',
+    builder => '_parse_remark465',
+    lazy => 1,
+);
+
+
+=item C<resid2RelASAHref>
+
+Where RelASA = Relative solvent accessible surface area
+Hash of form resid -> rASA, normally assigned using read_ASA method.
+
+=cut
+
+has 'resid2RelASAHref' => (
+    is => 'rw',
+    isa => 'HashRef',
+    default => sub { {} },
+    lazy => 1,
+);
+
+# Consume antigen role
+with 'pdb::antigen';
+
+### Attribute Builder Methods ##################################################
+################################################################################
+
+sub _build_pdb_code {
+    my $self = shift;
+
+    if ($self->has_parent_pdb()) {
+        return $self->parent_pdb->pdb_code();
+    }
+    else {
+        croak "No pdb code has been set!";
+    }
 }
 
 sub _get_pdb_file {
@@ -106,7 +433,6 @@ sub _build_xmas_data {
     return $self->_build_data('xmas');
 }
 
-
 sub _build_data {
     my($self, $att) = @_;
 
@@ -126,349 +452,26 @@ sub _build_data {
     return \@array;
 }
 
-has 'remark_hash' => (
-    isa => 'HashRef',
-    is => 'ro',
-    builder => '_build_remark_hash',
-    lazy => 1,
-);
 
-has 'atom_array' => (
-    isa => 'ArrayRef[atom]',
-    is  => 'rw',
-    lazy => 1,
-    builder => '_parse_atoms',
-);
-
-# Index is form of chain -> resSeq -> atom_name -> atom
-has 'atom_index' => (
-    isa => 'HashRef',
-    is => 'ro',
-    lazy => 1,
-    builder => '_build_atom_index',
-);
-
-has 'terminal_atom_index' => (
-    isa => 'ArrayRef[atom]',
-    is  => 'rw',
-    default => sub { [] },
-);
-
-# Index in form of resid -> atom_name -> atom
-# Resid = chainResSeq
-has 'resid_index' => (
-    isa => 'HashRef',
-    is => 'ro',
-    lazy => 1,
-    builder => '_build_resid_index',
-);
-
-# Index in form of resid -> {}
-# Where each resid has been identified as missing from structure
-# (see missing_residues)
-has 'missing_resid_index' => (
-    isa => 'HashRef',
-    is => 'ro',
-    lazy => 1,
-    builder => '_build_missing_resid_index',    
-);
-
-# This index is the same as resid_index, except that resids are prepended with
-# the object's pdb code
-has 'pdbresid_index' => (
-    isa => 'HashRef',
-    is => 'ro',
-    lazy => 1,
-    builder => '_build_pdbresid_index',
-);
-
-has 'atom_serial_hash' => (
-    isa => 'HashRef',
-    is => 'ro',
-    lazy => 1,
-    builder => '_build_atom_serial_hash',
-);
-
-has 'multi_resName_resid' => (
-    isa => 'HashRef',
-    is => 'rw',
-    default => sub { {} },
-);
-
-# Selects one altLoc atom for a given residue atom according to highest
-# occupancy
-has 'altLoc_cleanup' => (
-    isa => 'Bool',
-    is  => 'rw',
-    default => 1,
-);
-
-# Avoid parsing hydrogen atoms from pdb data
-has 'hydrogen_cleanup' => (
-    isa => 'Bool',
-    is => 'rw',
-    default => 0,
-);
-
-has 'het_atom_cleanup' => (
-    isa => 'Bool',
-    is => 'rw',
-    default => 0,
-);
-
-has 'has_read_ASA' => (
-    isa => 'Bool',
-    is => 'rw',
-    default => 0,
-);
-
-has 'solvent_cleanup' => (
-    isa => 'Bool',
-    is => 'rw',
-    default => 0,
-);
-
-has 'experimental_method' => (
-    is => 'rw',
-    isa => 'Str',
-    predicate => 'has_experimental_method',
-    lazy => 1,
-    builder => '_build_experimental_method',
-);
-
-has 'resolution' => (
-    is => 'rw',
-    isa => 'Num',
-    predicate => 'has_resolution',
-    lazy => 1,
-    builder => '_build_resolution',
-);
-
-has 'r_value' => (
-    is => 'rw',
-    isa => 'Num',
-    predicate => 'has_r_value',
-    lazy => 1,
-    builder => '_build_r_value',
-);
-
-has 'missing_residues' => (
-    is => 'rw',
-    isa => 'HashRef',
-    builder => '_parse_remark465',
-    lazy => 1,
-);
-
-has 'resid2RelASAHref' => (
-    is => 'rw',
-    isa => 'HashRef',
-    default => sub { {} },
-    lazy => 1,
-);
-
-
-# Consume antigen role
-with 'pdb::antigen';
-
-### Methods
-
-# Attempt to build experimental_method, resolution and r_factor from getresol
-# object. Also check if pdb is multi-model
-sub BUILD {
-    my $self = shift;
-
-    return if ! $self->has_pdb_file();
-
-    my ($expMethod, $resolution, $rValue) = eval {$self->_run_getresol()};
-
-    $self->experimental_method($expMethod) if $expMethod;
-    $self->resolution($resolution) if $resolution;
-    $self->r_value($rValue) if $rValue;
-     
-    if ( $self->pdb_data && $self->_multi_model) {
-        my $message
-            = "pdb is a multi-model record: currently cannot handle these";
-        
-        my $error = local::error->new( message => $message,
-                                       type => 'multi_model_pdb',
-                                       data => {
-                                           pdb_file => $self->pdb_data },
-                                   );
-
-        croak $error;
-    }
-}
-
-sub _build_experimental_method {
-    my $self = shift;
-
-    my($expMethod, $resolution, $rValue) = $self->_run_getresol();
-
-    # Set the other two values
-    $self->resolution($resolution);
-    $self->r_value($rValue);
-    
-    return $expMethod;
-}
-
-sub _build_resolution {
-    my $self = shift;
-
-    my($expMethod, $resolution, $rValue) = $self->_run_getresol();
-
-    # Set the other two values
-    $self->experimental_method($expMethod);
-    $self->r_value($rValue);
-    
-    return $resolution;
-}
-
-sub _build_r_value {
-    my $self = shift;
-
-    my($expMethod, $resolution, $rValue) = $self->_run_getresol();
-
-    # Set the other two values
-    $self->experimental_method($expMethod);
-    $self->resolution($resolution);
-   
-    return $rValue;
-}
-
-sub _run_getresol {
-
-    my $self = shift;
-    
-    my $getresol = pdb::getresol->new(pdb_file => $self->pdb_file);
-
-    my $expMethod;
-    my $resolution;
-    my $rValue;
-
-    my $ret = $getresol->run();
-    
-    if (ref $ret  ne 'local::error'){
-        $expMethod  = $getresol->experimental_method();
-        $resolution = $getresol->resolution();
-        $rValue     = $getresol->r_value();
-    }
-    else {
-        croak $ret;
-    }
-
-    return ($expMethod, $resolution, $rValue);
-}
-
-
-sub _build_atom_serial_hash {
-    my $self = shift;
-
-    my %atomSerialHash = ();
-
-    foreach my $atom (@{$self->atom_array()}) {
-        $atomSerialHash{$atom->serial} = $atom;
-    }
-
-    return \%atomSerialHash;
-}
-
-# Creates hash of form:
-# remarkNumber => Ref to array of scalar refs to pdb_data lines
-sub _build_remark_hash {
-    my $self = shift;
-    
-    my %remarks = ();
-    
-    for (my $i = 0 ; $i < @{$self->pdb_data()} ; ++$i){
-        if ($self->pdb_data()->[$i] =~ /^REMARK \s* (\d+)/xms) {
-            if (exists $remarks{$1}) {
-                push(@{$remarks{$1}}, \$self->pdb_data()->[$i])
-            }
-            else {
-                $remarks{$1} = [\$self->pdb_data->[$i]];
-            }
-        }
-    }
-    return \%remarks;
-}
-
-sub _parse_remark465 {
-    my $self = shift;
-    
-    # Return ref to empty hash if remark 465 d.n.e
-    # (means that there are no missing residues) 
-    return {}
-        if ! exists $self->remark_hash->{465};
-
-    my %resSeqs = ();
-
-    my $headerFlag = 0;
-    
-    foreach my $lineRef (@{$self->remark_hash()->{465}}) {
-
-        if (${$lineRef} =~ /REMARK 465   M RES C SSSEQI/){
-            $headerFlag = 1;
-            next;
-        }
-        
-        # Skip lines until past header
-        next if ! $headerFlag;
-        
-        my $line = ${$lineRef};
-
-        my $resType = substr($line, 15, 3);
-        my $chainID = substr($line, 19, 1);
-        my $resSeq  = substr($line, 21, 5);
-
-        $resSeq = rm_trail($resSeq);
-
-        if (! exists $resSeqs{$chainID}) {
-            $resSeqs{$chainID} = {$resSeq => $resType};
-        }
-        else {
-            $resSeqs{$chainID}->{$resSeq} = $resType;
-        }
-    }
-    
-    return \%resSeqs;
-}
-
-
-sub _multi_model {
-    my $self = shift;
-
-     croak "Cannot determine multi-model status of pdb - no pdb data"
-         if ! $self->has_pdb_data;
-
-    if ( grep { m{ \A MODEL \s* \d+ \s* \z }xms } @{ $self->pdb_data() } ) {
-        return 1;
-    }
-    else {
-        return 0;
-    }
-};
-
+# This is the central subroutine that deals with parsing atom lines from pdb
+# data in order to create an array of atom objects.
 sub _parse_atoms {
     my $self = shift;
-    
+
+    # Get raw ATOM lines from pdb data
     my @ATOM_lines = $self->_parse_ATOM_lines();
     
     my @atoms = ();
-    
-    my $aL_clean = $self->altLoc_cleanup();
+
+    # Used to cache altLocs
     my %altLoc = ();
     
-    my $h_clean = $self->hydrogen_cleanup();
-    my $HETATM_clean = $self->het_atom_cleanup();
-    my $solvent_clean = $self->solvent_cleanup();
-    
+    # Used to cache terminal labelled atoms
     my %ter = ();
-    
-    # Used to find multi-residue resids
-    my %test_unique = ();
-    
-    foreach my $line (@ATOM_lines) {
         
+    foreach my $line (@ATOM_lines) {
+
+        # Process TER lines to label atoms as terminal
         if ($line =~ /^TER/) {
             # Label previous atom as terminal
             my $prevAtom = $atoms[-1];
@@ -480,39 +483,19 @@ sub _parse_atoms {
             push(@{$ter{$prevAtom->chainID}}, $prevAtom->serial());
             next;
         }
-        
+
+        # Parse atom line to create atom object
         my $atom = atom->new(ATOM_line => $line);
 
-        my $chain   = $atom->chainID();
-        my $resSeq  = $atom->resSeq();
-        my $resName = $atom->resName();
+        # Skip this atom if type is flagged to avoid
+        next if ($self->hydrogen_cleanup && $atom->element eq 'H'
+                     || $self->het_atom_cleanup && $atom->is_het_atom);
 
-        if (! exists $test_unique{$chain}) {
-            $test_unique{$chain} = {};
-        }
-        
-        if (! exists $test_unique{$chain}->{$resSeq}) {
-            $test_unique{$chain}->{$resSeq} = $resName;
-        }
-        else {
-            my $recorded_resName = $test_unique{$chain}->{$resSeq};
-            if ($recorded_resName ne $resName){
-               
-                my %multi = %{$self->multi_resName_resid};
-                $multi{ $atom->_get_resid } = 1;
-                
-                $self->multi_resName_resid({%multi});
-            }
-        }
-        
-        next if ($h_clean && $atom->element eq 'H'
-                      || $HETATM_clean && $atom->is_het_atom);
-        
-        if ($aL_clean && $atom->has_altLoc) {
+        # Cache altLoc atom if altLoc_clean has been set
+        if ($self->altLoc_cleanup && $atom->has_altLoc) {
 
-            my $string
-                =  $atom->name . $atom->resName . $atom->chainID
-                 . $atom->resSeq;
+            my $string = $atom->name . $atom->resName . $atom->chainID
+                . $atom->resSeq;
 
             if (exists $altLoc{$string}) {
                 push(@{$altLoc{$string}}, $atom);
@@ -531,35 +514,58 @@ sub _parse_atoms {
         }
     }
 
-    if ($aL_clean) {
-        foreach my $arr (values %altLoc) {
-
-            # Sort altlocs by occupancy
-            my @sorted
-                = map { $_->[0] }
-                    sort { $b->[1] <=> $a->[1] }
-                        map { [ $_, $_->occupancy ] }
-                            @{$arr};
-
-            my $top = $sorted[0];
-            
-            # Assign top occupant's x,y,z and serial to first element of array
-            # (as this is the member that is contained within atom list)
-            foreach my $attr (qw(x y z serial)) {
-                $arr->[0]->$attr($top->$attr());
-            }
-            
-            # Clear altLoc
-            $arr->[0]->clear_altLoc();
-        }        
+    # Process all altLocs if altLoc clean has been set 
+    $self->_clean_altLocs(\%altLoc) if $self->altLoc_cleanup;
+             
+    # Label solvent atoms
+    $self->_determineSolventAtoms(\@atoms);
+    
+    # Avoid including solvent atoms if solventClean has been set 
+    if ($self->solvent_cleanup) {
+        my @nonsolvent = grep {! $_->is_solvent()} @atoms;
+        
+        @atoms = @nonsolvent;
     }
+    
+    croak "No atom objects were created" if ! @atoms;
+    
+    return \@atoms;
+}
 
+sub _clean_altLocs {
+    my $self = shift;
+    my $altLocHref = shift;
+    
+    foreach my $altLocAref (values %{$altLocHref}) {
+        # Sort altlocs by occupancy
+        my @sorted
+            = map { $_->[0] }
+                sort { $b->[1] <=> $a->[1] }
+                    map { [ $_, $_->occupancy ] }
+                        @{$altLocAref};
 
+        my $top = $sorted[0];
+        
+        # Assign top occupant's x,y,z and serial to first element of array
+        # (as this is the member that is contained within atom list)
+        foreach my $attr (qw(x y z serial)) {
+            $altLocAref->[0]->$attr($top->$attr());
+        }
+            
+        # Clear altLoc
+        $altLocAref->[0]->clear_altLoc();
+    }        
+}
+
+sub _determineSolventAtoms {
+    my $self = shift;
+    my $atomAref = shift;
+    
     # Order all atoms by chain, then serial
     my %chain = ();
-    foreach my $atom (@atoms) {
+    foreach my $atom (@{$atomAref}) {
         my $chainID = $atom->chainID();
-
+        
         if (! exists $chain{$chainID}) {
             $chain{$chainID} = {$atom->serial => $atom};
         }
@@ -568,81 +574,68 @@ sub _parse_atoms {
         }
     }    
     
-    my @sorted_atoms = ();
-    my @term_array   = ();
-    
     foreach my $chainID (sort keys %chain) {
         my @chain_atoms = ();
         
-        foreach my $atom ( sort {$a <=> $b} keys %{$chain{$chainID}}) {
+        foreach my $atom (sort {$a <=> $b} keys %{$chain{$chainID}}) {
             push(@chain_atoms, $chain{$chainID}->{$atom});
         }
-
-        my @chain_terminal_index = ();
         
-        # Label terminal atoms
-        for my $i (0 .. @chain_atoms - 1) {
-            my $atom = $chain_atoms[$i];
-            my $serial = $atom->serial();
-            if (! defined $serial) {
-                croak "Undefined $serial!";
-            }
-            if ($atom->is_terminal()){
-                push(@chain_terminal_index, $i);
-            }
-        }
- 
-        # Determine solvent atoms
-        if( @chain_terminal_index == 1 ) {
-            my $start = $chain_terminal_index[0];
-            # Label all atoms after chain terminal as solvent
-            for my $i ( $start + 1 .. @chain_atoms - 1 ) {
-                $chain_atoms[$i]->is_solvent(1);
-
-            }
-        }
-        elsif ( @chain_terminal_index > 1 ) {
-            # Determine which terminal signals end of chain and which signals
-            # end of solvent
-            
-            my $index
-                = _determine_solvent(\@chain_atoms,
-                                    [ sort { $a <=> $b }
-                                          @chain_terminal_index ] );
-
-            
-            for ( my $i = 0 ; $i >= @chain_atoms ; $i++ ) {
-                # Label those atoms not in range of returned index and
-                # returned index - 1, as solvent
-                unless ($i > $chain_terminal_index[$i - 1]
-                            && $i < $chain_terminal_index[$i]) {
-                    $chain_atoms[$i]->is_solvent(1);
-                }
-            }
-        }
-
-        if ($solvent_clean) {
-            my @nonsolvent = ();
-            foreach my $atom (@chain_atoms) {
-                push(@nonsolvent, $atom) if ! $atom->is_solvent();
-            }
-            @chain_atoms = @nonsolvent;
-        }
-        
-        push(@sorted_atoms, @chain_atoms);
+        # Find terminal atoms in order to properly label solvent atoms
+        $self->_determineChainSolventAtoms(@chain_atoms);
     }
+}
 
-    $self->terminal_atom_index( [ @term_array ] );
-
-    croak "No atom objects were created" if ! @sorted_atoms;
-
-    return [ @sorted_atoms ];
+sub _determineChainSolventAtoms {
+    my $self = shift;
+    my @chain_atoms = @_;
+    
+    my @chain_terminal_index = ();
+    
+    for my $i (0 .. @chain_atoms - 1) {
+        my $atom = $chain_atoms[$i];
+        my $serial = $atom->serial();
+        if (! defined $serial) {
+            croak "Undefined $serial!";
+        }
+        if ($atom->is_terminal()){
+            push(@chain_terminal_index, $i);
+        }
+    }
+    
+    if(@chain_terminal_index == 1) {
+        # If there is one terminal index, then that signals
+        # end of non-solvent chain
+        my $start = $chain_terminal_index[0];
+        
+        # Label all atoms after chain terminal as solvent
+        for my $i ($start + 1 .. @chain_atoms - 1) {
+            $chain_atoms[$i]->is_solvent(1);
+            
+        }
+    }
+    elsif (@chain_terminal_index > 1) {
+        # Determine which terminal signals end of chain and which signals
+        # end of solvent
+        my @sortedIndices = sort {$a <=> $b} @chain_terminal_index;
+        
+        my $index = _determineNonSolvTerIndex(\@chain_atoms, \@sortedIndices);
+                        
+        for (my $i = 0 ; $i >= @chain_atoms ; $i++) {
+            # Label those atoms not in range of returned index and
+            # returned index - 1, as solvent
+            unless ($i > $chain_terminal_index[$i - 1]
+                        && $i < $chain_terminal_index[$i]) {
+                $chain_atoms[$i]->is_solvent(1);
+            }
+        }
+    }
 }
 
 # Determines the terminal atom that signals the end of the non-solvent chain
 # segment
-sub _determine_solvent {
-    my( $chain_atoms, $chain_terminal_index ) = @_;
+sub _determineNonSolvTerIndex {
+    my($chain_atoms, $chain_terminal_index) = @_;
 
     # Read through each array intersection and determine if any are all
     # HETATM
@@ -685,7 +678,6 @@ sub _determine_solvent {
     }
 }
 
-
 # Also parses HETATM and TER lines
 sub _parse_ATOM_lines {
     
@@ -721,6 +713,88 @@ sub _parse_ter {
     return($serial, $chainID);
 }
 
+sub _build_multi_resName_resids {
+    my $self = shift;
+
+    my %multiResNameResids = ();
+
+    foreach my $resid (keys %{$self->resid_index()}) {
+        my @residAtoms = values %{$self->resid_index->{$resid}};
+
+        my %testUnique = map {$_->resName() => $_} @residAtoms;
+        
+        $multiResNameResids{$resid} = 1 if scalar keys %testUnique > 1;
+    }
+
+    return \%multiResNameResids;
+}
+
+sub _build_resolution {
+    my $self = shift;
+
+    my($expMethod, $resolution, $rValue) = $self->_run_getresol();
+
+    # Set the other two values
+    $self->experimental_method($expMethod);
+    $self->r_value($rValue);
+    
+    return $resolution;
+}
+
+sub _build_r_value {
+    my $self = shift;
+
+    my($expMethod, $resolution, $rValue) = $self->_run_getresol();
+
+    # Set the other two values
+    $self->experimental_method($expMethod);
+    $self->resolution($resolution);
+   
+    return $rValue;
+}
+
+sub _build_experimental_method {
+    my $self = shift;
+
+    my($expMethod, $resolution, $rValue) = $self->_run_getresol();
+
+    # Set the other two values
+    $self->resolution($resolution);
+    $self->r_value($rValue);
+    
+    return $expMethod;
+}
+
+sub _build_atom_serial_hash {
+    my $self = shift;
+
+    my %atomSerialHash = ();
+
+    foreach my $atom (@{$self->atom_array()}) {
+        $atomSerialHash{$atom->serial} = $atom;
+    }
+
+    return \%atomSerialHash;
+}
+
+sub _build_remark_hash {
+    my $self = shift;
+    
+    my %remarks = ();
+    
+    for (my $i = 0 ; $i < @{$self->pdb_data()} ; ++$i){
+        if ($self->pdb_data()->[$i] =~ /^REMARK \s* (\d+)/xms) {
+            if (exists $remarks{$1}) {
+                push(@{$remarks{$1}}, \$self->pdb_data()->[$i])
+            }
+            else {
+                $remarks{$1} = [\$self->pdb_data->[$i]];
+            }
+        }
+    }
+    return \%remarks;
+}
+
 sub _build_atom_index {
     my $self = shift;
 
@@ -744,9 +818,7 @@ sub _build_atom_index {
 
         $hash{$chainID}->{$resSeq}->{$name} = $atom;
     }
-
-    return \%hash;
-    
+    return \%hash;    
 }
 
 sub _build_pdbresid_index {
@@ -797,14 +869,156 @@ sub _build_missing_resid_index {
     return \%missing_resids;
 }
 
+sub _build_terminal_atom_array {
+    my $self = shift;
+
+    my @terminalAtomArray = grep {$_->is_terminal()} @{$self->atom_array()};
+
+    return \@terminalAtomArray;
+}
+
+sub _parse_remark465 {
+    my $self = shift;
+    
+    # Return ref to empty hash if remark 465 d.n.e
+    # (means that there are no missing residues) 
+    return {}
+        if ! exists $self->remark_hash->{465};
+
+    my %resSeqs = ();
+
+    my $headerFlag = 0;
+    
+    foreach my $lineRef (@{$self->remark_hash()->{465}}) {
+
+        if (${$lineRef} =~ /REMARK 465   M RES C SSSEQI/){
+            $headerFlag = 1;
+            next;
+        }
+        
+        # Skip lines until past header
+        next if ! $headerFlag;
+        
+        my $line = ${$lineRef};
+
+        my $resType = substr($line, 15, 3);
+        my $chainID = substr($line, 19, 1);
+        my $resSeq  = substr($line, 21, 5);
+
+        $resSeq = rm_trail($resSeq);
+
+        if (! exists $resSeqs{$chainID}) {
+            $resSeqs{$chainID} = {$resSeq => $resType};
+        }
+        else {
+            $resSeqs{$chainID}->{$resSeq} = $resType;
+        }
+    }
+    
+    return \%resSeqs;
+}
+
+### BUILD Method ###############################################################
+################################################################################
+
+# Attempt to build experimental_method, resolution and r_factor from getresol
+# object. Also check if pdb is multi-model
+sub BUILD {
+    my $self = shift;
+
+    return if ! $self->has_pdb_file();
+
+    my ($expMethod, $resolution, $rValue) = eval {$self->_run_getresol()};
+
+    $self->experimental_method($expMethod) if $expMethod;
+    $self->resolution($resolution) if $resolution;
+    $self->r_value($rValue) if $rValue;
+     
+    if ( $self->pdb_data && $self->_multi_model) {
+        my $message
+            = "pdb is a multi-model record: currently cannot handle these";
+        
+        my $error = local::error->new( message => $message,
+                                       type => 'multi_model_pdb',
+                                       data => {
+                                           pdb_file => $self->pdb_data },
+                                   );
+
+        croak $error;
+    }
+}
+
+# This method is used by BUILD method to determine experimental_method,
+# resolution and r_value attributes, by running pdb::getresol
+sub _run_getresol {
+
+    my $self = shift;
+    
+    my $getresol = pdb::getresol->new(pdb_file => $self->pdb_file);
+
+    my $expMethod;
+    my $resolution;
+    my $rValue;
+
+    my $ret = $getresol->run();
+    
+    if (ref $ret  ne 'local::error'){
+        $expMethod  = $getresol->experimental_method();
+        $resolution = $getresol->resolution();
+        $rValue     = $getresol->r_value();
+    }
+    else {
+        croak $ret;
+    }
+
+    return ($expMethod, $resolution, $rValue);
+}
+
+sub _multi_model {
+    my $self = shift;
+
+     croak "Cannot determine multi-model status of pdb - no pdb data"
+         if ! $self->has_pdb_data;
+
+    if ( grep { m{ \A MODEL \s* \d+ \s* \z }xms } @{ $self->pdb_data() } ) {
+        return 1;
+    }
+    else {
+        return 0;
+    }
+};
+
+### Methods ####################################################################
+################################################################################
+
+=item C<get_sequence(%args)>
+
+Where %args = (chain_id => ... , return_type => ... , include_missing_res => BOOL)
+
+chain_id = Chain identifier of chain you wish to know the sequence of
+
+return_type = 1 OR 3.
+    If 1, array of 1-letter AA codes is returned.
+    If 3, array of 3-letter AA codes is returned.
+
+including_missing_res = BOOL.
+    If TRUE, missing residues (normally parsed from pdb header data) are
+    included in sequence. DEFAULT = FALSE
+
+This method returns an array of 1 or 3-letter amino acid codes that represent
+the sequence of the chain specified. e.g.
+
+    @sequence = $pdb->get_sequence(chain_id => A, return_type => 1, include_missing_res => 1);
+
+=cut
 
 sub get_sequence {
     my $self = shift;
 
     croak "pdb: " . $self->pdb_code()
         . " can't get_sequence for pdb containing multi-resName residues: "
-        . Dumper $self->multi_resName_resid()
-            if %{ $self->multi_resName_resid };
+        . Dumper $self->multi_resName_resids()
+            if %{ $self->multi_resName_resids };
     
     my $USAGE
         = 'get_sequence(chain_id => (chain_id), return_type => ( 1 | 3 ), '
@@ -884,11 +1098,26 @@ sub get_sequence {
     return @residues;
 }
 
-# This method returns a string containing a FASTA-formatted sequence
-# for the given chain. The option is given to include residues missing from
-# the structure (default is false)
-# Example input:
-# $chain->getFASTAStr(chain_id => "A", header => "myHeader", includeMissing => 1)
+=item C<getFASTAStr(%args)>
+
+Where %args = (chain_id => "A", header => $headerStr, includeMissing => BOOL)
+
+chain_id = Chain identifier of chain you wish to obtain a FASTA String for.
+
+header = header for FASTA String. If no header is supplied, header if formed
+         from pdb_code and supplied chain_id.
+
+includeMissing = 0 or 1. If 1, residues missing in structure but present in
+                 pdb data are included in FASTA sequence. DEFAULT = 0.
+
+This method returns a string containing a FASTA-formatted sequence for the given
+chain. The option is given to include residues missing from the structure
+(default is false) e.g.
+
+    $pdb->getFASTAStr(chain_id => "A", header => "4houA_MUTANT", includeMissing => 1)
+
+=cut
+
 sub getFASTAStr {
     my $self = shift;
     my %args = @_;
@@ -912,9 +1141,16 @@ sub getFASTAStr {
     return $header . $seqStr;
 }
 
-# This method returns an array of atoms for residues within
-# the given range. Range acts like perl indices
-# i.e 0 = first residue, -1 = last residue
+=item C<seq_range_atoms(START, END)>
+
+This method returns an array of atoms for residues within the given index range.
+
+Range acts like perl indices i.e 0 = first residue, -1 = last residue, e.g.
+
+    @first50ResidueAtoms = $pdb->seq_range_atoms(0, 49);
+
+=cut
+
 sub seq_range_atoms {
     my $self = shift;
     my ($start, $end) = @_;
@@ -943,8 +1179,16 @@ sub seq_range_atoms {
     return @atoms;
 }
 
-# This method returns an array ref of atom arrays, sorted by
-# chain then resSeq
+=item C<sorted_atom_arrays>
+
+This method returns a ref to an array of refs, where each ref is an array of
+residue atoms. Residue atom array refs are sorted by resid, e.g.
+
+    $sortedAtomArraysAref = $pdb->sorted_atom_arrays();
+    @firstResidueAtoms = @{$sortedAtomArraysAref->[0]};
+
+=cut
+
 sub sorted_atom_arrays {
     my $self = shift;
 
@@ -963,7 +1207,12 @@ sub sorted_atom_arrays {
     return \@atom_arrays;
 }
 
-# Given an array of atoms, sorts the atoms by serial and returns the array
+=item C<sort_atoms>
+
+Given an array of atoms, returns an array of those atoms sorted by serial
+
+=cut
+
 sub sort_atoms {
     my @atoms = @_;
     
@@ -972,6 +1221,29 @@ sub sort_atoms {
     return @atoms;
 }
 
+=item C<read_ASA>
+
+read_ASA assigns ASA values to the object's atoms and also assigns
+the object's resid2RelASAHref attribute
+
+Note that atom have three ASA attributes: ASAc, ASAm and ASAb
+
+ASAc = Complex. This is the ASA value of an atom when the full structure is
+       considered.
+
+ASAm = Monomer. This is the ASA value of an atom when only the chain structure
+       is considered, i.e. atoms that may be buried within complex interfaces
+       are accessible to solvent in monomer form.
+
+ASAb = SuBset. This is the ASA value of an atom when a subset of chains is
+       considered. This is useful for cases where you want to treat multiple
+       chains as one entity, e.g. a multi-chain antigen.
+
+For a pdb object, atoms will be assigned ASAc values and relASA values will be
+taken in context of full complex.
+
+=cut
+
 sub read_ASA {
 
     my $self = shift;
@@ -979,7 +1251,7 @@ sub read_ASA {
 
     my @errors = ();
 
-   # asurf64 must also be run in order to get relative ASAs
+    # asurf64 must also be run in order to get relative ASAs
     my $asurf = pdb::asurf64->new(input => $self);
     my $atomSerial2ASARadHref = $asurf->getOutput();
     
@@ -994,8 +1266,8 @@ sub read_ASA {
     }
     else {
 
-        my $ASAType = ref $self eq 'pdb' ? 'ASAc' : 'ASAm' ;
-        
+        my $ASAType = ref $self eq 'pdb' ? 'ASAc' : 'ASAb' ;
+         
         # Use asurf64 per atom output
         foreach my $atom (@{$self->atom_array()}) {
             next if $atom->is_solvent()
@@ -1064,6 +1336,33 @@ sub _parseXmas2PDBOutput {
     return @errors;
 }
 
+=item C<patch_centres(%args)>
+
+where %args = (threshold => NUM, type => ... )
+
+threshold = minimum rASA value of residue to be counted as a patch centre
+            residue. DEFAULT = 25
+
+type = ASA type (ASAm, ASAc or ASAb)
+
+patch_centres returns a ref to an array of patch centre atoms.
+Each patch centre atom is the most solvent accessible atom of a patch centre
+residue. Each patch centre residue has an  rASA value over the given threshold.
+
+patch_centres also returns a ref to an array of errors. It is important to check
+this array.
+
+Example:
+    ($errorAref, $pCentreAref) = $pdb->patch_centres(threshold => 20, type => 'ASAc');
+    if (@{$errorAref}) {
+        croak "There were errors when patch_centres ran!" . Dumper $errorAref;
+    }
+    else {
+        print "Here are my patch centres", @{$pCentreAref};
+    }
+
+
+=cut
 
 sub patch_centres {
     my $self = shift;
@@ -1175,6 +1474,20 @@ sub _is_patch_centre {
     return -1;
 }
 
+=item C<highestASA(RESID, ASATYPE)>
+
+RESID = residue identifier (e.g. A.213)
+ASATYPE = ASA value type (ASAc, ASAm or ASAb)
+
+This method returns the atom from the specified residue with the highest
+ASA value, of type specified.
+
+e.g.
+
+    $highestASAAtom = $pdb->highestASA("A.213", "ASAc");
+
+=cut
+
 sub highestASA {
     my $self  = shift;
     my $resid = shift or croak "highestASA must be passed a resid";
@@ -1187,9 +1500,6 @@ sub highestASA {
 
     croak "highestASA: something went wrong assigning ASA type"
         if ! $ASA_type;
-
-    # Remove any . separators from resid, e.g. A.133 -> A133
-    #$resid =~ s/\.//;
     
     croak "resid '$resid' was not found in resid index"
         if ! exists $self->resid_index->{$resid};
@@ -1213,27 +1523,16 @@ sub highestASA {
     return $top_ASA_atom;
 }
 
-# Returns hash chainSeq => resSeq, by reversing keys and values of
-# map_resSeq2chainSeq
-sub map_chainSeq2resSeq {
-    my $self = shift;
-    
-    my $chain_id
-        = shift or croak "map_resSeq2chainSeq must be passed a chain id";
-    
-    croak "pdb: " . $self->pdb_code() . " no residues found for chain "
-        . " $chain_id" if ! exists $self->atom_index->{$chain_id};
-    
-    my %resSeq2chainSeq = $self->map_resSeq2chainSeq($chain_id);
-    
-    my %return_map
-        = map { $resSeq2chainSeq{$_} => $_ } keys %resSeq2chainSeq;
-    
-    return %return_map;
-}
-    
-# Maps resSeq numbers to chainSeq count numbers (equivalent to pdbcount num
-# in pdbsws. Returns hash resSeq => chainSeq
+=item C<map_resSeq2chainSeq(CHAIN_ID)>
+
+CHAIN_ID = chain identifier of chosen chain.
+
+Maps resSeq numbers to chainSeq count numbers (equivalent to pdbcount num
+in pdbsws.)
+Returns hash with form: resSeq => chainSeq
+
+=cut
+
 sub map_resSeq2chainSeq {
     my $self = shift;
 
@@ -1255,16 +1554,47 @@ sub map_resSeq2chainSeq {
         next if $atom->is_solvent();
         
         ++$chainSeq;
-
+        
         $return_map{$resSeq} = $chainSeq;
-    }
+    }    
+    return %return_map;
+}
+
+=item C<map_chainSeq2resSeq(CHAIN_ID)>
+
+CHAIN_ID = chain identifier of chosen chain.
+
+Returns hash chainSeq => resSeq, i.e. the reverse of map_resSeq2chainSeq
+
+=cut
+    
+sub map_chainSeq2resSeq {
+    my $self = shift;
+    
+    my $chain_id
+        = shift or croak "map_resSeq2chainSeq must be passed a chain id";
+    
+    croak "pdb: " . $self->pdb_code() . " no residues found for chain "
+        . " $chain_id" if ! exists $self->atom_index->{$chain_id};
+    
+    my %resSeq2chainSeq = $self->map_resSeq2chainSeq($chain_id);
+    
+    my %return_map
+        = map { $resSeq2chainSeq{$_} => $_ } keys %resSeq2chainSeq;
     
     return %return_map;
 }
 
-# Method to create chain objects from pdb object. Returns array of chains.
-# An array of chain ids can be passed to the method; if this is the case then
-# the returned chains will be in the order specified in the passed array
+=item C<create_chains(CHAIN_ID_ARRAY)>    
+
+CHAIN_ID_ARRAY = array of chain identifiers
+
+Method to create chain objects from pdb object. Returns array of chains.
+An array of chain ids can be passed to the method; if this is the case then
+the returned chains will be in the order specified in the passed array
+
+=cut
+    
 sub create_chains {
     my $self = shift;
     my @passed_chain_ids = @_;
@@ -1312,7 +1642,12 @@ sub create_chains {
     return @return_chains;
 }
 
-# Returns arrayref containing chainIDs found in pdb
+=item C<get_chain_ids>
+
+Returns ref to array containing chainIDs found in pdb
+
+=cut
+
 sub get_chain_ids {
     my $self = shift;
 
@@ -1321,18 +1656,23 @@ sub get_chain_ids {
     return \@chain_ids;
 }
 
-# Determines antibody pairs found within pdb.
-# INPUT:
-# This fuction can optionally be passed an array of pdb chains.
-# e.g.
-#  $pdb->getAbPairs()
-#  $pdb->getAbPairs(@chains)
-#  $pdb->getAbPairs($pdb->create_chains())
-# OUTPUT:
-# Returns three refs to arrays of:
-#  1. Antibody Pairs:  [ [$heavyChain, $lightChain, $numContacts], ... ]
-#  2. Unpaired Chains: [ $chainA, $chainB, ... ]
-#  3. scFv Chains:     [ $chainScFv, ... ]
+=item C<getAbPairs(CHAIN_ARRAY)>
+
+Determines antibody pairs found within pdb.
+INPUT:
+This fuction can optionally be passed an array of pdb chains.
+e.g.
+    $pdb->getAbPairs()
+    $pdb->getAbPairs(@chains)
+    $pdb->getAbPairs($pdb->create_chains())
+OUTPUT:
+     Returns three refs to arrays of:
+      1. Antibody Pairs:  [ [$heavyChain, $lightChain, $numContacts], ... ]
+      2. Unpaired Chains: [ $chainA, $chainB, ... ]
+      3. scFv Chains:     [ $chainScFv, ... ]
+
+=cut
+
 sub getAbPairs {
     my $self = shift;
     my @chains = @_;
@@ -1399,7 +1739,6 @@ sub _getFinalCombinations {
     return @finalCombinations;
 }
 
-
 # This subroutine hashes chain by abVariable type, into two hashes, in
 # preparation for pairing.
 # Input: refs to array of chains, hash for chain types,
@@ -1442,10 +1781,15 @@ sub _heavyLightCombinations {
     return @heavyLightCombinations;
 }
 
-# This method rotates atoms of the pdb so that the PC1 and PC2 of the atoms
-# lay on the x and y axes respectively. An array of atoms or resids can be
-# passed; in this case, the PC1 and PC2 of this subset of atoms (or atoms from
-# resids) can be used. 
+=item C<rotate2PCAs(ATOM_SUBSET)>
+
+This method rotates atoms of the pdb so that the PC1 and PC2 of the atoms
+lay on the x and y axes respectively. An array of atoms or resids can be
+passed; in this case, the PC1 and PC2 of this subset of atoms (or atoms from
+resids) can be used. 
+
+=cut
+
 sub rotate2PCAs {
     my $self = shift;
     my @centering = @_;
@@ -1501,10 +1845,15 @@ sub _validateRotate2PCAsArgs {
     return @atoms;
 }
 
-# This method checks the number of +z and -z atom co-ordinates and flips the pdb
-# 180degrees around the z axis so that the z axis points through the "body" of
-# the pdb; i.e. flips the pdb so that you are NOT looking through the body of
-# the pdb, if you are looking down the z axis
+=item C<rotate2Face>
+
+This method checks the number of +z and -z atom co-ordinates and flips the pdb
+180degrees around the z axis so that the z axis points through the "body" of
+the pdb; i.e. flips the pdb so that you are NOT looking through the body of
+the pdb, if you are looking down the z axis
+
+=cut
+
 sub rotate2Face {
     my $self = shift;
 
@@ -1532,19 +1881,29 @@ sub rotate2Face {
     return 1;
 }
 
-# This method sets all is_epitope labels to 0
+=item C<clearEpitopeLabels>
+
+This method sets all atom->is_epitope() labels of pdb atoms to 0
+
+=cut
+
 sub clearEpitopeLabels {
     my $self = shift;
 
     map { $_->is_epitope(0) } @{$self->atom_array()};
 }
 
-# This method saves the pdb in a binary file. A filename can be passed,
-# otherwise the pdb code is used. Returns file name of binary file
-# e.g
-# $pdb->store();
-# my $storedPDBFname = $pdb->store();
-# $pdb->store("myStoredPDB.obj");
+=item C<storeInFile>
+
+This method saves the pdb in a binary file. A filename can be passed,
+otherwise the pdb code is used. Returns file name of binary file
+e.g
+    $pdb->store();
+    $storedPDBFname = $pdb->store();
+    $pdb->store("myStoredPDB.obj");
+
+=cut
+
 sub storeInFile {
     my $self = shift;
     my ($fName) = @_;
@@ -1558,7 +1917,43 @@ sub storeInFile {
 
 __PACKAGE__->meta->make_immutable;
 
+################################ END OF PACKAGE ################################
+################################################################################
+
 package chain;
+
+
+=head1 CLASS
+
+pdb - A class for creating chain objects from pdb files.
+
+=cut
+
+=head1 SYNOPSIS
+
+use pdb::chain;
+$chainObject = chain->new(pdb_code => '1adjs',
+                          chain_id => 'A',
+                          pdb_file => '1adjs.pdb');
+
+# Or ...
+$pdbObject = pdb->new(pdb_code => '1djs', chain_id =>'A'); # Grab file automatically!
+
+=cut
+
+
+=head1 DESCRIPTION
+
+The chain class is used for performing functions on single chains, rather than
+an entire pdb, e.g.
+     is a chain an antibody variable chain?
+     what residues form an interface between this chain and another chain?
+
+chain is an extension of pdb, so all pdb methods can be used with chain objects,
+e.g. atom_array, resid_index, etc.
+
+=cut
+
 
 use Moose;
 use Moose::Util::TypeConstraints;
@@ -1575,13 +1970,40 @@ use write2tmp;
 
 extends 'pdb';
 
-# Attributes
+=head1 Methods
+
+=over 12
+
+=cut
+
+### Attributes #################################################################
+################################################################################
+
+=item C<chain_id>
+
+Chain identifier of chain
+
+=cut
 
 has 'chain_id' => (
     isa => 'ValidChar',
     is => 'rw',
     required => 1,
 );
+
+has 'pdbID' => (
+    is => 'ro',
+    lazy => 1,
+    default => sub {$_[0]->pdb_code() . $_[0]->chain_id()},
+);
+
+
+=item C<accession_codes>
+
+Returns a ref to an array of accession codes that the chain object is assigned
+to, via pdbsws.
+
+=cut
 
 has 'accession_codes' => (
     isa => 'ArrayRef[ValidAC]',
@@ -1590,12 +2012,24 @@ has 'accession_codes' => (
     builder => '_get_acs',
 );
 
+=item C<chain_length>
+
+returns length of chain sequence
+
+=cut
+
 has 'chain_length' => (
     isa => 'Int',
     is => 'ro',
     lazy => 1,
     builder => '_build_chain_length',
 );
+
+=item C<is_ab_variable>
+
+Returns TRUE if chain can be identified as an antibody variable region chain.
+
+=cut
 
 has 'is_ab_variable' => (
     isa => 'Str',
@@ -1604,6 +2038,12 @@ has 'is_ab_variable' => (
     builder => 'isAbVariable',
 );
 
+=item C<is_het_chain>
+
+Returns TRUE if chain consists entirely of HETATMS.
+
+=cut
+
 has 'is_het_chain' => (
     isa => 'Bool',
     is => 'ro',
@@ -1611,12 +2051,19 @@ has 'is_het_chain' => (
     builder => '_build_is_het_chain',
 );
 
+=item C<cluster_id>
+
+This is assigned when cdhit is run with chain as input.
+
+=cut
+
 has 'cluster_id' => (
     is => 'rw',
     isa => 'Num',
 );
 
-# Methods
+### Attribute Builder Methods ##################################################
+################################################################################
 
 # Returns number of non-solvent residues found in chain
 sub _build_chain_length {
@@ -1643,6 +2090,19 @@ sub _get_acs {
 
     return [ $pdbsws->get_ac($pdbid) ];
 }
+
+sub _build_is_het_chain {
+    my $self = shift;
+
+    foreach my $atom (@{$self->atom_array()}) {
+        return 0 if ! $atom->is_het_atom;
+    }
+
+    return 1;
+}
+
+### Around modifiers ###########################################################
+################################################################################
 
 around '_parse_ATOM_lines' => sub {
 
@@ -1681,16 +2141,32 @@ around '_parse_remark465' => sub {
     
 };
 
-sub _is_het_chain {
+# Automatically set arg chain_id
+around [qw(get_sequence getFASTAStr)] => sub {
+
+    my $orig = shift;
     my $self = shift;
 
-    foreach my $atom (@{$self->atom_array()}) {
-        return 0 if ! $atom->is_het_atom;
-    }
+    my %arg = @_;
 
-    return 1;
-}
+    $arg{chain_id} = $self->chain_id();
+    
+    return $self->$orig(%arg);
+    
+};
 
+# Automatically send chain id
+around [qw(map_chainSeq2resSeq map_resSeq2chainSeq)] => sub {
+    my $orig = shift;
+    my $self = shift;
+
+    my @arg = ( $self->chain_id() );
+    
+    return $self->$orig(@arg);    
+};
+
+### Methods ####################################################################
+################################################################################
 
 # This method checks if the chain is an antibody variable chain, or antigen
 # Is the chain is antibody variable, the type is returned i.e. Light or Heavy
@@ -1727,7 +2203,13 @@ sub isAbVariable {
     }
 }
 
-# This method runs kabatnum using pdb::kabatnum
+=item C<kabatSequence>
+
+This method runs kabatnum using pdb::kabatnum and assigns CDR and kabatSeq
+attributes to atoms of the chain
+
+=cut
+
 sub kabatSequence {
     my $self = shift;
 
@@ -1736,16 +2218,27 @@ sub kabatSequence {
     $kabatnum->sequenceChain();
 }
 
-# This method determines the atoms that are within a given distance threshold
-# (default 4A) of the CDRs of the given antibody chains. The antibody chain
-# CDR atoms must be labelled as such (i.e. $atom->is_CDR() == 1).
-#
-# Non-CDR contacting residues can be included by passing an additional, larger
-# distance parameter. This distance parameter is used to find antigen residues
-# close to the CDRs that are also in contact with any antibody residue. The
-# larger the second distance threshold, the larger the epitope.
-# INPUT: ref to array of antibody chains, two distance thresholds (optional)
-# e.g. $chain->determineEpitope(\abChains, 4, 8);
+=item C<determineEpitope(ABCHAINS, DIST1, DIST2)>
+
+ABCHAINS = ref to an array of antibody chains.
+DIST1 = primary contact distance paramter. DEFAULT = 4 (angstrom)
+DIST2 = secondary contact distance parameter DEFAULT = 4 (angstrom)
+
+This method determines the atoms that are within a given distance threshold
+(default 4A) of the CDRs of the given antibody chains. The antibody chain
+CDR atoms must be labelled as such (i.e. $atom->is_CDR() == 1).
+
+Non-CDR contacting residues can be included by passing an additional, larger
+distance parameter. This distance parameter is used to find antigen residues
+close to the CDRs that are also in contact with any antibody residue. The
+larger the second distance threshold, the larger the epitope.
+  e.g. $chain->determineEpitope(\abChains, 4, 8);
+
+If DIST1 = DIST2 then no non-CDR contacting peripheral residues will be
+included.
+
+=cut
+
 sub determineEpitope {
     my($self, $abChainsAref, $normDistance, $exDistance) = @_;
 
@@ -1785,8 +2278,8 @@ sub determineEpitope {
                                                    $exContactResult,
                                                    $allcContactResult);
 
-    # Filter these residues so that only those residues that are also labelled
-    # interface are included
+    # STEP 3: Filter these residues so that only those residues that are also
+    # labelled interface are included
     my @interfaceResidues = $self->getInterfaceResidues($abChainsAref);
 
     my %epitopeResids = map {$_ => 1} @{$eptiopeResidAref};
@@ -1822,14 +2315,19 @@ sub _determineEpitopeResids {
     return \@epitopeResids;
 }
 
-# Labels atoms of chain as epitope according to the array of resids passed to it
+=item C<labelEpitopeAtoms(RESIDS)>
+
+RESIDS = array of resids (example resid = A.123)
+
+Labels atoms of chain as epitope according to the array of resids passed to it.
+
+=cut
+
 sub labelEpitopeAtoms {
     my $self = shift;
     my @resids = @_;
 
     foreach my $resid (@resids) {
-        # Remove chain-resSeq "." separator if present
-        #$resid =~ s/\.//;
 
         foreach my $atom (values %{$self->resid_index->{$resid}}) {
             $atom->is_epitope(1);
@@ -1837,8 +2335,13 @@ sub labelEpitopeAtoms {
     }
 }
 
-# Returns array of residue resSeqs, where each residue has at least one atom
-# labelled as epitope
+=item C<getEpitopeResSeqs>
+
+Returns array of residue resSeqs, where each residue has at least one atom
+labelled as epitope
+
+=cut
+
 sub getEpitopeResSeqs {
     my $self = shift;
 
@@ -1850,6 +2353,17 @@ sub getEpitopeResSeqs {
     }
     return keys %epitopeResSeqs;
 }
+
+=item C<getInterfaceResidues(CHAINS)>
+
+CHAINS = ref to array of chains that the chain forms an interface with.
+
+This method returns the resids of residues that form the interface between
+the chain and the set of chains supplied. The difference between the residue's
+rASA values in and out of complex must be greater or equal to 10 to be defined
+as interface.
+
+=cut
 
 sub getInterfaceResidues {
     my $self = shift;
@@ -1884,9 +2398,13 @@ sub getInterfaceResidues {
     return @interfaceResidues;
 }
 
+=item C<getCDRAtoms>
 
-# This method returns an array of chain atoms labelled as CDR
-# i.e. those atoms where $atom->is_CDR() is TRUE
+This method returns an array of chain atoms labelled as CDR
+i.e. those atoms where $atom->is_CDR() is TRUE
+
+=cut
+
 sub getCDRAtoms {
     my $self = shift;
 
@@ -1900,13 +2418,23 @@ sub getCDRAtoms {
     return @CDRAtoms;
 }
 
-# This method checks if the chain is in contact with the other chains passed.
-# A tolerance can be used to set the minimum of residue-residue contacts that
-# must exist for the chains to be considered contacting. Default = 1
-# A threshold can also be set that specifies that maximum atom-atom distance
-# that will quality residues as touching.
-# e.g. $antigenChain->isInContact([$heavyChain, $lightChain], 5, 3)
-# returns 1 if chain is in contact with any of the other chains passed. 
+=item C<isInContact(CHAINS, CONTACT_MIN, DIST_THRESHOLD)>
+
+CHAINS = ref to array of chains to consider contact with.
+CONTACT_MIN = Minimum number of residue-residue contacts that defines a
+              chain-chain contact. DEFAULT = 1
+DIST_THRESHOLD = atom-atom distance that defines contact. DEFAULT = 4 (ang)
+
+This method checks if the chain is in contact with the other chains passed.
+A tolerance can be used to set the minimum of residue-residue contacts that
+must exist for the chains to be considered contacting. Default = 1
+A threshold can also be set that specifies that maximum atom-atom distance
+that will quality residues as touching.
+  e.g. $antigenChain->isInContact([$heavyChain, $lightChain], 5, 3)
+returns 1 if chain is in contact with any of the other chains passed. 
+
+=cut
+
 sub isInContact {
     my $self = shift;
     my($chainAref, $contactMin, $threshold) = @_;
@@ -1950,11 +2478,21 @@ sub isInContact {
     }
 }
 
-# This method processes an alignment string in order to label atoms with alnSeq
-# If includeMissing is specified as true, residues missing in the structure
-# will be included in the alignment
-# example input:
-#  $chain->processAlnStr(alnStr => $myStr, includeMissing => 1);
+=item C<processAlnStr(%args)>
+
+where %args = (alnStr => ALIGNMENT_STR, includeMissing => BOOL)
+
+ALIGNMENT_STR = Alignment string, e.g. = "AKLWRTPNM----QRCV",
+                where "-" = gap in the alignment
+
+This method processes an alignment string in order to label atoms with alnSeq.
+If includeMissing is TRUE, residues missing in the structure
+will be included in the alignment
+example input:
+ $chain->processAlnStr(alnStr => $myStr, includeMissing => 1);
+
+=cut
+
 sub processAlnStr {
     my $self = shift;
     my %args = @_;
@@ -1990,6 +2528,16 @@ sub processAlnStr {
     }
 }
 
+=item C<labelAtomsWithClusterSeq>
+
+Label chain atoms with clusterSeq.
+clusterSeq = chain cluster id + atom alnSeq.
+
+This can be used to find atoms from residues that are aligned - the cluster id
+assures that residues from the same alignment are considered.
+
+=cut
+
 sub labelAtomsWithClusterSeq {
     my $self = shift;
     my $cluster_id = $self->cluster_id();
@@ -2015,38 +2563,43 @@ sub labelAtomsWithClusterSeq {
             $atom->clusterSeq($cluster_id . "." . $atom->alnSeq());
         }
     }
-    #map {$_->clusterSeq($cluster_id . $_->alnSeq())} @{$self->atom_array()};
 }
-
-
-# Automatically set arg chain_id
-around [qw(get_sequence getFASTAStr)] => sub {
-
-    my $orig = shift;
-    my $self = shift;
-
-    my %arg = @_;
-
-    $arg{chain_id} = $self->chain_id();
-    
-    return $self->$orig(%arg);
-    
-};
-
-# Automatically send chain id
-around [qw(map_chainSeq2resSeq map_resSeq2chainSeq)] => sub {
-    my $orig = shift;
-    my $self = shift;
-
-    my @arg = ( $self->chain_id() );
-    
-    return $self->$orig(@arg);    
-};
 
 __PACKAGE__->meta->make_immutable;
 
+################################ END OF PACKAGE ################################
+################################################################################
 
 package patch;
+
+=head1 NAME
+
+patch - A class for creating patch objects, i.e. makepatch output.
+
+=cut
+
+=head1 SYNOPSIS
+
+use pdb::patch;
+
+# Either build directly from makepatch object ...
+$patchObject = patch->new($makePatch);
+
+# Or supply a parent pdb or chain object and build from a patch summary line
+$patchObject = patch->new(summary => "<patch B.160> B:153 B:154 B:155 B:160",
+                          parent_pdb => $pdb4houB);
+
+=cut
+
+
+=head1 DESCRIPTION
+
+patch extends the pdb class. The main function is to deal with output from
+makepatch, a program that creates overlapping surface patches from an input
+set of atoms (see makepatch.pm)
+
+=cut
+
 use Moose;
 use Moose::Util::TypeConstraints;
 use types;
@@ -2057,15 +2610,39 @@ use GLOBAL qq(&rm_trail);
 
 extends 'pdb';
 
-# Subtypes
 
-# Attributes
+=head1 Methods
+
+=over 12
+
+=cut
+
+### Attributes #################################################################
+################################################################################
+
+=item C<central_atom>
+
+Central atom of patch. This is specified during the patch creation process.
+If a patch has been built from a summary line, then the central atom of the
+patch is guessed to be the C-alpha atom of the patch centre residue.
+
+=cut
 
 has central_atom => (
     is => 'rw',
     isa => 'atom',
     required => 1,
 );
+
+=item C<summary>
+
+Summary line of patch. E.g.
+     <patch B.160> B:153 B:154 B:155 B:156 B:160
+Where B.160 is the resid of the patch centre residue.
+
+A patch can be built from a patch summary, if a parent_pdb object is supplied.
+
+=cut
 
 has summary => (
     is => 'rw',
@@ -2074,17 +2651,21 @@ has summary => (
     builder => '_build_summary',
 );
 
-has 'porder' => (
-    is => 'ro',
-    isa => 'Str',
-    builder => 'run_PatchOrder',
-    lazy => 1,
-);
+=item C<parent_pdb>
+
+parent_pdb object. If this has been supplied during the patch creation process
+via makepatch, then patch atoms will be shared with the parent pdb. That means
+that if you make changes to the patch atoms (e.g. change their co-ordinates)
+then the parent pdb will also be affected!
+
+=cut
 
 has 'parent_pdb' => (
     is => 'rw',
     predicate => 'has_parent_pdb',
 );
+
+
 
 has 'ASAb_hash' => (
     is => 'ro',
@@ -2123,7 +2704,87 @@ has 'is_multi_chain' => (
     builder => '_build_is_multi_chain',
 );
 
-# Methods
+### Attribute Builder Methods ##################################################
+################################################################################
+
+sub _build_patch_id {
+    my $self = shift;
+
+    return $self->pdb_code . $self->summary();
+}
+
+sub _build_ASA {
+    my $self = shift;
+
+    # Looking at calling attribute to determine ASA type to sum
+    my $toBeBuilt = (caller(1))[3];
+    # example toBeBuilt = patch::total_ASAb
+    my $ASAtype = [split("_", $toBeBuilt)]->[-1];
+    
+    my $totalASA = 0;
+    map {$totalASA += $_->$ASAtype()} @{$self->atom_array()};
+    
+    return $totalASA;
+}
+
+sub _build_ASAb_hash {
+    my $self = shift;
+
+    my %ASAmHash = ();
+    
+    foreach my $residAtomHref (values %{$self->resid_index()}) {
+        my $totalASA = 0;
+        my $residAtomAref = [values %{$residAtomHref}];
+        foreach my $atom (@{$residAtomAref}) {
+            croak "ASAb not defined for atom:\n$atom"
+                if ! defined $atom->ASAb();
+        }
+        map { $totalASA += $_->ASAb() } @{$residAtomAref};
+        my $key
+            = $residAtomAref->[0]->alnSeq() . $residAtomAref->[0]->resName();
+
+        $ASAmHash{$key} = $totalASA;
+    }
+    return \%ASAmHash;
+}
+
+sub _build_summary {
+    my $self = shift;
+
+    my @chainIDAndResSeqs = ();
+
+    foreach my $chain (keys %{$self->atom_index}) {
+        foreach my $resSeq (keys %{$self->atom_index->{$chain}}) {
+            push(@chainIDAndResSeqs, [$chain, $resSeq]);
+        }
+    }
+
+    @chainIDAndResSeqs
+        = sort { $a->[0] cmp $b->[0] ||
+                     pdb::pdbFunctions::compare_resSeqs($a->[1],$b->[1]) }
+            @chainIDAndResSeqs;
+
+    my $cA = $self->central_atom();
+
+    my $resSeqListStr
+        = join(" ", map {$_->[0] . ":" . $_->[1]} @chainIDAndResSeqs);
+    
+    my $summary = "<patch " . $cA->chainID() . "." . $cA->resSeq()
+        . "> $resSeqListStr\n";
+
+    return $summary;
+}
+
+sub _build_is_multi_chain {
+    my $self = shift;
+
+    my %chainIDs = map {$_->chainID() => 1} @{$self->atom_array()};
+
+    return keys %chainIDs > 1 ? 1 : 0;
+}
+
+### BUILD Method ###############################################################
+################################################################################
 
 sub BUILD {
     my $self = shift;
@@ -2149,6 +2810,8 @@ sub BUILD {
     }
 }
 
+### Around Modifiers ###########################################################
+################################################################################
 
 # Allow a makepatch object to be passed directly to new method
 # Or, if summary line and parent pdb object has been passed,
@@ -2208,7 +2871,6 @@ around BUILDARGS => sub {
                 last;
             }
         }
-        
         $class->$orig(%arg);
     }
     else {
@@ -2235,6 +2897,9 @@ around '_parse_ATOM_lines' => sub {
     return @patch_ATOM_lines;
 };
 
+### Methods ####################################################################
+################################################################################
+
 sub parseSummaryLine {
     my $summaryLine = shift;
 
@@ -2253,109 +2918,10 @@ sub parseSummaryLine {
     return ($centralResid, @resids);
 }
 
-
-sub _build_patch_id {
-    my $self = shift;
-
-    return $self->pdb_code . $self->summary();
-}
-
-
-sub _build_ASA {
-    my $self = shift;
-
-    # Looking at calling attribute to determine ASA type to sum
-    my $toBeBuilt = (caller(1))[3];
-    # example toBeBuilt = patch::total_ASAb
-    my $ASAtype = [split("_", $toBeBuilt)]->[-1];
-    
-    my $totalASA = 0;
-    map {$totalASA += $_->$ASAtype()} @{$self->atom_array()};
-    
-    return $totalASA;
-}
-
-
-sub _build_ASAb_hash {
-    my $self = shift;
-
-    my %ASAmHash = ();
-    
-    foreach my $residAtomHref (values %{$self->resid_index()}) {
-        my $totalASA = 0;
-        my $residAtomAref = [values %{$residAtomHref}];
-        foreach my $atom (@{$residAtomAref}) {
-            croak "ASAb not defined for atom:\n$atom"
-                if ! defined $atom->ASAb();
-        }
-        map { $totalASA += $_->ASAb() } @{$residAtomAref};
-        my $key
-            = $residAtomAref->[0]->alnSeq() . $residAtomAref->[0]->resName();
-
-        $ASAmHash{$key} = $totalASA;
-    }
-    return \%ASAmHash;
-}
-
-sub _build_summary {
-    my $self = shift;
-
-    my @chainIDAndResSeqs = ();
-
-    foreach my $chain (keys %{$self->atom_index}) {
-        foreach my $resSeq (keys %{$self->atom_index->{$chain}}) {
-            push(@chainIDAndResSeqs, [$chain, $resSeq]);
-        }
-    }
-
-    @chainIDAndResSeqs
-        = sort { $a->[0] cmp $b->[0] ||
-                     pdb::pdbFunctions::compare_resSeqs($a->[1],$b->[1]) }
-            @chainIDAndResSeqs;
-
-    my $cA = $self->central_atom();
-
-    my $resSeqListStr
-        = join(" ", map {$_->[0] . ":" . $_->[1]} @chainIDAndResSeqs);
-    
-    my $summary = "<patch " . $cA->chainID() . "." . $cA->resSeq()
-        . "> $resSeqListStr\n";
-
-    return $summary;
-}
-
-sub _build_is_multi_chain {
-    my $self = shift;
-
-    my %chainIDs = map {$_->chainID() => 1} @{$self->atom_array()};
-
-    return keys %chainIDs > 1 ? 1 : 0;
-}
-
-
-sub run_PatchOrder {    
-    my $self = shift;
-
-    my @ATOM_lines = ();
-    
-    foreach my $atom ( @{ $self->atom_array } ) {
-        croak "atom $atom does not have an ATOM_line assigned"
-            if ! $atom->ATOM_line;
-        push( @ATOM_lines, $atom->ATOM_line );
-    }
-
-    croak "No ATOM_lines were assigned to array from patch $self"
-        if ! @ATOM_lines;
-
-    my $v = '';
-    
-    my $pOrder = PatchOrder_v3::PatchOrder( $v, $self->summary, @ATOM_lines );
-    
-    return $pOrder;
-}
-
 __PACKAGE__->meta->make_immutable;
 
+################################################################################
+################################################################################
 
 package atom;
 
@@ -2368,6 +2934,7 @@ use GLOBAL qw(&rm_trail);
 use Carp;
 
 ### Attributes #################################################################
+################################################################################
 
 has 'ATOM_line' => (
     isa => 'Str',
@@ -2413,99 +2980,23 @@ foreach my $label (@labels) {
     );
 }
 
-### Methods ####################################################################
+### Attribute Builder Methods ##################################################
+#################################################################################
 
-use overload '""' => \&stringify, fallback => 1;
-
-sub stringify {
+sub _get_resid {
     my $self = shift;
+    my $resid = join(".", ($self->chainID, $self->resSeq));
 
-    my @arg = ();
-    
-    foreach my $arg (@_) {
-        if ( defined $arg && $arg =~ /\S/ ) {
-            push(@arg, $arg);
-        }
+    if ($self->has_iCode()) {
+        $resid .= $self->iCode();
     }
     
-    my %hash = ();
-    
-    if (@arg) {
-        croak "stringify must be passed a hashref: this hash must contain "
-            . "column replacements. e.g. { tempFactor => ASAm } to replace "
-            . "tempFactor with ASAm"
-                if ref $_[0] ne 'HASH';
-
-        %hash = %{ $_[0] };
-    }
-    
-    my @ordered_attr = ( 'serial', 'name', 'altLoc', 'resName', 'chainID',
-                       'resSeq','iCode', 'x', 'y', 'z', 'occupancy',
-                         'tempFactor', 'element', 'charge' );
-     
-    # Make column replacements
-    for my $i ( 0 .. @ordered_attr - 1 ) {
-        if ( exists $hash{ $ordered_attr[$i] } ) {
-            my $predicate = 'has_' . $ordered_attr[$i];
-            $ordered_attr[$i]
-                = $self->$predicate ? $hash{ $ordered_attr[$i] } : ' ' ;
-        }
-    }
-
-    @ordered_attr = map { $self->$_ } @ordered_attr;
-
-    # Process 'name' to match pdb formatting by padding with whitespace
-    $ordered_attr[1]
-        =  length $ordered_attr[1] == 0 ? ' ' x 4
-         : length $ordered_attr[1] == 1 ? ' ' . $ordered_attr[1] . ' ' x 2
-         : length $ordered_attr[1] == 2 ? ' ' . $ordered_attr[1] . ' '
-         : length $ordered_attr[1] == 3 ? ' ' . $ordered_attr[1] 
-         : $ordered_attr[1];
-
-    unshift (@ordered_attr, ( $self->is_het_atom ? 'HETATM' : 'ATOM' ) );
-
-    for my $i ( 0 .. @ordered_attr) {
-        if ( ! defined $ordered_attr[$i] ) {
-            $ordered_attr[$i] = '';
-            
-        }
-    }
-    
-    my $string
-        = sprintf(  '%-6.6s%5.5s' . ' ' . '%s%1.1s%3.3s %1.1s%4.4s%1.1s   '
-                   .'%8.3f' x 3 .  '%6.2f' x 2 . ' ' x 10 . '%2.2s'
-                   . '%2.2s' ,
-                    @ordered_attr );
-
-    $string .= "\n";
-    
-    return $string;
+    return $resid;
 }
 
-sub stringify_ter {
-    my $self = shift;
+### BUILD Method ###############################################################
+################################################################################
 
-    # Temporarily increment serial
-    $self->serial( $self->serial() + 1);
-    
-    my $string = $self->stringify();
-
-    # Deincrement serial
-    $self->serial( $self->serial() - 1 );
-    
-    # Clip string to TER line length
-    $string = pack( "A27", $string );
-
-    # Modify start of string
-    substr($string, 0, 6) = 'TER   ';
-
-    # Add newlines
-    $string = $string . "\n\n";
-    
-    return $string;
-}
-
-# Methods
 sub BUILD {
     
     my $self = shift;
@@ -2550,11 +3041,97 @@ sub BUILD {
     }
 }
 
-sub _get_resid {
-    my $self = shift;
-    my $resid = join(".", ($self->chainID, $self->resSeq));
+### Methods ####################################################################
+################################################################################
 
-    return $resid;
+use overload '""' => \&stringify, fallback => 1;
+
+sub stringify {
+    my $self = shift;
+
+    my @arg = ();
+    
+    foreach my $arg (@_) {
+        if ( defined $arg && $arg =~ /\S/ ) {
+            push(@arg, $arg);
+        }
+    }
+    
+    my %hash = ();
+    
+    if (@arg) {
+        croak "stringify must be passed a hashref: this hash must contain "
+            . "column replacements. e.g. { tempFactor => ASAm } to replace "
+            . "tempFactor with ASAm"
+                if ref $_[0] ne 'HASH';
+
+        %hash = %{ $_[0] };
+    }
+    
+    my @ordered_attr = qw(serial name altLoc resName chainID
+                          resSeq iCode x y z occupancy
+                          tempFactor element charge);
+    
+    # Make column replacements
+    for my $i ( 0 .. @ordered_attr - 1 ) {
+        if ( exists $hash{ $ordered_attr[$i] } ) {
+            my $predicate = 'has_' . $ordered_attr[$i];
+            
+            $ordered_attr[$i]
+                = $self->$predicate ? $hash{ $ordered_attr[$i] } : ' ' ;
+        }
+    }
+    
+    @ordered_attr = map { $self->$_ } @ordered_attr;
+    
+    # Process 'name' to match pdb formatting by padding with whitespace
+    $ordered_attr[1]
+        =  length $ordered_attr[1] == 0 ? ' ' x 4
+         : length $ordered_attr[1] == 1 ? ' ' . $ordered_attr[1] . ' ' x 2
+         : length $ordered_attr[1] == 2 ? ' ' . $ordered_attr[1] . ' '
+         : length $ordered_attr[1] == 3 ? ' ' . $ordered_attr[1] 
+         : $ordered_attr[1];
+
+    unshift (@ordered_attr, ( $self->is_het_atom ? 'HETATM' : 'ATOM' ) );
+
+    for my $i ( 0 .. @ordered_attr) {
+        if ( ! defined $ordered_attr[$i] ) {
+            $ordered_attr[$i] = '';
+        }
+    }
+
+    my $string
+        = sprintf(  '%-6.6s%5.5s' . ' ' . '%s%1.1s%3.3s %1.1s%4.4s%1.1s   '
+                   .'%8.3f' x 3 .  '%6.2f' x 2 . ' ' x 10 . '%2.2s'
+                   . '%2.2s' ,
+                    @ordered_attr );
+
+    $string .= "\n";
+    
+    return $string;
+}
+
+sub stringify_ter {
+    my $self = shift;
+
+    # Temporarily increment serial
+    $self->serial( $self->serial() + 1);
+    
+    my $string = $self->stringify();
+
+    # Deincrement serial
+    $self->serial( $self->serial() - 1 );
+    
+    # Clip string to TER line length
+    $string = pack( "A27", $string );
+
+    # Modify start of string
+    substr($string, 0, 6) = 'TER   ';
+
+    # Add newlines
+    $string = $string . "\n\n";
+    
+    return $string;
 }
 
 # This method tests to see if any of the passed atoms are in contact with self
@@ -2601,31 +3178,18 @@ sub contacting {
     }
 }
 
-
 __PACKAGE__->meta->make_immutable;
 
 
+################################################################################
+################################################################################
+
 1;
+
+
 __END__
 
-=head1 NAME
 
-pdb - Perl extension for blah blah blah
-
-=head1 SYNOPSIS
-
-   use pdb;
-   blah blah blah
-
-=head1 DESCRIPTION
-
-Stub documentation for pdb, 
-
-Blah blah blah.
-
-=head2 EXPORT
-
-None by default.
 
 =head1 SEE ALSO
 

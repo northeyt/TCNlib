@@ -153,10 +153,6 @@ my $term_string = $term_atom->stringify_ter();
 my $exp_string  = "TER    1628  CB  ALA A 362 \n\n";
 is($term_string, $exp_string, "stringify_ter returns TER string ok" );
 
-# terminal_atom_index
-
-print "$_\n" foreach  @{ $pdb->terminal_atom_index };
-
 # chain object
 
 my $chain_id = 'A';
@@ -250,7 +246,7 @@ my $bad_chain = chain->new( pdb_code => '3u5e',
 
 $bad_chain->atom_array();
 
-is( scalar keys %{ $bad_chain->multi_resName_resid() }, '175',
+is( scalar keys %{ $bad_chain->multi_resName_resids() }, '136',
     "multi_resName_resid captures resids with multi resName-atoms" );
 
 # solvent_cleanup flag
@@ -298,7 +294,7 @@ testSeqRangeAtoms();
 testAtomContacting();
 
 # test chain->determineEpitope
-ok(testDetermineEpitope2(@chains),
+ok(testDetermineEpitope(@chains),
    "determineEpitope identifies epitope residues ok");
 
 # Test getAbPairs()
@@ -452,20 +448,6 @@ sub testGetAbPairs {
 }
 
 
-sub testDetermineEpitope2 {
-    my($antigen, $light, $heavy) = @_;
-
-    clearEpitopeFlag($antigen);
-    numberAbChains($light, $heavy);
-
-    # This will label antigen epitope atoms via flag $atom->is_epitope()
-    $antigen->determineEpitope2([$light, $heavy], 4, 4);
-    
-    my @epitopeResSeqs = coreEpitope();
-
-    return checkEpitopeLabels($antigen, @epitopeResSeqs) ? 1 : 0;
-}
-
 sub testDetermineEpitope {
     my($antigen, $light, $heavy) = @_;
 
@@ -473,10 +455,10 @@ sub testDetermineEpitope {
     numberAbChains($light, $heavy);
 
     # This will label antigen epitope atoms via flag $atom->is_epitope()
-    $antigen->determineEpitope([$light, $heavy]);
+    $antigen->determineEpitope([$light, $heavy], 4, 4);
     
     my @epitopeResSeqs = coreEpitope();
-    
+
     return checkEpitopeLabels($antigen, @epitopeResSeqs) ? 1 : 0;
 }
 
