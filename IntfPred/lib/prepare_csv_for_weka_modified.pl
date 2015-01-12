@@ -37,6 +37,7 @@ my $fsc_dir;
 my $bsc_dir;
 
 my $class_labels_file;
+my $unsupervised;
 
 ####   Checking command line options   ####
 ###########################################
@@ -59,6 +60,7 @@ GetOptions('patch_dir=s' => \$patch_dir,
            'v_flag'      => \$v_flag,
            'out=s'       => \$out_fname,
            'c=s'         => \$class_labels_file,
+           'u'           => \$unsupervised,
        );
 #i.e. /acrm/usr/local/bin/perl prepare_csv_for_weka.pl -patch_dir /acrm/home/anya/interface_prediction/patches/patches_11/ [-single [a][h][p][s][r][w][S][H][F]] [-msa [A][B][s][S][F]] -intf 50 -v_flag
 
@@ -282,11 +284,16 @@ foreach my $patchfile (@p_filelist)
         my $value = $patch_properties{$k};
 
         #added 25.8.2010.
-        #only print I and S instances to outfile, ignore U class
         my $class = chop($value);
-        if ( ($class eq "I") || 
-             ($class eq "S") )
+
+        if ($unsupervised) {
+            # If unsupervised is set, then all class labels are set to missing
+            print OUT "$k,$value" . "?\n";
+        }
+        elsif ( ($class eq "I") || 
+                    ($class eq "S") )
         {
+            #only print I and S instances to outfile, ignore U class
             print OUT "$k,$value$class\n";
             
         }
