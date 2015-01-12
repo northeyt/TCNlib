@@ -8,6 +8,20 @@
 use warnings;
 use strict;
 use Data::Dumper;
+use Getopt::Long;
+
+my $minimal;
+my $vote;
+my $scoreAverage;
+
+GetOptions(m => \$minimal,
+           v => \$vote,
+           s => \$scoreAverage);
+
+my $option
+    = $minimal ? 0 :
+    $vote ? 1 :
+    $scoreAverage ? 2 : 2; # Default = 2
 
 my $inputCSV       = shift @ARGV;
 my $patchesDir     = shift @ARGV;
@@ -23,15 +37,16 @@ my %patchID2PredMap = mapPatchID2Pred(@csvLines);
 my %patchID2ResSeqMap = mapPatchID2ResSeq($patchesDir);
 
 my %resID2PredAndValueMap
-    = resID2PredAndValue(\%patchID2PredMap, \%patchID2ResSeqMap);
+    = resID2PredAndValue(\%patchID2PredMap, \%patchID2ResSeqMap, $option);
 
 print scalar (keys %resID2PredAndValueMap) . " residues found in patches\n";
 print scalar (keys %resID2LabelMap) . " residues found in resID label file\n";
-exit;
 
 ammendValueLabels(\%resID2PredAndValueMap, \%resID2LabelMap);
 
 my $CSVheader = getCSVHeader($inputCSV);
+# In header, replace patchID with residueID
+$CSVheader =~ s/patchID/residueID/;
 
 printCSV($CSVheader, \%resID2PredAndValueMap);
 
@@ -42,10 +57,7 @@ sub printCSV {
     my $CSVheader = shift;
     my $resID2PredAndValueHref = shift;
 
-    my $outputFile = "transformed.csv";
-    open(my $OUT, ">", $outputFile) or die "Cannot open file $outputFile, $!";
-
-    print {$OUT} $CSVheader;
+    print $CSVheader;
 
     my $i = 1;
     foreach my $resID (keys %{$resID2PredAndValueHref}){
@@ -55,7 +67,7 @@ sub printCSV {
         my @ordered = ($i, $infoHref->{value}, $infoHref->{prediction},
                        $error, $infoHref->{score}, $resID);
 
-        print {$OUT} join(",", @ordered) . "\n";
+        print join(",", @ordered) . "\n";
     }
 }
 
@@ -65,7 +77,6 @@ sub ammendValueLabels {
 
     foreach my $resID (keys %{$resID2LabelHref}) {
         if (! exists $resID2PredAndValueHref->{$resID}) {
-            print "TESTING: adding residue $resID\n";
             # Add resID to map
             $resID2PredAndValueHref->{$resID}
                 = {prediction => "2:S",
@@ -73,7 +84,6 @@ sub ammendValueLabels {
                    score => 0.00};
         }
         else {
-            print "TESTING: residue $resID has a record\n";
             $resID2PredAndValueHref->{$resID}->{value}
                 = $resID2LabelHref->{$resID};
         }
@@ -105,7 +115,8 @@ sub mapResID2Label {
 sub resID2PredAndValue {
     my $patchID2PredMap    = shift;
     my $patchID2ResSeqMap  = shift;
-
+    my $option = shift;
+    
     my %resID2PredAndValue = ();
 
     foreach my $patchID (keys %{$patchID2PredMap}) {
@@ -114,25 +125,70 @@ sub resID2PredAndValue {
         my $chainID = $patchIDSplit[0] . $patchIDSplit[1];
         
         my @resSeqs = @{$patchID2ResSeqMap->{$patchID}};
-
+        
         foreach my $resSeq (@resSeqs) {
             my $resID = $chainID . $resSeq;
-            
+
             if (! exists $resID2PredAndValue{$resID}) {
                 $resID2PredAndValue{$resID}
                     = {value => $patchID2PredMap->{$patchID}->{value},
-                       prediction => $patchID2PredMap->{$patchID}->{prediction},
-                       score => $patchID2PredMap->{$patchID}->{score}};
+                       prediction => [$patchID2PredMap->{$patchID}->{prediction}],
+                       score => [$patchID2PredMap->{$patchID}->{score}]};
             }
-            elsif ($resID2PredAndValue{$resID}->{prediction} eq "2:S") {
-                # Only ammend prediction if resID has not yet been labelled
-                # positive.
-                $resID2PredAndValue{$resID}->{prediction}
-                    = $patchID2PredMap->{$patchID}->{prediction};
+            else {
+                push(@{$resID2PredAndValue{$resID}->{prediction}},
+                         $patchID2PredMap->{$patchID}->{prediction});
+                
+                push(@{$resID2PredAndValue{$resID}->{score}},
+                     $patchID2PredMap->{$patchID}->{score});
             }
         }
     }
+
+    # Process predictions and scores
+    averageScores(\%resID2PredAndValue);
+    decidePredictionLabel(\%resID2PredAndValue, $option);
+        
     return %resID2PredAndValue;
+}
+
+sub decidePredictionLabel {
+    my $resID2PredAndValueHref = shift;
+    my $option = shift;
+    
+    foreach my $resID (keys %{$resID2PredAndValueHref}) {
+        my %label2Freq = ();
+        map {++$label2Freq{$_}}
+            @{$resID2PredAndValueHref->{$resID}->{prediction}};
+        
+        if ($option == 0) {
+            $resID2PredAndValueHref->{$resID}->{prediction}
+                = exists $label2Freq{"1:I"} ? "1:I" : "2:S";
+        }
+        elsif ($option == 1) {
+            $resID2PredAndValueHref->{$resID}->{prediction}
+                = exists $label2Freq{"1:I"} && $label2Freq{"1:I"} >= $label2Freq{"2:S"} ? "1:I"
+                    : "2:S";
+        }
+        elsif ($option == 2) {
+            $resID2PredAndValueHref->{$resID}->{prediction}
+                = $resID2PredAndValueHref->{$resID}->{score} >= 0.5 ?
+                    "1:I" : "2:S";
+        }
+    }
+}
+
+sub averageScores {
+    my $resID2PredAndValueHref = shift;
+
+    foreach my $resID (keys %{$resID2PredAndValueHref}) {
+        my @scores = @{$resID2PredAndValueHref->{$resID}->{score}};
+        my $sum;
+        map {$sum += $_} @scores;
+        my $avg = $sum / scalar @scores;
+        print "TEST: @scores\n";
+        $resID2PredAndValueHref->{$resID}->{score} = $avg;
+    }
 }
 
 sub getCSVHeader {
@@ -188,6 +244,14 @@ sub mapPatchID2Pred {
         my ($patchID, $value, $prediction, $score) = @{$infoAref}; 
         $map{$patchID} = {value => $value, prediction => $prediction,
                           score => $score};
+
+        # Transform prediction score so that it ranges from 0 - 1,
+        # where >= 0.5 = Interface
+        if ($map{$patchID}->{prediction} eq "2:S") {
+            $map{$patchID}->{score}
+                = 1 - $map{$patchID}->{score};
+        }
+            
     }
     return %map;
 }
