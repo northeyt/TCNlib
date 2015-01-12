@@ -72,7 +72,16 @@ foreach my $file (@filelist)
 
     #key is $chain:$resnum, value is aa_type:absASA
     #[residues] B:443A->ARG:92.207
-    my %residues = &res_types_from_xmas($pqs_id, $chain, $xmas_dir);
+    my %residues = eval{&res_types_from_xmas($pqs_id, $chain, $xmas_dir)};
+    if (! %residues) {
+        if ($@ =~ /cannot open/) {
+            print "No XMAS file found for $pqs_id, skipping ...\n";
+            next;
+        }
+        else {
+            croak $@;
+        }
+    }
 
     my %patches = &read_patches($file, $patch_dir, \%residues);
 
