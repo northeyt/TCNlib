@@ -25,9 +25,9 @@ my $standardizeOnSelf;
 GetOptions( 'c=s' => \$csv,
             'w=s' => \$weka_jar,
             't=s' => \$training_arff,
-            'b' => \$rem_missing_blast,
-            'd' => \$keep_intermeds,
-            't' => \$standardizeOnSelf
+            'b'   => \$rem_missing_blast,
+            'd'   => \$keep_intermeds,
+            'n'   => \$standardizeOnSelf
         );
 
 Usage() if ! ($csv && $weka_jar);
@@ -83,6 +83,9 @@ else {
     $to_be_standardized = $binary_arff_file;
 }
 
+# Save unstandardized file
+`cp $to_be_standardized unstandardized.arff`;
+
 # Standardize our arff using given training arff
 my $final_file = "";
 
@@ -96,7 +99,7 @@ if ($standardizeOnSelf) {
     $final_file = $std_file;
 }
 elsif($training_arff) {
-
+    
     standardize_arff($training_arff, $training_std_arff, $to_be_standardized, $std_file);
 
     $final_file = $std_file;
@@ -113,8 +116,9 @@ else {
 print `cat $final_file`;
  
 # Unless specified, remove all intermediate .arff files
-my @to_delete = ($raw_arff_file, $matching_attr_strs_arff_file, $binary_arff_file, $to_be_standardized,
-                 $final_file);
+my @to_delete
+    = qw($raw_arff_file $matching_attr_strs_arff_file $binary_arff_file
+         $to_be_standardized $final_file);
 
 unless ($keep_intermeds) {
     foreach my $file (@to_delete) {
@@ -172,7 +176,7 @@ sub format_attr_strings {
     # Ensure that secondary structure attribute lists classes are correctly ordered
     # to match Anja's training sets
     $arff_str =~ s/secondary_str {.*?}/secondary_str {H,EH,E,C}/;
-    $arff_str =~ s/intf_class {.*?}/intf_class {I,S}/;
+    $arff_str =~ s/intf_class \S+/intf_class {I,S}/;
 
     # Sometimes fosta/blast scorecons are defined as string, rather than numeric ...
     # so ensure that this is corrected
@@ -260,7 +264,7 @@ sub standardize_arff{
     
     my $success = eval { run_WEKA($cmd); 1; };
     
-    croak "remove_noblast_instances failed: $@" if ! $success;
+    croak "standardize_arff failed: $@" if ! $success;
 }
 
 
@@ -269,7 +273,7 @@ sub run_WEKA {
     
     my($stdout, $stderr, $success) = qxx($cmd);
     
-    if (! $success) {
+    if ($stderr) {
         croak "run_WEKA failed -  Command run: '$cmd'\nErrors; '$stderr'";
     }
 
