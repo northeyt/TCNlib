@@ -4,7 +4,8 @@ use strict;
 use Getopt::Long;  
 use lib '/home/bsm/anya/perllib'; #sets dir where Perl_paths.pm is
 use Perl_paths; 
- 
+use Carp;
+
 #### Define command line inputs ####
 my $patch_dir;
 my $xmas_dir;
@@ -109,8 +110,17 @@ foreach my $file (@filelist)
 
     #key is $chain:$resnum, value is aa_type:absASA
     #[residues] B:443A->ARG:92.207
-    my %residues = &res_types_from_xmas( $pqs_id, $chain, $xmas_dir );
-
+    my %residues = eval {&res_types_from_xmas($pqs_id, $chain, $xmas_dir)};
+    if (! %residues) {
+        if ($@ =~ /cannot open/) {
+            print "No XMAS file found for $pqs_id, skipping ...\n";
+            next;
+        }
+        else {
+            croak $@;
+        }
+    }
+    
     my %patches = &read_patches($file, $patch_dir, \%residues, \%ln, \%AA_surf_ASAmean);
 
     foreach my $k (sort keys %patches)
@@ -129,7 +139,7 @@ foreach my $file (@filelist)
     
     if(&file_empty($logfile))
     {
-        print "rm -f $logfile\n";
+        print "Removing $logfile ...\n";
         `rm -f $logfile`;
     }
     else
