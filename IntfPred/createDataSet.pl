@@ -21,7 +21,8 @@ my $lib = "$Bin/lib/";
 my($patch_radius, $how_file, $chainIDsFile,
    $run_dir, $class_lab_file, $patches_dir,
    $intfStatFile, $surfStatFile, $newStatFiles,
-   $setForTraining)
+   $setForTraining, $standardizeAgainst,
+   $unsupervised)
     = process_cmdline();
 
 my %input;
@@ -52,11 +53,12 @@ processInputFile(\$class_lab_file) if $class_lab_file;
 processInputDir(\$run_dir);
 processInputDir(\$patches_dir) if $patches_dir;
 
-# If set is for test purposes, then interface threshold must = 0, so that all
-# patches are included in final dataset, rather than some being removed due
-# to being unlabelled (see prepare_csv_for_weka for more details).
-# Otherwise, use threshold of 50%, as in Anja's work.
-$input{threshold} = $setForTraining ? 50 : 0;
+# Use threshold of 50%, as in Anja's work, to determine S, I and U labelling.
+# See prepare_csv_for_weka for more details.
+$input{threshold} = 50;
+
+# Set unsupervised to be sent to prepare_csv_for_weka
+$input{unsupervised} = $unsupervised ? "-u" : "";
 
 # Vars for running processes
 my $process;
@@ -118,11 +120,14 @@ else {
 
 my %hc = (weka_lib => File::Spec->rel2abs("$lib/weka.jar"));
 
-# If a training set is desired, -n opt is sent to create_arff.pl later on,
-# otherwise Anja's training set is sent to create_arff.pl so the set can be
-# correctly standardized.
+# If a training set is desired, -n opt is sent to create_arff.pl later on.
+# Otherwise, if a dataset has been specified to standardize against use that,
+# else use the default of Anja's original training set.
 $hc{training} = $setForTraining ? "-n"
-    : File::Spec->rel2abs("$lib/setsToStandardizeWith/WEKA_inputs/noABpdbs.filtered.NominalToBinary.train.notismissingATT11.r14_intf50.ahpsSH.sS.arff");
+    : $standardizeAgainst ? "-t " . File::Spec->rel2abs($standardizeAgainst)
+    : "-t " . File::Spec->rel2abs("$lib/sets2StandardizeWith/noABpdbs.filtered.NominalToBinary.train.notismissingATT11.r14_intf50.ahpsSH.sS.arff");
+
+print "TEST $hc{training}\n";
 
 # Output file for create_csv step, used as input for proceeding create_arff
 # step.
@@ -198,7 +203,7 @@ exit;
 
 sub Usage {
     print <<EOF;
-$0 USAGE : [-c -h FILE] [-p DIR] -i FILE -s FILE [-n -t] patchRadius OutputDir
+$0 USAGE : [-c FILE -h FILE ] -u [-p DIR] -i FILE -s FILE -n [-t -T FILE] patchRadius OutputDir
 
  -p : Specify a directory containing patch files, where line format for each
       line is like this example (i.e. patch summaries):
@@ -207,7 +212,7 @@ $0 USAGE : [-c -h FILE] [-p DIR] -i FILE -s FILE [-n -t] patchRadius OutputDir
        1afvA.patches
 
  -c : Specify a file containing class labels for patches. The line format is:
-       pdbCode(lowercase):chainID(Uppercase):CentralResidueResSeq:label(I or S0)
+       pdbCode(lowercase):chainID(Uppercase):CentralResidueResSeq:label(I or S)
 
  -i : Specify an interface residue propensity stats file.
 
@@ -222,9 +227,17 @@ $0 USAGE : [-c -h FILE] [-p DIR] -i FILE -s FILE [-n -t] patchRadius OutputDir
       rather than using stat files derived from Anja's original test set, or
       user specified stat files.
 
- -t : Create a set for training, rather than testing.
+ -r : Create training set. This standardizes the final data set against itself.
 
-Options -c and -p must be specified together.
+ -e : Create test set. This standardizes the final set against the .arff file
+      specified.
+
+ -u : Unsupervised. If set, then all patches will be missing class labels
+
+If option -p is specified, then option -c must be specfified
+
+If neither -t nor -T are set, then the dataset will be standardized against
+Anja's original training set.
 
 This script is a wrapper that runs all required scripts to prepare a dataset
 for WEKA input. The script can either be supplied with a .how file (e.g. a
@@ -243,8 +256,10 @@ sub process_cmdline {
     my $chainIDsFile = "";
     my $newStatFiles;
     my $setForTraining;
+    my $standardizeAgainst;
     my $intfStatFile = "";
     my $surfStatFile = "";
+    my $unsupervised;
     
     GetOptions("c=s" => \$class_label_file,
                "p=s" => \$patch_file_dir,
@@ -253,7 +268,9 @@ sub process_cmdline {
                "h=s" => \$how_file,
                "f=s" => \$chainIDsFile,
                "n"   => \$newStatFiles,
-               "t"   => \$setForTraining);
+               "r"   => \$setForTraining,
+               "e=s" => \$standardizeAgainst,
+               "u"   => \$unsupervised);
 
     # Check option selection is valid
     if ($class_label_file | $patch_file_dir) {
@@ -270,7 +287,8 @@ sub process_cmdline {
     return($patch_radius, $how_file, $chainIDsFile,
            $run_dir, $class_label_file, $patch_file_dir,
            $intfStatFile, $surfStatFile,
-           $newStatFiles, $setForTraining);
+           $newStatFiles, $setForTraining, $standardizeAgainst,
+           $unsupervised);
 }
 
 # Given a ref to a file name, this sub checks the file exists and is readable,
@@ -393,10 +411,10 @@ sub get_processes_array {
             [ 'fosta_scorecons', 'calc_patch_scorecons_modified.pl',
               "-patch_dir $dr{patches_dir} -aln_dir $dr{fosta_alignments} -log_dir $dr{log_files} -out_dir $dr{fosta_scorecons}" ],
             [ 'create_csv', 'prepare_csv_for_weka_modified.pl',
-              "-patch_dir $dr{patches_dir} $classOptString -prop_dir $dr{propensities} -hydr_dir $dr{hydrophobicity} -plan_dir $dr{planarity} -sstr_dir $dr{second_str} -rASA_dir $dr{rASA} -aASA_dir $dr{absASA} -SS_dir $dr{SSbonds} -Hb_dir $dr{Hbonds} -class_dir $dr{intf_sorting_patches} -fsc_dir $dr{fosta_scorecons} -bsc_dir $dr{psiblast_scorecons} -single ahpsSH -msa F -intf $input{threshold} -v_flag -out $csv_file",
+              "-patch_dir $dr{patches_dir} $classOptString -prop_dir $dr{propensities} -hydr_dir $dr{hydrophobicity} -plan_dir $dr{planarity} -sstr_dir $dr{second_str} -rASA_dir $dr{rASA} -aASA_dir $dr{absASA} -SS_dir $dr{SSbonds} -Hb_dir $dr{Hbonds} -class_dir $dr{intf_sorting_patches} -fsc_dir $dr{fosta_scorecons} -bsc_dir $dr{psiblast_scorecons} -single ahpsSH -msa F -intf $input{threshold} -v_flag $input{unsupervised} -out $csv_file",
           ],
             [ 'create_arff', 'create_arff.pl',
-              "-c $csv_file -w $hc{weka_lib} -t $hc{training} > dataset.arff"],
+              "-c $csv_file -w $hc{weka_lib} $hc{training} > dataset.arff"],
         );
     
     return @processes;
