@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# calc_patch_blast_scorecons_new.pl --- new script to calc patch scorecons from PSIBLAST alignment
+# calc_patch_blast_scorecons_new.pl -- new script to calc patch scorecons from PSIBLAST alignment
 # Author: Tom Northey <zcbtfo4@acrm18>
 # Created: 21 Jan 2014
 # Version: 0.01
@@ -53,13 +53,11 @@ while ( my $patches_fname = readdir($PATCHES_DH) ) {
     # Skip '.' and '..'
     next if $patches_fname =~ m{\A \.+ \z}xms;
 
-    print {$LOG} "Processing patches file '$patches_fname ...";
+    print {$LOG} "Processing patches file '$patches_fname' ...\n";
     
     my $pdb_id   = substr( $patches_fname, 0, 5);
     my $pdb_code = substr( $pdb_id, 0, 4);
     my $chain_id = substr( $pdb_id, 4, 1);
-
-    next unless $pdb_id eq '1fe8A';
     
     my $pdb_fname = "$pdb_dir/" . uc ( $pdb_code . "_$chain_id" ) . '.pdb';
     croak "Could not find pdb file $pdb_fname" if ! -e $pdb_fname;
@@ -87,9 +85,13 @@ while ( my $patches_fname = readdir($PATCHES_DH) ) {
 
     my $alignment_fname = "$aln_dir/$pdb_id";
 
-    croak "No alignment file found for $pdb_id in dir $aln_dir! Looked for"
-        . " file '$alignment_fname'" if ! -e $alignment_fname;
-     
+    if (! -e $alignment_fname){
+        print {$LOG} "No alignment file found for $pdb_id in dir $aln_dir! "
+            . "Looked for file '$alignment_fname'. Skipping ...\n";
+        
+        next;
+    }
+    
     my $aligned_seq_str
         = get_aligned_pdb_sequence($alignment_fname, $pdb_id);
 
@@ -103,7 +105,7 @@ while ( my $patches_fname = readdir($PATCHES_DH) ) {
 
     # Combine mapping to create resSeq to scorecons hash
 
-#=prints for error checking
+=prints for error checking
 
     print "\n\nmap_resSeq2chainSeq\n\n";
     
@@ -117,7 +119,7 @@ while ( my $patches_fname = readdir($PATCHES_DH) ) {
     
     print "msa $_, scorecons $map_msa2scorecons{$_}\n" foreach sort { $a <=> $b }keys %map_msa2scorecons;
 
-#=cut
+=cut
     
     my %map_resSeq2scorecons
         = map_resSeq2scorecons( \%map_resSeq2chainSeq, \%map_chainSeq2msa,
@@ -273,9 +275,9 @@ sub map_chainSeq2msa {
                 
                 # Skip ahead in chain_seq_str
                 ++$sequence_count; 
-                print "DEBUG: chain seq $sequence_count: "
-                    . "msa and aln residues do not match "
-                    . "$aln_res $seq_res\n";
+                #print "DEBUG: chain seq $sequence_count: "
+                #    . "msa and aln residues do not match "
+                #    . "$aln_res $seq_res\n";
 
                 $seq_res = substr($chain_seq_str, $sequence_count, 1);
                 
