@@ -119,44 +119,37 @@ foreach my $file (@filelist)
     #TEST CASES WHEN THIS IS NOT TRUE!!!!
     my $intf_area = &total_intf_area(\%intf_residues);
     
-    if(!$intf_area)
-    {
-        print LOG "total intf area zero!!!!\n";
-    }
-    else
-    {
-        push(@intf_totals, $intf_area);
+    push(@intf_totals, $intf_area);
 
-        printf "with intf area of %.2f.\nPatches are:\n", $intf_area if ($v_flag);
+    printf "with intf area of %.2f.\nPatches are:\n", $intf_area if ($v_flag);
 
-        printf INT1 "%d\t%.2f\n", $intf_with_asa, $intf_area;
+    printf INT1 "%d\t%.2f\n", $intf_with_asa, $intf_area;
 
-        #key is $chain:$resnum, value is is_central, %patch in intf, %intf in patch, total absASA patch area, total rASA patch area, number of residues in patch
-        my %patches = &read_patches($file, $patch_dir, \%residues, \%intf_residues, $intf_area);
-
-        foreach my $k (sort keys %patches)
-        {
-            #$R_ASA and $A_ASA are solvent-accessible areas of that patch
-            my ($X, $Y, $Z, $A_ASA, $R_ASA, $res_in_patch) = split (':', $patches{$k});
-            printf OUT "<patch %s> %d %.2f %.2f\n", $k, $X, $Y, $Z;
-
-            #added on 20.10.2011.
-            my $p_absASA = $A_ASA / $res_in_patch;
-            printf absASA "<patch %s> %.2f\n", $k, $p_absASA;
-
-            my $p_rASA = $R_ASA / $res_in_patch;
-            printf rASA "<patch %s> %.2f\n", $k, $p_rASA;
-
-            printf "<patch %s> %d %.2f %.2f %.2f %.2f %.2f\n", $k, $X, $Y, $Z, $A_ASA, $R_ASA, $res_in_patch if ($v_flag);
-
-            #if the ratios are not (0,0), will save them to be plotted in R
-            #the graph is in ~/R/patches/patch_intf_overlap_ratios.ps
-            if ( ($Y) || ($Z) ) 
+    #key is $chain:$resnum, value is is_central, %patch in intf, %intf in patch, total absASA patch area, total rASA patch area, number of residues in patch
+    my %patches = &read_patches($file, $patch_dir, \%residues, \%intf_residues, $intf_area);
+    
+    foreach my $k (sort keys %patches) {
+        #$R_ASA and $A_ASA are solvent-accessible areas of that patch
+        my ($X, $Y, $Z, $A_ASA, $R_ASA, $res_in_patch) = split (':', $patches{$k});
+        printf OUT "<patch %s> %d %.2f %.2f\n", $k, $X, $Y, $Z;
+        
+        #added on 20.10.2011.
+        my $p_absASA = $A_ASA / $res_in_patch;
+        printf absASA "<patch %s> %.2f\n", $k, $p_absASA;
+        
+        my $p_rASA = $R_ASA / $res_in_patch;
+        printf rASA "<patch %s> %.2f\n", $k, $p_rASA;
+        
+        printf "<patch %s> %d %.2f %.2f %.2f %.2f %.2f\n", $k, $X, $Y, $Z, $A_ASA, $R_ASA, $res_in_patch if ($v_flag);
+        
+        #if the ratios are not (0,0), will save them to be plotted in R
+        #the graph is in ~/R/patches/patch_intf_overlap_ratios.ps
+        if ( ($Y) || ($Z) ) 
             {
                 printf R "$pqs_id:$k\t%.2f\t%.2f\n", $Y, $Z;
             }
-        }
     }
+    
     close(OUT);
     close(LOG);
     
@@ -258,7 +251,8 @@ sub read_patches
             else
             {
                 $perc_patch_in_intf = ($overlap_area / $absolute_patch_area)*100;
-                $perc_intf_in_patch = ($overlap_area / $intf_area)*100;
+                $perc_intf_in_patch
+                    = ($intf_area ? $overlap_area / $intf_area : 0 )*100;
             }
 
             #modified on 20.10.2011.
