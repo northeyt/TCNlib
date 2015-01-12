@@ -1546,8 +1546,11 @@ sub map_resSeq2chainSeq {
     my %return_map = ();
     
     my $chain_id_h = $self->atom_index->{$chain_id};
+
+    my @sortedResSeqs = sort {pdb::pdbFunctions::compare_resSeqs($a, $b)}
+        keys %{$chain_id_h};
     
-    foreach my $resSeq ( sort { $a <=> $b } keys %{ $chain_id_h  } ) {
+    foreach my $resSeq (@sortedResSeqs) {
 
         my $atom = [ values %{ $chain_id_h->{$resSeq} } ]->[0];
         
