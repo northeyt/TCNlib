@@ -364,7 +364,7 @@ sub extract_percentages
     my %averages = ();
     my $total = 0;
 
-    open(IN, "$file") || die "sub extract_averages: Cannot open IN!!!\n";
+    open(IN, "$file") || die "sub extract_averages: Cannot open input file $file!!!\n";
 
     while (my $line = <IN>)
     {
