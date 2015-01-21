@@ -127,8 +127,6 @@ $hc{training} = $setForTraining ? "-n"
     : $standardizeAgainst ? "-t " . File::Spec->rel2abs($standardizeAgainst)
     : "-t " . File::Spec->rel2abs("$lib/sets2StandardizeWith/noABpdbs.filtered.NominalToBinary.train.notismissingATT11.r14_intf50.ahpsSH.sS.arff");
 
-print "TEST $hc{training}\n";
-
 # Output file for create_csv step, used as input for proceeding create_arff
 # step.
 my $csv_file = "dataset.csv";
@@ -236,7 +234,7 @@ $0 USAGE : [-c FILE -h FILE ] -u [-p DIR] -i FILE -s FILE -n [-t -T FILE] patchR
 
 If option -p is specified, then option -c must be specfified
 
-If neither -t nor -T are set, then the dataset will be standardized against
+If neither -r nor -e are set, then the dataset will be standardized against
 Anja's original training set.
 
 This script is a wrapper that runs all required scripts to prepare a dataset
