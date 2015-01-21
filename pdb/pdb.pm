@@ -2691,6 +2691,7 @@ foreach my $ASAtype (qw(ASAc ASAm ASAb)) {
 has 'is_epitope' => (
     isa => 'Bool',
     is => 'rw',
+    predicate => 'has_epitope_label',
 );
 
 has 'id' => (
