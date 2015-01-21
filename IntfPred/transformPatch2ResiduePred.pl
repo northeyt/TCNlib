@@ -9,14 +9,23 @@ use warnings;
 use strict;
 use Data::Dumper;
 use Getopt::Long;
+use Carp;
+use Intf::Pred::lib::editOutputCSV;
 
 my $minimal;
 my $vote;
 my $scoreAverage;
+my $scoreThresh;
 
-GetOptions(m => \$minimal,
-           v => \$vote,
-           s => \$scoreAverage);
+GetOptions("m"   => \$minimal,
+           "v"   => \$vote,
+           "s"   => \$scoreAverage,
+           "t=f" => \$scoreThresh);
+
+croak "Score threshold must be between 0 and 1"
+    if $scoreThresh < 0 || $scoreThresh > 1;
+
+$scoreThresh = 0.5 if ! $scoreThresh;
 
 my $option
     = $minimal ? 0 :
@@ -32,19 +41,20 @@ my $resIDLabelFile = shift @ARGV;
 
 my %resID2LabelMap = mapResID2Label($resIDLabelFile);
 
-my @csvLines = getLinesFromCSVFile($inputCSV);
+my @csvLines = Intf::Pred::lib::editOutputCSV::getLinesFromCSVFile($inputCSV);
 my %patchID2PredMap = mapPatchID2Pred(@csvLines);
 my %patchID2ResSeqMap = mapPatchID2ResSeq($patchesDir);
 
 my %resID2PredAndValueMap
-    = resID2PredAndValue(\%patchID2PredMap, \%patchID2ResSeqMap, $option);
+    = resID2PredAndValue(\%patchID2PredMap, \%patchID2ResSeqMap, $option,
+                         $scoreThresh);
 
 print scalar (keys %resID2PredAndValueMap) . " residues found in patches\n";
 print scalar (keys %resID2LabelMap) . " residues found in resID label file\n";
 
 ammendValueLabels(\%resID2PredAndValueMap, \%resID2LabelMap);
 
-my $CSVheader = getCSVHeader($inputCSV);
+my $CSVheader = Intf::Pred::lib::editOutputCSV::getCSVHeader($inputCSV);
 # In header, replace patchID with residueID
 $CSVheader =~ s/patchID/residueID/;
 
@@ -116,6 +126,7 @@ sub resID2PredAndValue {
     my $patchID2PredMap    = shift;
     my $patchID2ResSeqMap  = shift;
     my $option = shift;
+    my $scoreThresh = shift;
     
     my %resID2PredAndValue = ();
 
@@ -147,7 +158,7 @@ sub resID2PredAndValue {
 
     # Process predictions and scores
     averageScores(\%resID2PredAndValue);
-    decidePredictionLabel(\%resID2PredAndValue, $option);
+    decidePredictionLabel(\%resID2PredAndValue, $option, $scoreThresh);
         
     return %resID2PredAndValue;
 }
@@ -155,6 +166,9 @@ sub resID2PredAndValue {
 sub decidePredictionLabel {
     my $resID2PredAndValueHref = shift;
     my $option = shift;
+    my $scoreThresh = shift;
+
+    $scoreThresh = 0.5 if ! $scoreThresh;
     
     foreach my $resID (keys %{$resID2PredAndValueHref}) {
         my %label2Freq = ();
@@ -172,7 +186,7 @@ sub decidePredictionLabel {
         }
         elsif ($option == 2) {
             $resID2PredAndValueHref->{$resID}->{prediction}
-                = $resID2PredAndValueHref->{$resID}->{score} >= 0.5 ?
+                = $resID2PredAndValueHref->{$resID}->{score} >= $scoreThresh ?
                     "1:I" : "2:S";
         }
     }
@@ -186,61 +200,19 @@ sub averageScores {
         my $sum;
         map {$sum += $_} @scores;
         my $avg = $sum / scalar @scores;
-        print "TEST: @scores\n";
         $resID2PredAndValueHref->{$resID}->{score} = $avg;
     }
-}
-
-sub getCSVHeader {
-    my $inputCSV = shift;
-
-    open(my $CSV, "<", $inputCSV) or die "Cannot open file $inputCSV, $!";
-    
-    while (my $line = <$CSV>) {
-        if ($line =~ /^inst#/){
-            return $line;
-        }
-    }
-    close $CSV;
-
-    die "Did not parse header from CSV file!";
-}
-
-sub getLinesFromCSVFile {
-    my $file = shift;
-
-    open(my $IN, "<", $file) or die "Cannot open file $file, $!";
-
-    my @lines = ();
-
-    my $reachedHeader = 0;
-    
-    while (my $line = <$IN>) {
-        if (! $reachedHeader) {
-            $reachedHeader = 1 if $line =~ /^inst#/;
-            next;
-        }
-        next if $line =~ /^\n$/;
-
-        push(@lines, $line);
-    }
-    return @lines;
-}
-
-sub parseCSVLine {
-    my $line = shift;
-    chomp $line;
-    my ($inst, $value, $prediction, $err, $score, $patchID) = split(",", $line);
-
-    return [$patchID, $value, $prediction, $score];
 }
 
 sub mapPatchID2Pred {
     my @csvLines = @_;
 
     my %map = ();
+
+    my @infoArefs
+        = map {Intf::Pred::lib::editOutputCSV::parseCSVLine($_)} @csvLines;
     
-    foreach my $infoAref (map {parseCSVLine($_)} @csvLines) {
+    foreach my $infoAref (@infoArefs) {
         my ($patchID, $value, $prediction, $score) = @{$infoAref}; 
         $map{$patchID} = {value => $value, prediction => $prediction,
                           score => $score};
@@ -255,7 +227,6 @@ sub mapPatchID2Pred {
     }
     return %map;
 }
-
 
 sub mapPatchID2ResSeq {
     my $patchesDir = shift;
