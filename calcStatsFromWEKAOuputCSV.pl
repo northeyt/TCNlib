@@ -49,8 +49,9 @@ while (my $line = <$IN>) {
         ($valueLabel, $predLabel);
 
     foreach my $label ($valueLabel, $predLabel) {
-        croak "labels do not match user-input labels!"
-            if ! exists $labelMap{$label};
+        croak "label '$label' does not match user-input labels!\n"
+            . "split line = $line"
+                if ! exists $labelMap{$label};
     }
 
     my $obj = bless {}, 'instance';
