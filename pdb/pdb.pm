@@ -2692,6 +2692,7 @@ has 'is_epitope' => (
     isa => 'Bool',
     is => 'rw',
     predicate => 'has_epitope_label',
+    clearer => 'clear_epitope_label',
 );
 
 has 'id' => (
