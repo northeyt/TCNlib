@@ -25,7 +25,7 @@ has 'asurf64exec' => (
 has 'radiiFile' => (
     is => 'rw',
     isa => 'FileReadable',
-    default => $TCNPerlVars::radii_file,
+    default => $TCNPerlVars::asurf_radii_file,
     required => 1,
 );
 
@@ -59,7 +59,7 @@ has 'resid2RelASAHref' => (
 sub getOutput {
     my $self = shift;
 
-    my ($outASAFile, $outRSAFile) = $self->runExec();
+    my ($outASAFile, $outRSAFile, $outLogFile) = $self->runExec();
 
     my %atomSerialHash = $self->getAtomSerialHash($outASAFile);
 
@@ -69,6 +69,7 @@ sub getOutput {
     # Remove output ASA and RSA files
     unlink($outASAFile);
     unlink($outRSAFile);
+    unlink($outLogFile);
     
     return \%atomSerialHash;
 }
@@ -164,8 +165,12 @@ sub runExec {
     }
     
     my $cmd = "$exec -r $radiiFile -p $probeRadius -h $inputFile";
+
+    print "DEBUG: $cmd\n";
+    
     my $outputASAFile = File::Spec->rel2abs($baseName) . ".asa";
     my $outputRSAFile = File::Spec->rel2abs($baseName) . ".rsa";
+    my $outputLogFile = File::Spec->rel2abs($baseName) . ".log";
     
     my($stdout, $stderr, $success, $exit_code) = capture_exec($cmd); 
 
@@ -180,8 +185,9 @@ sub runExec {
     elsif (! -e $outputASAFile) {
         croak "asurf64 failed to create an output file";
     }
-    return ($outputASAFile, $outputRSAFile);
+    return ($outputASAFile, $outputRSAFile, $outputLogFile);
 }
+
 1;
 __END__
 

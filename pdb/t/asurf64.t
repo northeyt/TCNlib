@@ -24,7 +24,8 @@ BEGIN { use_ok( 'pdb::asurf64' ); }
 
 my $testObj = new_ok('pdb::asurf64', [input => "1djs.pdb"]);
 
-cmp_deeply([$testObj->runExec()], ["/tmp/1djs.asa", "/tmp/1djs.rsa"],
+cmp_deeply([$testObj->runExec()],
+           ["/tmp/1djs.asa", "/tmp/1djs.rsa", "/tmp/1djs.log"],
            "runExec works ok");
 
 my $line
@@ -35,5 +36,5 @@ cmp_deeply([$testObj->parseLine($line)], \@exp, "parseLine works okay");
 
 ok($testObj->getOutput(), "getOutput works ok");
 
-is($testObj->resid2RelASAHref->{"A.147"}->{allAtoms}, "116.4",
+is($testObj->resid2RelASAHref->{"A.147"}->{allAtoms}, "118.0",
    "getResid2RelASAHash works ok")

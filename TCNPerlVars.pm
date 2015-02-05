@@ -36,6 +36,7 @@ $makepatch = "/home/bsm/martin/bin/makepatch";
 $xmas2pdb  = "/home/bsm/martin/acrm/CONSULTANCY/inpharmatica/software/xmas2pdb/xmas2pdb";
 
 $radii_file = "/acrm/data/people/zcbtfo4/radii.dat";
+$asurf_radii_file = "/acrm/data/people/zcbtfo4/vdw.radii";
 $pdb2xmas   = "/home/bsm/martin/acrm/CONSULTANCY/inpharmatica/software/pdb2xmas/pdb2xmas";
 
 $pdb2xmas_bin
