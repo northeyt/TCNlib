@@ -14,6 +14,8 @@
 use strict;
 use warnings;
 use Test::More qw( no_plan );
+use Test::Deep;
+
 BEGIN { use_ok( 'pdb::pdbFunctions' ); }
 
 #########################
@@ -26,11 +28,24 @@ BEGIN { use_ok( 'pdb::pdbFunctions' ); }
 my $rsA = "52";
 my $rsB = "52A";
 
-is(pdb::pdbFunctions::compare_resSeqs($rsA, $rsB), -1,
-   "compareResSeqs works okay");
+my @test = qw(52 52A);
+my @exp  = qw(52A 52);
+cmp_deeply([sort {pdb::pdbFunctions::compare_resSeqs($a, $b)} @test],
+           \@exp, "compareResSeqs sorts 52, 52A => 52A, 52");
 
+@test = qw(52A 52);
+cmp_deeply([sort {pdb::pdbFunctions::compare_resSeqs($a, $b)} @test],
+           \@exp, "compareResSeqs keeps 52A, 52 the same");
+
+@test = qw(52B 52A);
+@exp  = qw(52A 52B);
+
+cmp_deeply([sort {pdb::pdbFunctions::compare_resSeqs($a, $b)} @test],
+           \@exp, "compareResSeqs sorts 52B, 52A => 52A, 52B");
+ 
 my $riA = "C121";
 my $riB = "C27";
 
 is(pdb::pdbFunctions::compare_resids($riA, $riB), 1,
    "compare_resids works okay");
+ 

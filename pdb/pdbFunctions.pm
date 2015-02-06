@@ -163,18 +163,28 @@ sub compare_resSeqs {
         my ($rsA_suffix) = $rsA =~ /([A-Z]+)$/g;
         my ($rsB_suffix) = $rsB =~ /([A-Z]+)$/g;
 
-        # If resSeq does not have a suffix, set var to empty string
-        # This will ensure that cmp orders a resSeq with no prefix
-        # before those with prefixes
+        my $strLenSum = defined $rsA_suffix ? length($rsA_suffix) + 1 : 1;
+        $strLenSum += length($rsB_suffix) if defined $rsB_suffix;
+        
+        # We want to ensure that cmp orders a resSeq with no suffix
+        # after any with a suffix. To do this, we can set an empty
+        # suffix to to a string that is guaranteed to be ordered
+        # after the other non-empty string, by setting the length
+        # to the sum of both string lengths + 1.
         foreach my $suffref (\$rsA_suffix, \$rsB_suffix) {
-            ${$suffref} = "" if ! ${$suffref};
+            ${$suffref} = "A" x $strLenSum if ! ${$suffref};
         }
 
         # Sort first by resSeq number then suffix
-        if (! defined $rsA_num || ! defined $rsB_num) {
-            confess "ResSeq A: $rsA, ResSeq B: $rsB\n";
+        # If resSeqs are the same, sort by suffix. Else, sort by resSeq
+        if ($rsA_num eq $rsB_num) {
+            
+            # resSeqs with suffixes come before those with none
+            return $rsA_suffix cmp $rsB_suffix;
         }
-        return ($rsA_num <=> $rsB_num || $rsA_suffix cmp $rsB_suffix);
+        else {
+            return ($rsA_num <=> $rsB_num);
+        }
     }
 }
 
