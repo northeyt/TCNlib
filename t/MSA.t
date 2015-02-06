@@ -23,6 +23,7 @@ BEGIN { use_ok( 'MSA' ); }
 
 my $testInput = "test.fasta";
 my $testObj = new_ok('MSA', [input => $testInput]);
+$testObj->program('w');
 
 my $expStr = ">4hpyP\nELRDKKQKVHALFYKLDIV\n\n";
 is($testObj->processedInput()->[0], $expStr, "_processInput works okay");

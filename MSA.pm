@@ -166,6 +166,9 @@ sub _runClustal {
     my $inputFileBaseName = basename($inputFile);
     my $outputFile = '/tmp/' . $inputFileBaseName . '.aln';
 
+    # Assign output file to tmp Cache
+    write2tmp->Cache->{$outputFile} = 1;
+    
     my $cmd = "$exec -OUTFILE=$outputFile -INFILE=$inputFile";
 
     my($stdout, $stderr, $success, $exit_code) = capture_exec($cmd);
