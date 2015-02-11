@@ -32,6 +32,8 @@ BEGIN { use_ok('pdb'); }
 
 ### Tests ######################################################################
 
+test_is_nt_chain();
+
 # Atom object tests
 my $ATOM_line
     = "ATOM     13  CG  LEU A 148      13.227  45.000  23.178  1.00 47.53           C";
@@ -362,6 +364,14 @@ is($testPatchFomSummary->summary(), $testSummaryLine,
    "patch built from summary: input summary returned after build");
 
 ### Subroutines ################################################################
+
+sub test_is_nt_chain {
+    my $chain = chain->new(pdb_code => "1HYS",
+                           chain_id => "E",
+                           pdb_file => "RNAchain.pdb");
+
+    is($chain->is_nt_chain, 1, "chain->is_nt_chain works ok");
+}
 
 sub getTestSummaryPatch {
 

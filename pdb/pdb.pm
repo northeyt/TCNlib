@@ -2061,6 +2061,19 @@ has 'is_het_chain' => (
     builder => '_build_is_het_chain',
 );
 
+=item C<is_nt_chain>
+
+Returns TRUE if chain consists entirely of nucleotide bases.
+
+=cut
+
+has 'is_nt_chain' => (
+    isa => 'Bool',
+    is => 'ro',
+    lazy => 1,
+    builder => '_build_is_nt_chain',
+);
+
 =item C<cluster_id>
 
 This is assigned when cdhit is run with chain as input.
@@ -2110,6 +2123,24 @@ sub _build_is_het_chain {
 
     return 1;
 }
+
+sub _build_is_nt_chain {
+    my $self = shift;
+
+    my %nts = map {$_ => 1} qw(A D G C U);
+
+    my $flag = 1;
+    
+    foreach my $atom (@{$self->atom_array()}) {
+        if (! exists $nts{$atom->resName()}) {
+            $flag = 0;
+            last;
+        }
+    }
+
+    return $flag;
+}
+
 
 ### Around modifiers ###########################################################
 ################################################################################
