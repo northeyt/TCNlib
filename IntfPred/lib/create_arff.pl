@@ -194,7 +194,12 @@ sub convert_CSV {
     my $input_CSV = shift or die "convert_CSV must be passed an input CSV";
     my $output_arff = shift or die "convert_CSV must be passed an output .arff";
 
-    my $cmd = "java weka.core.converters.CSVLoader -S first $csv > $raw_arff_file";
+    # -B option must be set, that defines how large the input buffer is, in
+    # terms on numbers of lines. This is important for nominal values, because
+    # if all possible nominal values are not present in the first input buffer,
+    # an error is raised.
+    
+    my $cmd = "java weka.core.converters.CSVLoader -B 1000 -S first $csv > $raw_arff_file";
 
     my $success = eval { run_WEKA($cmd); 1; };
 
