@@ -129,7 +129,7 @@ is($pdb->getFASTAStr(chain_id => "A"), $expFASTAStr, "getFASTAStr works oK");
 
 # map_resSeq2chainSeq
 
-ok($pdb->map_resSeq2chainSeq('A'), "mapresSeq2chainSeq ok");
+ok($pdb->map_resSeq2chainSeq(chain_id => 'A'), "mapresSeq2chainSeq ok");
 
 # test out chain solvent determination
 

@@ -993,7 +993,7 @@ sub _multi_model {
 
 =item C<get_sequence(%args)>
 
-Where %args = (chain_id => ... , return_type => ... , include_missing_res => BOOL)
+Where %args = (chain_id => ... , return_type => ... , include_missing => BOOL)
 
 chain_id = Chain identifier of chain you wish to know the sequence of
 
@@ -1001,14 +1001,14 @@ return_type = 1 OR 3.
     If 1, array of 1-letter AA codes is returned.
     If 3, array of 3-letter AA codes is returned.
 
-including_missing_res = BOOL.
+including_missing = BOOL.
     If TRUE, missing residues (normally parsed from pdb header data) are
     included in sequence. DEFAULT = FALSE
 
 This method returns an array of 1 or 3-letter amino acid codes that represent
 the sequence of the chain specified. e.g.
 
-    @sequence = $pdb->get_sequence(chain_id => A, return_type => 1, include_missing_res => 1);
+    @sequence = $pdb->get_sequence(chain_id => A, return_type => 1, include_missing => 1);
 
 =cut
 
@@ -1022,7 +1022,7 @@ sub get_sequence {
     
     my $USAGE
         = 'get_sequence(chain_id => (chain_id), return_type => ( 1 | 3 ), '
-        . 'include_missing_res => (1|0, default = 0)';
+        . 'include_missing => (1|0, default = 0)';
     
     my %arg = @_;
 
@@ -1033,56 +1033,40 @@ sub get_sequence {
         croak $USAGE;
     }
 
+    my $chain_id = $arg{chain_id};
+    
     my $inc_missing = 0;
     
-    if (exists $arg{include_missing_res}) {
-        $inc_missing = $arg{include_missing_res};
-    }
-    
-    my %chain_resSeq_index = ();
-
-    # Filter out residues that are not from specified chain
-    foreach my $chain (keys %{$self->atom_index()}) {
-        next if $chain ne $arg{chain_id};
-        foreach my $resSeq (keys %{$self->atom_index->{$chain}}){
-            $chain_resSeq_index{$resSeq}
-                = $self->atom_index->{$chain}->{$resSeq};
-        }
-        
+    if (exists $arg{include_missing}) {
+        $inc_missing = $arg{include_missing};
     }
 
-    if ($inc_missing) {
-        # Get missing residues for specified chain and add them to chain hash
-        if (exists $self->missing_residues->{$arg{chain_id}}) {
+    my %resSeq2ChainSeq
+        = $self->map_resSeq2chainSeq(chain_id => $chain_id,
+                                     include_missing => $inc_missing);
 
-            my %missingResSeq = %{$self->missing_residues->{$arg{chain_id}}};
+    my @sortedResSeqs
+        = sort {$resSeq2ChainSeq{$a} <=> $resSeq2ChainSeq{$b}}
+            keys %resSeq2ChainSeq;
             
-            foreach my $resSeq (keys %missingResSeq) {
-                $chain_resSeq_index{$resSeq} = $missingResSeq{$resSeq};
-            }
-        }
-    }
-    
-    #  Sort resSeqs
-    my @sortedResSeqs = sort {pdb::pdbFunctions::compare_resSeqs($a, $b)}
-        keys %chain_resSeq_index;
-
-
     my @residues = ();
 
     foreach my $resSeq (@sortedResSeqs){
-        # If hashed value is a ref to a hash where values are atoms
-        if (ref $chain_resSeq_index{$resSeq} eq 'HASH'){
-            # If not solvent, get resName of first atom
-            my $atom = [values %{$chain_resSeq_index{$resSeq}}]->[0];
+
+        my $atom
+            = eval {[values %{$self->atom_index->{$chain_id}->{$resSeq}}]->[0]};
+           
+        if ($atom) {
+
             if (! $atom->is_solvent()) {
                 my $resName = $atom->resName();
                 push(@residues, $resName);
             }
+            
         }
         else {
-            # If hashed value is a string containing 3lc resname
-            push(@residues, $chain_resSeq_index{$resSeq});
+            my $resName = $self->missing_residues->{$chain_id}->{$resSeq};
+            push(@residues, $resName);
         }
     }
     
@@ -1133,7 +1117,7 @@ sub getFASTAStr {
     
     my @seq = $self->get_sequence(chain_id => $chainID,
                                   return_type => 1,
-                                  include_missing_res => $includeMissing);
+                                  include_missing => $includeMissing);
     
     my $seqStr = join("", @seq) . "\n";
     $header = ">" . $self->pdb_code() . $chainID . "\n" if ! $header;
@@ -1523,9 +1507,10 @@ sub highestASA {
     return $top_ASA_atom;
 }
 
-=item C<map_resSeq2chainSeq(CHAIN_ID)>
+=item C<map_resSeq2chainSeq(chain_id => CHAIN_ID, include_missing => BOOL)>
 
 CHAIN_ID = chain identifier of chosen chain.
+include_missing = include missing residues. DEFAULT = 1
 
 Maps resSeq numbers to chainSeq count numbers (equivalent to pdbcount num
 in pdbsws.)
@@ -1536,31 +1521,45 @@ Returns hash with form: resSeq => chainSeq
 sub map_resSeq2chainSeq {
     my $self = shift;
 
-    my $chain_id
-        = shift or croak "map_resSeq2chainSeq must be passed a chain id";
+    my %args = @_;
 
+    my $chain_id = $args{chain_id};
+    my $include_missing = exists $args{include_missing} ? $args{include_missing} : 1;
+        
     croak "pdb: " . $self->pdb_code() . " no residues found for chain "
         . " $chain_id" if ! exists $self->atom_index->{$chain_id};
     
     my $chainSeq = 0;
     my %return_map = ();
-    
-    my $chain_id_h = $self->atom_index->{$chain_id};
 
-    my @sortedResSeqs = sort {pdb::pdbFunctions::compare_resSeqs($a, $b)}
-        keys %{$chain_id_h};
-    
-    foreach my $resSeq (@sortedResSeqs) {
+    my $prevResID = "";
 
-        my $atom = [ values %{ $chain_id_h->{$resSeq} } ]->[0];
+    my @orderedResSeqs = ();
+
+    # Get resSeqs as ordered in atom array
+    foreach my $atom (@{$self->atom_array()}) {
+        if ($atom->resid() ne $prevResID && $atom->chainID() eq $chain_id
+                && ! $atom->is_solvent()) {
+            push(@orderedResSeqs, [split(/\./, $atom->resid())]->[1]);
+            $prevResID = $atom->resid();
+        }
+    }
+
+    my %rS2Ord;
+    @rS2Ord{@orderedResSeqs} = (1 .. scalar @orderedResSeqs);
+
+    if ($include_missing) {
+        # Get missing resSeqs from chain
+        my @missingResSeqs = keys %{$self->missing_residues()->{$chain_id}};
+                
+        my @sortedResSeqs
+            = sort {pdb::pdbFunctions::compare_resSeqs($a, $b, \%rS2Ord)}
+                (@orderedResSeqs, @missingResSeqs);
         
-        next if $atom->is_solvent();
-        
-        ++$chainSeq;
-        
-        $return_map{$resSeq} = $chainSeq;
-    }    
-    return %return_map;
+        @rS2Ord{@sortedResSeqs} = (1 .. scalar @sortedResSeqs);
+
+    }
+    return %rS2Ord;
 }
 
 =item C<map_chainSeq2resSeq(CHAIN_ID)>
@@ -1580,7 +1579,7 @@ sub map_chainSeq2resSeq {
     croak "pdb: " . $self->pdb_code() . " no residues found for chain "
         . " $chain_id" if ! exists $self->atom_index->{$chain_id};
     
-    my %resSeq2chainSeq = $self->map_resSeq2chainSeq($chain_id);
+    my %resSeq2chainSeq = $self->map_resSeq2chainSeq(chain_id => $chain_id);
     
     my %return_map
         = map { $resSeq2chainSeq{$_} => $_ } keys %resSeq2chainSeq;
@@ -2145,7 +2144,7 @@ around '_parse_remark465' => sub {
 };
 
 # Automatically set arg chain_id
-around [qw(get_sequence getFASTAStr)] => sub {
+around [qw(get_sequence getFASTAStr map_resSeq2chainSeq)] => sub {
 
     my $orig = shift;
     my $self = shift;
@@ -2159,11 +2158,11 @@ around [qw(get_sequence getFASTAStr)] => sub {
 };
 
 # Automatically send chain id
-around [qw(map_chainSeq2resSeq map_resSeq2chainSeq)] => sub {
+around [qw(map_chainSeq2resSeq)] => sub {
     my $orig = shift;
     my $self = shift;
 
-    my @arg = ( $self->chain_id() );
+    my @arg = ($self->chain_id());
     
     return $self->$orig(@arg);    
 };
@@ -2556,7 +2555,7 @@ sub labelAtomsWithClusterSeq {
             else {
                 use Data::Dumper;
                 print "Atom has no alnSeq: $atom\n";
-                print $self->get_sequence(include_missing_res => 1,
+                print $self->get_sequence(include_missing => 1,
                                           return_type => 1),  "\n";
                 print Dumper $self;
                 exit;
