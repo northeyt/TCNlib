@@ -11,6 +11,7 @@ use Carp;
 use Getopt::Long;
 use pdb::pdb;
 use IO::CaptureOutput qw( qxx );
+use Data::Dumper;
 
 use lib '/home/bsm/anya/perllib'; #sets dir where Perl_paths.pm is
 use Perl_paths;
@@ -80,8 +81,8 @@ while ( my $patches_fname = readdir($PATCHES_DH) ) {
                         );
 
     # Get mappings
-    
-    my %map_resSeq2chainSeq = $chain->map_resSeq2chainSeq();
+
+    my %map_resSeq2chainSeq = $chain->map_resSeq2chainSeq(include_missing => 0);
 
     my $alignment_fname = "$aln_dir/$pdb_id";
 
@@ -95,8 +96,9 @@ while ( my $patches_fname = readdir($PATCHES_DH) ) {
     my $aligned_seq_str
         = get_aligned_pdb_sequence($alignment_fname, $pdb_id);
 
-    my $chain_seq_str = join('', $chain->get_sequence(return_type => 1));
-    
+    my $chain_seq_str = join('', $chain->get_sequence(return_type => 1,
+                                                      include_missing => 0));
+
     my %map_chainSeq2msa  = map_chainSeq2msa($aligned_seq_str, $chain_seq_str);
 
     my @scorecons_output  = run_scorecons($alignment_fname);
@@ -105,7 +107,7 @@ while ( my $patches_fname = readdir($PATCHES_DH) ) {
 
     # Combine mapping to create resSeq to scorecons hash
 
-=prints for error checking
+=debug
 
     print "\n\nmap_resSeq2chainSeq\n\n";
     
@@ -124,13 +126,12 @@ while ( my $patches_fname = readdir($PATCHES_DH) ) {
     my %map_resSeq2scorecons
         = map_resSeq2scorecons( \%map_resSeq2chainSeq, \%map_chainSeq2msa,
                                 \%map_msa2scorecons ); 
-
+    
     print {$LOG} " Mapping successful ...\n";
     
     # Apply mapping to patches from patch file
     
     while ( my $patch_string = <$PATCH> ) {
-        print "$pdb_id ";
         my $patch_score = score_patch($patch_string, \%map_resSeq2scorecons);
 
         my ($patch_id) = $patch_string =~ m{ \A(<.*?>) }xms;
@@ -185,7 +186,8 @@ sub map_resSeq2scorecons {
         my $chainSeq = $map_resSeq2chainSeq->{$resSeq};
 
         exists $map_chainSeq2msa->{$chainSeq}
-            or croak "No mapping exists for chainSeq $chainSeq to msa";
+            or croak "No mapping exists for chainSeq $chainSeq to msa. Hash = "
+                . Dumper \%return_hash;
 
         my $msa_pos = $map_chainSeq2msa->{$chainSeq};
 
@@ -261,42 +263,59 @@ sub map_chainSeq2msa {
     
     my %return_map = ();
     my $sequence_count = 0;
-
+    
     # Loop through alignment string
     for my $i ( 0 .. length ($alignment_str) - 1 ) {
+                
         # If substring is a residue
         if ( substr( $alignment_str, $i, 1 ) ne '-' ){
 
             my $aln_res = substr($alignment_str, $i, 1);
             my $seq_res = substr($chain_seq_str, $sequence_count, 1);
-
-            # Ensure that chain and alignment residues match
-            until ($aln_res eq $seq_res) {
+          
+            until ($seq_res ne 'X') {                
+                # Skip any non-natural residues as these will not be found the
+                # alignment sequence
+                ++$sequence_count;
                 
-                # Skip ahead in chain_seq_str
-                ++$sequence_count; 
-                #print "DEBUG: chain seq $sequence_count: "
-                #    . "msa and aln residues do not match "
-                #    . "$aln_res $seq_res\n";
-
-                $seq_res = substr($chain_seq_str, $sequence_count, 1);
-                
-                # Assign 'NULL' to map hash for this position in chainSeq
-                print "DEBUG: ", substr($alignment_str, $i, 1);
-                print " seq_count: $sequence_count\n";
+                # Set hash value to NULL
                 $return_map{$sequence_count} = 'NULL';
-                print "$sequence_count: " . $return_map{$sequence_count}
-                    . "\n";
+                
+                $seq_res = substr($chain_seq_str, $sequence_count, 1);
             }
             
+            if ($aln_res ne $seq_res) {
+                # Ensure that chain and alignment residues match
+                croak "Aln res ($aln_res, pos $i) and seq res ($seq_res, pos $sequence_count) should be the same!\n"
+                    . "AlnSeq: $alignment_str\nChainSeq: $chain_seq_str\n";
+            }
+
             ++$sequence_count;
-            print "DEBUG: ", substr($alignment_str, $i, 1);
-            print " seq_count: $sequence_count\n";
+
             $return_map{$sequence_count} = $i;
-            print "$sequence_count: " . $return_map{$sequence_count}
-                . "\n";
         }        
     }
+    
+    # If sequence_count is less than length of chain_seq, loop through remaining
+    # residues and check that they are all X residues. No natural amino acids
+    # should be unaligned, so croak if this is the case.
+    if ($sequence_count < length($chain_seq_str)) {
+        my $seq_res = substr($chain_seq_str, $sequence_count, 1);
+        if ($seq_res eq 'X') {                
+            # Skip any non-natural residues as these will not be found the
+            # alignment sequence
+            ++$sequence_count;
+            
+            # Set hash value to NULL
+            $return_map{$sequence_count} = 'NULL';
+            
+            $seq_res = substr($chain_seq_str, $sequence_count, 1);
+        }
+        else {
+            croak "Seq res ($seq_res, pos $sequence_count) has no aliignment!\n";
+        }
+    }
+        
     return %return_map;
 }
     
@@ -329,7 +348,7 @@ sub get_aligned_pdb_sequence {
             }
         }
     }
-
+    
     croak "No sequence lines parsed from alignment file"
         if ! @seq_lines;
    
