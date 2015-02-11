@@ -2234,6 +2234,13 @@ sub isAbVariable {
                 croak $err;
             }
         }
+        elsif ($err->message() =~ /Can.*'t split sequence/) {
+            if ($self->is_nt_chain()) {
+                # Chain consists of nucleotide atoms only, thus chain is not
+                # AbVar
+                $chainType = 'Antigen';
+            }
+        }
         else {
             croak $err;
         }
