@@ -10,7 +10,7 @@ use strict;
 use Data::Dumper;
 use Getopt::Long;
 use Carp;
-use Intf::Pred::lib::editOutputCSV;
+use IntfPred::lib::editOutputCSV;
 
 my $minimal;
 my $vote;
@@ -41,7 +41,7 @@ my $resIDLabelFile = shift @ARGV;
 
 my %resID2LabelMap = mapResID2Label($resIDLabelFile);
 
-my @csvLines = Intf::Pred::lib::editOutputCSV::getLinesFromCSVFile($inputCSV);
+my @csvLines = IntfPred::lib::editOutputCSV::getLinesFromCSVFile($inputCSV);
 my %patchID2PredMap = mapPatchID2Pred(@csvLines);
 my %patchID2ResSeqMap = mapPatchID2ResSeq($patchesDir);
 
@@ -54,7 +54,7 @@ print scalar (keys %resID2LabelMap) . " residues found in resID label file\n";
 
 ammendValueLabels(\%resID2PredAndValueMap, \%resID2LabelMap);
 
-my $CSVheader = Intf::Pred::lib::editOutputCSV::getCSVHeader($inputCSV);
+my $CSVheader = IntfPred::lib::editOutputCSV::getCSVHeader($inputCSV);
 # In header, replace patchID with residueID
 $CSVheader =~ s/patchID/residueID/;
 
@@ -210,7 +210,7 @@ sub mapPatchID2Pred {
     my %map = ();
 
     my @infoArefs
-        = map {Intf::Pred::lib::editOutputCSV::parseCSVLine($_)} @csvLines;
+        = map {IntfPred::lib::editOutputCSV::parseCSVLine($_)} @csvLines;
     
     foreach my $infoAref (@infoArefs) {
         my ($patchID, $value, $prediction, $score) = @{$infoAref}; 
