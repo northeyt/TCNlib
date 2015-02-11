@@ -48,12 +48,26 @@ while (my $line = <$IN>) {
     ($valueLabel, $predLabel) = map {[split(":", $_)]->[1]}
         ($valueLabel, $predLabel);
 
+    my $labelTest = 1;
+    
     foreach my $label ($valueLabel, $predLabel) {
-        croak "label '$label' does not match user-input labels!\n"
-            . "split line = $line"
-                if ! exists $labelMap{$label};
+        if (! defined $label) {
+            print {*STDERR} "Line has missing label: $line";
+            $labelTest = 0;
+            next;
+        }
+        elsif (! exists $labelMap{$label}) {
+            croak "label '$label' does not match user-input labels!\n"
+                . "split line = $line";
+        }
+        
     }
 
+    if (! $labelTest) {
+        print {*STDERR} "Invalid labels for instance $instNum, skipping...\n";
+        next;
+    }
+    
     my $obj = bless {}, 'instance';
     
     my $instance = datum->new(object => $obj,
