@@ -38,6 +38,7 @@ use Carp;
 
 use TryCatch;
 use Storable;
+use Data::Dumper;
 
 use Math::VectorReal qw(:all);
 use Math::MatrixReal;
@@ -1749,7 +1750,14 @@ sub _hashChains {
     my($chainsAref, $chainTypesHref, $pairedHref) = @_;
     
     foreach my $chain (@{$chainsAref}) {
-        my $chainType = $chain->isAbVariable();
+        my $chainType;
+        my $ret = eval {$chainType = $chain->isAbVariable(); 1};
+        
+        if (! $ret) {
+            print {*STDERR} "ERROR!: " . Dumper $@;
+            croak $@;
+        }
+            
         if (! $chainType) {
             $chainType = 'antigen';
         }
@@ -2194,6 +2202,9 @@ sub isAbVariable {
             else {
                 croak $err;
             }
+        }
+        else {
+            croak $err;
         }
     };
     
