@@ -149,17 +149,18 @@ sub process_runExecError {
             $errStr
                 = "Input file $inputFile is invalid - only HETATM lines present"
                     . " (inputfile must contain ATOM lines)";
+
+            # Construct error
+            my $newErr = local::error->new(message => $errStr,
+                                           type => 'AllHETATMInputFile',
+                                           data => {inputFile => $inputFile},
+                                           parent => $err);
+            croak $newErr;
         }
         else {
-            $errStr = "Something is wrong with inputfile $inputFile";
+            # _runExec failed for an unknown reason, so return original error
+            croak $err;
         }
-
-        # Construct error
-        my $newErr = local::error->new(message => $errStr,
-                                       type => 'AllHETATMInputFile',
-                                       data => {inputFile => $inputFile},
-                                       parent => $err);
-        croak $newErr;
     }
 }
 
