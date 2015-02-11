@@ -25,17 +25,27 @@ BEGIN { use_ok( 'pdb::pdbFunctions' ); }
 
 
 # test compareResSeqs
-my $rsA = "52";
-my $rsB = "52A";
+my @test = qw(1 1A);
+my %order = ("1A" => "1", "1" => "2");
+my @exp  = qw(1A 1);
+cmp_deeply([sort {pdb::pdbFunctions::compare_resSeqs($a, $b, \%order)} @test],
+           \@exp, "compareResSeqs sorts 1, 1A => 1A, 1 (using order hash)");
 
-my @test = qw(52 52A);
-my @exp  = qw(52A 52);
-cmp_deeply([sort {pdb::pdbFunctions::compare_resSeqs($a, $b)} @test],
-           \@exp, "compareResSeqs sorts 52, 52A => 52A, 52");
+@test = qw(1A 1B);
+%order = ("1A" => "2", "1B" => "1");
+@exp  = qw(1B 1A);
+cmp_deeply([sort {pdb::pdbFunctions::compare_resSeqs($a, $b, \%order)} @test],
+           \@exp, "compareResSeqs sorts 1A, 1B => 1B, 1A (using order hash)");
 
 @test = qw(52A 52);
+%order = ("52" => "1", "52A" => "2");
+@exp  = qw(52 52A);
 cmp_deeply([sort {pdb::pdbFunctions::compare_resSeqs($a, $b)} @test],
-           \@exp, "compareResSeqs keeps 52A, 52 the same");
+           \@exp, "compareResSeqs sorts 52A, 52 => 52, 52A (using order hash)");
+
+@test = qw(52 52A);
+cmp_deeply([sort {pdb::pdbFunctions::compare_resSeqs($a, $b)} @test],
+           \@exp, "compareResSeqs keeps 52, 52A the same");
 
 @test = qw(52B 52A);
 @exp  = qw(52A 52B);

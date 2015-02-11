@@ -147,43 +147,47 @@ sub rotateAtoms {
 # -1 is returned if $rsA should before $rsB
 #  1 is returned is $rsA should come after $rsB
 sub compare_resSeqs {
-    my($rsA, $rsB) = @_;
+    my $rsA = shift;
+    my $rsB = shift;
 
+    my $rS2OrdHref = shift;
+    $rS2OrdHref = {} if ! ref $rS2OrdHref eq 'HASH';
+    
     croak "Two resSeqs must be passed to compare_resSeqs!"
         if (! (defined $rsA && defined $rsB));
-    
-    if (looks_like_number($rsA) && looks_like_number($rsB)) {
-        # Both are resSeqs are numbers and can be sorted with a simple <=>
-        return $rsA <=> $rsB;
+
+    # If a hash has been supplied that defines the order of resSeqs
+    # (e.g. according to some ATOM fields occurance), and both resSeqs
+    # appear in this hash, then use this ordering
+    if (exists $rS2OrdHref->{$rsA} && $rS2OrdHref->{$rsB}) {
+        return $rS2OrdHref->{$rsA} <=> $rS2OrdHref->{$rsB};
     }
+    # If one does not exist in this hash, guess ordering
     else {
-        my ($rsA_num) = $rsA =~ /(\d+)+/g;
-        my ($rsB_num) = $rsB =~ /(\d+)+/g;
-        
-        my ($rsA_suffix) = $rsA =~ /([A-Z]+)$/g;
-        my ($rsB_suffix) = $rsB =~ /([A-Z]+)$/g;
-
-        my $strLenSum = defined $rsA_suffix ? length($rsA_suffix) + 1 : 1;
-        $strLenSum += length($rsB_suffix) if defined $rsB_suffix;
-        
-        # We want to ensure that cmp orders a resSeq with no suffix
-        # after any with a suffix. To do this, we can set an empty
-        # suffix to to a string that is guaranteed to be ordered
-        # after the other non-empty string, by setting the length
-        # to the sum of both string lengths + 1.
-        foreach my $suffref (\$rsA_suffix, \$rsB_suffix) {
-            ${$suffref} = "A" x $strLenSum if ! ${$suffref};
-        }
-
-        # Sort first by resSeq number then suffix
-        # If resSeqs are the same, sort by suffix. Else, sort by resSeq
-        if ($rsA_num eq $rsB_num) {
-            
-            # resSeqs with suffixes come before those with none
-            return $rsA_suffix cmp $rsB_suffix;
-        }
+        if (looks_like_number($rsA) && looks_like_number($rsB)) {
+            # Both are resSeqs are numbers and can be sorted with a simple <=>
+            return $rsA <=> $rsB;
+        }   
         else {
-            return ($rsA_num <=> $rsB_num);
+            my ($rsA_num) = $rsA =~ /(\d+)+/g;
+            my ($rsB_num) = $rsB =~ /(\d+)+/g;
+        
+            my ($rsA_suffix) = $rsA =~ /([A-Z]+)$/g;
+            my ($rsB_suffix) = $rsB =~ /([A-Z]+)$/g;
+
+            # Set suffixes to empty strings if not initialized
+            foreach my $suffref (\$rsA_suffix, \$rsB_suffix) {
+                ${$suffref} = "" if ! ${$suffref};
+            }
+            
+            # Sort first by resSeq number then suffix
+            # If resSeqs are the same, sort by suffix. Else, sort by resSeq
+            if ($rsA_num eq $rsB_num) {
+                return $rsA_suffix cmp $rsB_suffix;
+            }
+            else {
+                return $rsA_num <=> $rsB_num;
+            }
         }
     }
 }
