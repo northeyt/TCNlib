@@ -165,8 +165,6 @@ sub runExec {
     }
     
     my $cmd = "$exec -r $radiiFile -p $probeRadius -h $inputFile";
-
-    print "DEBUG: $cmd\n";
     
     my $outputASAFile = File::Spec->rel2abs($baseName) . ".asa";
     my $outputRSAFile = File::Spec->rel2abs($baseName) . ".rsa";
