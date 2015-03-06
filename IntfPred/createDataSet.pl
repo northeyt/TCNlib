@@ -275,6 +275,10 @@ sub process_cmdline {
         Usage() unless
             $class_label_file & $patch_file_dir;
     }
+
+    if ($chainIDsFile) {
+        croak "Currently can't run a chainIDs file!";
+    }
     
     my $patch_radius = shift @ARGV or Usage();
     $patch_radius == int $patch_radius
