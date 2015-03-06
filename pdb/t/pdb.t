@@ -19,6 +19,8 @@ use Data::Dumper;
 use lib ( '..' );
 use Test::More qw( no_plan );
 use Test::Deep;
+use Carp;
+
 use Test::Exception;
 use pdb::pdbFunctions;
 
@@ -33,6 +35,8 @@ BEGIN { use_ok('pdb'); }
 ### Tests ######################################################################
 
 test_is_nt_chain();
+test_get_sequence();
+test_resid2ModResAref();
 
 # Atom object tests
 my $ATOM_line
@@ -113,11 +117,11 @@ ok($pdb->resid_index, "resid_index ok" );
 ok($pdb->pdbresid_index, "pdbresid_index ok");
 
 # test out get_sequence
- 
 my $exp_seq_string
-    = "TLEPEGAPYWTNTEKXEKRLHAVPAANTVKFRCPAGGNPXPTXRWLKNGKEFKQEHRIGGYKVRNQHWSLIX"
+    = "TLEPEGAPYWTNTEKMEKRLHAVPAANTVKFRCPAGGNPMPTMRWLKNGKEFKQEHRIGGYKVRNQHWSLIM"
     . "ESVVPSDKGNYTCVVENEYGSINHTYHLDVVERSPHRPILQAGLPANASTVVGGDVEFVCKVYSDAQPHIQW"
-    . "IKHVEKPYLKVLKAAGVNTTDKEIEVLYIRNVTFEDAGEYTCLAGNSIGISFHSAWLTVLPA";
+    . "IKHVEKNGSKYGPDGLPYLKVLKAAGVNTTDKEIEVLYIRNVTFEDAGEYTCLAGNSIGISFHSAWLTVLPA";
+
 
 my @seq = $pdb->get_sequence( chain_id => 'A', return_type => 1, );
 my $seq_string = join ( '', @seq );
@@ -269,6 +273,13 @@ my @chains = $pdb->create_chains();
 
 ok(testChains($pdb, @chains), "Create chains works okay");
 
+# Test createOtherChains
+
+my @otherChains = $chains[0]->createOtherChains();
+
+ok(testOtherChains($pdb, $chains[0], @otherChains),
+   "createOtherChains works ok");
+
 # test isAbVariable
 my $abComplex = pdb->new(pdb_code => '1afv',
                          pdb_file => '1afv.pdb');
@@ -344,8 +355,8 @@ is($testPatch->summary(), $expSummary, "_build_summary works ok");
 
 # Test parseSummaryLine
 my $testSummaryLine
-    = "<patch G.409> G:335 G:397 G:398 G:407 G:408 G:409 G:410\n";
-my @expResids = qw(G.409 G.335 G.397 G.398 G.407 G.408 G.410);
+    = "<patch G.409> G:335 G:397A G:398 G:407 G:-408 G:409 G:410\n";
+my @expResids = qw(G.409 G.335 G.397A G.398 G.407 G.-408 G.410);
 
 cmp_deeply([patch::parseSummaryLine($testSummaryLine)], \@expResids,
            "parseSummaryLine works okay");
@@ -364,6 +375,31 @@ is($testPatchFomSummary->summary(), $testSummaryLine,
    "patch built from summary: input summary returned after build");
 
 ### Subroutines ################################################################
+
+sub test_resid2ModResAref {
+    my $testPDB = pdb->new(pdb_code => "1h0d", pdb_file => "1h0d.pdb");
+    
+    my %exp = ('C.1' => ['PCA', 'GLU']);
+ 
+    cmp_deeply($testPDB->resid2ModResAref(), \%exp, "resid2ModResAref works ok");
+}
+
+# This test is to ensure that get_sequence correctly includes missing residues
+# and renames modified residues to their standard names
+sub test_get_sequence {
+    my $bugChain = chain->new(pdb_code => '1h0d',
+                              chain_id => 'C',
+                              pdb_file => '1h0d.pdb');
+
+    my $expSeq = "EDNSRYTHFLTQHYDAKPQGRDDRYCESIMRRRGLTSPCKDINTFIHGNKRSIKAICENKN"
+        . "GNPHRENLRISKSSFQVTTCKLHGGSPWPPCQYRATAGFRNVVVACENGLPVHLDQSIFRRP";
+    
+    my $gotSeq = join("", $bugChain->get_sequence(return_type => 1,
+                                                  include_missing => 1,
+                                                  std => 1));
+    
+    is($gotSeq, $expSeq, "get_sequence works ok");
+}
 
 sub test_is_nt_chain {
     my $chain = chain->new(pdb_code => "1HYS",
@@ -572,6 +608,32 @@ sub ExpChains {
             H => 'Heavy',};
 }
 
+sub testOtherChains {
+    my $pdb = shift;
+    my $callingChain = shift;
+    
+    my @chains = @_;
+
+   my $chainsAtomCount = 0;
+    
+    # Does each chain only have atoms with the correct chain id?
+    foreach my $chain (@chains) {
+        
+        croak "Atoms with mismatching chain ids assigne to chain $chain"
+            if ! testAtoms($chain);
+        $chainsAtomCount += scalar @{$chain->atom_array()};
+    }
+
+    # Have all atoms from the original pdb, minus the calling chain,
+    # been assigned?
+    my $pdbAtomCount
+        = scalar @{$pdb->atom_array()} - scalar @{$callingChain->atom_array};
+
+    return 0 if $chainsAtomCount ne $pdbAtomCount;
+    
+    return 1;
+}
+
 sub testChains {
     my $pdb = shift;
     my @chains = @_;
@@ -580,7 +642,9 @@ sub testChains {
     
     # Does each chain only have atoms with the correct chain id?
     foreach my $chain (@chains) {
-        return 0 if ! testAtoms($chain);
+        
+        croak "Atoms with mismatching chain ids assigned to chain $chain"
+            if ! testAtoms($chain);
         $chainsAtomCount += scalar @{$chain->atom_array()};
     }
 

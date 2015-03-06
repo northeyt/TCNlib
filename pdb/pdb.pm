@@ -307,6 +307,15 @@ has 'solvent_cleanup' => (
     default => 0,
 );
 
+# Avoid parsing solvent atoms from pdb data
+has 'solvent_cleanup' => (
+    isa => 'Bool',
+    is => 'rw',
+    default => 0,
+);
+
+
+
 # Used by methods to indicate that the object has had
 # accessible surface area (ASA) measures taken in some form
 has 'has_read_ASA' => (
@@ -379,6 +388,49 @@ has 'resid2RelASAHref' => (
     default => sub { {} },
     lazy => 1,
 );
+
+=item C<resid2ModResAref>
+
+This method returns a ref to a hash of form
+resID => [modifiedResidueName, standardResidueName]
+e.g. A.281 => [MSE, MET]
+This is used by get_sequence to convert modified residues names to standard
+residue names.
+
+=cut
+
+has 'resid2ModResAref' => (
+    is => 'rw',
+    isa => 'HashRef',
+    builder => '_parseMODRESLines',
+    lazy => 1,
+);
+
+=item C<resNameMod2StdHref>
+
+This method returns a ref a  hash of form modifiedResidueName => StandardResidueName
+e.g. MSE => MET
+
+Therefore this hash does not specify the positions of modified residues, simply
+the modified to standard residue name mapping.
+
+This hash is derived from the resid2ModResAref by default. It is useful for when
+some but not all modified residue ids are listed in the PDB header. Its main
+purpose is to be used by get_sequence to attempt to map modified resid residue
+names to standard residue names when they have not been listed in MODRES.
+
+It could also be defined by the user before using get_sequence if no PDB header
+data is present.
+
+=cut
+
+has 'resNameMod2StdHref' => (
+    isa => 'HashRef',
+    is  => 'rw',
+    lazy => 1,
+    builder => '_build_resNameMod2StdHref',
+);
+
 
 # Consume antigen role
 with 'pdb::antigen';
@@ -459,8 +511,10 @@ sub _build_data {
 sub _parse_atoms {
     my $self = shift;
 
-    # Get raw ATOM lines from pdb data
-    my @ATOM_lines = $self->_parse_ATOM_lines();
+    # Get raw ATOM lines from pdb data if ref to array of atoms has not been
+    # passed
+    my @ATOM_lines = (ref $_[0]) eq 'ARRAY' ? @{$_[0]}
+        : $self->_parse_ATOM_lines();
     
     my @atoms = ();
 
@@ -487,7 +541,7 @@ sub _parse_atoms {
 
         # Parse atom line to create atom object
         my $atom = atom->new(ATOM_line => $line);
-
+        
         # Skip this atom if type is flagged to avoid
         next if ($self->hydrogen_cleanup && $atom->element eq 'H'
                      || $self->het_atom_cleanup && $atom->is_het_atom);
@@ -683,21 +737,39 @@ sub _determineNonSolvTerIndex {
 sub _parse_ATOM_lines {
     
     my $self = shift;
-    
+
+    my %arg = @_;
+
     my @array = @{ $self->pdb_data };  
  
     my @ATOM_lines = ();
-
+    
     foreach my $line (@array) {
-        if ($line =~ /^(?:ATOM|HETATM|TER) /) {
+        if ($line =~ /^(?:ATOM|HETATM|TER)/) {
             push(@ATOM_lines, $line);
         }
     }
-    
+        
     croak "No ATOM, HETATM or TER lines parsed from pdb data"
         if ! @ATOM_lines;
 
-    return @ATOM_lines;
+
+    if ((exists $arg{all} && $arg{all}) || ! exists $arg{chain_id}) {
+        return @ATOM_lines;
+    }
+    else {
+        my @chain_ATOM_lines = ();
+        foreach my $line (@ATOM_lines) {
+            if (substr($line, 21, 1) eq $arg{chain_id}){
+                push(@chain_ATOM_lines, $line);
+            }
+        }
+        croak "No ATOM lines were parsed with chainId " . $arg{chain_id}
+            . " for pdb " . $self->pdb_code()
+                if ! @chain_ATOM_lines;
+        
+        return @chain_ATOM_lines;
+    }
 }
 
 sub _parse_ter {
@@ -904,10 +976,10 @@ sub _parse_remark465 {
 
         my $resType = substr($line, 15, 3);
         my $chainID = substr($line, 19, 1);
-        my $resSeq  = substr($line, 21, 5);
+        my $resSeq  = substr($line, 21, 6);
 
         $resSeq = rm_trail($resSeq);
-
+        
         if (! exists $resSeqs{$chainID}) {
             $resSeqs{$chainID} = {$resSeq => $resType};
         }
@@ -917,6 +989,53 @@ sub _parse_remark465 {
     }
     
     return \%resSeqs;
+}
+
+# This method returns a ref to a hash of form
+# resID => [modifiedResidueName, standardResidueName]
+# e.g. A.281 => [MSE, MET]
+# This is used as a builder for attribute resid2ModResAref.
+sub _parseMODRESLines {
+    my $self = shift;
+
+    # Parse MODRES lines from PDB data
+    my @MODRESLines = grep {/^MODRES/} @{$self->pdb_data()};
+
+    my %resid2ModResAref = ();
+    
+    foreach my $line (@MODRESLines) {
+        # Use indices from PDB data format specfication to parse modified
+        # residue information from line.
+        # Use rm_trail to remove trailing whitespace
+        my $chainID    = substr($line, 16, 1);
+        my $resSeq     = rm_trail(substr($line, 18, 4));
+        my $iCode      = rm_trail(substr($line, 22, 1));
+        my $modResName = rm_trail(substr($line, 12, 3));
+        my $stdResName = rm_trail(substr($line, 24, 3));
+
+        my $resID = "$chainID.$resSeq";
+
+        $resID .= $iCode if $iCode;
+        
+        $resid2ModResAref{$resID} = [$modResName, $stdResName];
+    }
+    
+    return \%resid2ModResAref;
+}
+
+sub _build_resNameMod2StdHref {
+    my $self = shift;
+
+    my %modRes2StdResNames = ();
+
+    # Each value of resid2ModResAref is a ref to an array of form
+    # modifiedResidueName => standardResidueName
+    # So loop through values and assign modRes => stdRes to hash
+    foreach my $modAndStdAref (values %{$self->resid2ModResAref}) {
+        my ($modRes, $stdRes) = @{$modAndStdAref};
+        $modRes2StdResNames{$modRes} = $stdRes;
+    }
+    return \%modRes2StdResNames;
 }
 
 ### BUILD Method ###############################################################
@@ -994,87 +1113,97 @@ sub _multi_model {
 
 =item C<get_sequence(%args)>
 
-Where %args = (chain_id => ... , return_type => ... , include_missing => BOOL)
+Where %arg = (chain_id => ... , return_type => ... , include_missing => BOOL)
 
 chain_id = Chain identifier of chain you wish to know the sequence of
 
-return_type = 1 OR 3.
+return_type = 1 OR 3. (DEFAULT = 1)
     If 1, array of 1-letter AA codes is returned.
     If 3, array of 3-letter AA codes is returned.
 
-including_missing = BOOL.
+including_missing = BOOL. (DEFAULT = TRUE)
     If TRUE, missing residues (normally parsed from pdb header data) are
-    included in sequence. DEFAULT = FALSE
+    included in sequence.
+
+std = BOOL. (DEFAULT = TRUE)
+    If TRUE, modified residues are included using their standard name.
+    e.g. MSE (selonmethionine) will be included as MET (methionine).
 
 This method returns an array of 1 or 3-letter amino acid codes that represent
 the sequence of the chain specified. e.g.
 
-    @sequence = $pdb->get_sequence(chain_id => A, return_type => 1, include_missing => 1);
+    @sequence = $pdb->get_sequence(chain_id => A, return_type => 3, include_missing => 1, std => 0);
 
 =cut
 
 sub get_sequence {
     my $self = shift;
 
+    # Currently haven't dealt with how to process multi-resName residues, so for
+    # now throw an exception
     croak "pdb: " . $self->pdb_code()
         . " can't get_sequence for pdb containing multi-resName residues: "
         . Dumper $self->multi_resName_resids()
             if %{ $self->multi_resName_resids };
     
-    my $USAGE
-        = 'get_sequence(chain_id => (chain_id), return_type => ( 1 | 3 ), '
-        . 'include_missing => (1|0, default = 0)';
+    my %arg = _check_get_sequence_args(@_);
     
-    my %arg = @_;
-
-    # Check args are okay
-    if (   ! (   exists  $arg{return_type} && exists  $arg{chain_id} )
-        || ! (   defined $arg{return_type} && defined $arg{chain_id} )
-        || ! ( $arg{return_type} eq '1' || $arg{return_type} eq '3'  ) ) {
-        croak $USAGE;
-    }
-
     my $chain_id = $arg{chain_id};
     
-    my $inc_missing = 0;
-    
-    if (exists $arg{include_missing}) {
-        $inc_missing = $arg{include_missing};
-    }
-
     my %resSeq2ChainSeq
         = $self->map_resSeq2chainSeq(chain_id => $chain_id,
-                                     include_missing => $inc_missing);
-
+                                     include_missing => $arg{include_missing});
+    
+    # Sort resSeq by chainSeq to ensure corresponding residues are ordered
+    # correctly
     my @sortedResSeqs
         = sort {$resSeq2ChainSeq{$a} <=> $resSeq2ChainSeq{$b}}
             keys %resSeq2ChainSeq;
-            
+    
     my @residues = ();
 
-    foreach my $resSeq (@sortedResSeqs){
+    # This hash is used to map modified residue names to standard residue names,
+    # if arg std has been set to TRUE
+    my %modRes2StdRes = %{$self->resNameMod2StdHref};
 
+    # Find a residue name for each resSeq
+    foreach my $resSeq (@sortedResSeqs){
+        
+        my $resName;
+        
+        # Value will eval to false if the chainID-resSeq is not present
+        # (i.e. residue is missing)
         my $atom
             = eval {[values %{$self->atom_index->{$chain_id}->{$resSeq}}]->[0]};
-           
-        if ($atom) {
 
-            if (! $atom->is_solvent()) {
-                my $resName = $atom->resName();
-                push(@residues, $resName);
-            }
+        if($atom) {
+            # Skip if atom from residue is solvent
+            next if $atom->is_solvent();
             
+            $resName = $atom->resName();
         }
-        else {
-            my $resName = $self->missing_residues->{$chain_id}->{$resSeq};
-            push(@residues, $resName);
+        elsif ($arg{include_missing}) {
+            # No atoms exists for this residue as it is missing, so use
+            # missing_residues to find residue name
+            $resName = $self->missing_residues->{$chain_id}->{$resSeq};
         }
+
+        if ($arg{std} && exists $modRes2StdRes{$resName}) {
+            # Map modified residue to standard residue name, if std arg
+            # has been set to TRUE
+            $resName = $modRes2StdRes{$resName};
+        }
+        
+        push(@residues, $resName);
     }
-    
+
+    # Translate residue names to 1-lc if user has set return_type => 1
     if ($arg{return_type} == 1) {
         for my $i (0 .. @residues - 1) {
             my $onelc = eval { three2one_lc($residues[$i]) };
             if ($@) {
+                # If three2one_lc has returned error then residue is a
+                # non-standard AA.
                 $onelc = 'X';
             }
             $residues[$i] = $onelc;
@@ -1083,17 +1212,43 @@ sub get_sequence {
     return @residues;
 }
 
+# Checks get_sequence args to make sure that a chain ID has been specified
+# and that return_type value is valid (i.e. 1 or 3).
+# Also supplies default values for other args. Defaults:
+# return_type => 1, include_missing => 1, std => 1
+sub _check_get_sequence_args {
+    my %arg = @_;
+
+    croak "get_sequence must be passed a chain_id arg. e.g. chain_id => 'A'"
+        if ! exists $arg{chain_id};
+    
+    $arg{return_type} = 1 if ! exists $arg{return_type};
+    $arg{include_missing} = 1 if ! exists $arg{include_missing};
+    $arg{std} = 1 if ! exists $arg{std};
+
+    croak "get_sequence: return_type '$arg{return_type}' is invalid."
+        . " return_type must be 1 or 3."
+            if $arg{return_type} != 1 && $arg{return_type} != 3;
+    
+    return %arg;
+}
+
 =item C<getFASTAStr(%args)>
 
-Where %args = (chain_id => "A", header => $headerStr, includeMissing => BOOL)
+Where %args = (chain_id => "A", header => $headerStr, includeMissing => BOOL,)
 
 chain_id = Chain identifier of chain you wish to obtain a FASTA String for.
 
-header = header for FASTA String. If no header is supplied, header if formed
-         from pdb_code and supplied chain_id.
+header = header for FASTA String.
+If no header is supplied, header if formed from pdb_code and supplied chain_id.
 
-includeMissing = 0 or 1. If 1, residues missing in structure but present in
-                 pdb data are included in FASTA sequence. DEFAULT = 0.
+includeMissing = BOOL. (DEFAULT = 1)
+If TRUE, residues missing in structure but present in pdb data are included in
+FASTA sequence.
+
+std = BOOL. (DEFAULT = TRUE)
+If TRUE, modified residues are included using their standard name.
+e.g. MSE (selonmethionine) will be included as MET (methionine).
 
 This method returns a string containing a FASTA-formatted sequence for the given
 chain. The option is given to include residues missing from the structure
@@ -1105,25 +1260,28 @@ chain. The option is given to include residues missing from the structure
 
 sub getFASTAStr {
     my $self = shift;
-    my %args = @_;
-    
-    my $chainID = $args{chain_id} or croak "No chain id was passed!";
-    my $includeMissing
-        = exists $args{includeMissing} ? $args{includeMissing} : 0;
-    
-    my $header
-        = exists $args{header} ? $args{header}
-        : ">" . $self->pdb_code() . $chainID . "\n";
-   
-    
-    my @seq = $self->get_sequence(chain_id => $chainID,
+    my %arg = @_;
+
+    # Throw error if no chain id was passed
+    croak "No chain id was passed!" if ! exists $arg{chain_id};
+
+    # Set default arg values if not supplied
+    $arg{includeMissing} = 1 if ! exists $arg{includeMissing};
+    $arg{std} = 1 if ! exists $arg{std};
+
+    # Create default header if none was passed
+    $arg{header} =  ">" . $self->pdb_code() . $arg{chain_id} . "\n"
+        if ! exists $arg{header};
+
+    # Get sequence in array of 1-letter codes
+    my @seq = $self->get_sequence(chain_id => $arg{chain_id},
                                   return_type => 1,
-                                  include_missing => $includeMissing);
+                                  include_missing => $arg{includeMissing},
+                                  std => $arg{std});
     
     my $seqStr = join("", @seq) . "\n";
-    $header = ">" . $self->pdb_code() . $chainID . "\n" if ! $header;
    
-    return $header . $seqStr;
+    return $arg{header} . $seqStr;
 }
 
 =item C<seq_range_atoms(START, END)>
@@ -1552,7 +1710,7 @@ sub map_resSeq2chainSeq {
     if ($include_missing) {
         # Get missing resSeqs from chain
         my @missingResSeqs = keys %{$self->missing_residues()->{$chain_id}};
-                
+
         my @sortedResSeqs
             = sort {pdb::pdbFunctions::compare_resSeqs($a, $b, \%rS2Ord)}
                 (@orderedResSeqs, @missingResSeqs);
@@ -1626,7 +1784,8 @@ sub create_chains {
     foreach my $chain_id (keys %atoms) {
         my $chain = chain->new(pdb_code => $self->pdb_code(),
                                chain_id => $chain_id,
-                               atom_array => $atoms{$chain_id});
+                               atom_array => $atoms{$chain_id},
+                               pdb_data => $self->pdb_data());
 
         $chains{$chain->chain_id()} = $chain;
     }
@@ -2145,26 +2304,6 @@ sub _build_is_nt_chain {
 ### Around modifiers ###########################################################
 ################################################################################
 
-around '_parse_ATOM_lines' => sub {
-
-    my $orig = shift;
-    my $self = shift;
-    
-    my @chain_ATOM_lines = ();
-    
-    foreach my $line ( $self->$orig() ) {
-        if ( substr($line, 21, 1) eq $self->chain_id ){
-            push(@chain_ATOM_lines, $line);
-        }
-    }
-    
-    croak "No ATOM lines were parsed with chainId " . $self->chain_id()
-        . " for pdb " . $self->pdb_code()
-            if ! @chain_ATOM_lines;
-
-    return @chain_ATOM_lines;
-};
-
 around '_parse_remark465' => sub {
     my $orig = shift;
     my $self = shift;
@@ -2183,14 +2322,14 @@ around '_parse_remark465' => sub {
 };
 
 # Automatically set arg chain_id
-around [qw(get_sequence getFASTAStr map_resSeq2chainSeq)] => sub {
+around [qw(get_sequence getFASTAStr map_resSeq2chainSeq _parse_ATOM_lines)] => sub {
 
     my $orig = shift;
     my $self = shift;
 
     my %arg = @_;
 
-    $arg{chain_id} = $self->chain_id();
+    $arg{chain_id} = $self->chain_id() if ! exists $arg{chain_id};
     
     return $self->$orig(%arg);
     
@@ -2386,6 +2525,26 @@ sub labelEpitopeAtoms {
     }
 }
 
+=item C<labelInterfaceAtoms(RESIDS)>
+
+RESIDS = array of resids (example resid = A.123)
+
+Labels atoms of chain as epitope according to the array of resids passed to it.
+
+=cut
+
+sub labelInterfaceAtoms {
+    my $self = shift;
+    my @resids = @_;
+
+    foreach my $resid (@resids) {
+        foreach my $atom (values %{$self->resid_index->{$resid}}) {
+            $atom->is_interface(1);
+        }
+    }
+}
+
+
 =item C<getEpitopeResSeqs>
 
 Returns array of residue resSeqs, where each residue has at least one atom
@@ -2431,8 +2590,11 @@ sub getInterfaceResidues {
     my $complexResid2RelASAHref = $asurf->resid2RelASAHref();
 
     my @interfaceResidues = ();
-    
+
     foreach my $resid (keys %{$self->resid_index()}) {
+
+        # Skip if this a solvent residue
+        next if [values %{$self->resid_index->{$resid}}]->[0]->is_solvent();
         
         my $complexRelASA = $complexResid2RelASAHref->{$resid}->{allAtoms};
         my $molRelASA = $self->resid2RelASAHref->{$resid}->{allAtoms};
@@ -2614,6 +2776,38 @@ sub labelAtomsWithClusterSeq {
             $atom->clusterSeq($cluster_id . "." . $atom->alnSeq());
         }
     }
+}
+
+# This method allows the creation of chains from the same pdb file as the
+# calling chain. The chains will be created by parsing atoms from the chain's
+# pdb data
+sub createOtherChains {
+    my $self = shift;
+
+    # Parse all atoms from pdb data
+    my $atomLines = [$self->_parse_ATOM_lines(all => 1)];
+    my @atoms = @{$self->_parse_atoms($atomLines)};
+
+    my %chainID2Atoms = ();
+    
+    # Hash atoms by chain id
+    foreach my $atom (@atoms) {
+        push(@{$chainID2Atoms{$atom->chainID()}}, $atom);        
+    }
+
+    my @chains = ();
+    
+    foreach my $chainID (keys %chainID2Atoms) {
+        next if $chainID eq $self->chain_id();
+
+        my $chain = chain->new(pdb_code => $self->pdb_code(),
+                               chain_id => $chainID,
+                               atom_array => $chainID2Atoms{$chainID});
+
+        push(@chains, $chain);
+    }
+
+    return @chains;
 }
 
 __PACKAGE__->meta->make_immutable;
@@ -2958,7 +3152,7 @@ sub parseSummaryLine {
 
     # example summary line : <patch G.409> G:335 G:397 G:398 G:407 G:408 G:409
     # parse all resids
-    my @resids = $summaryLine =~ /(\w+[\.:]\w+)/g;
+    my @resids = $summaryLine =~ /(\w+[\.:]-*\w+)/g;
     
     # change any : separators to .
     map {s/:/./} @resids;
@@ -3023,7 +3217,9 @@ has 'resid' => (
     builder => '_get_resid',
 );
 
-my @labels = qw(is_het_atom is_terminal is_solvent is_CDR is_epitope);
+my @labels = qw(is_het_atom is_terminal is_solvent
+                is_CDR is_epitope is_interface is_modified
+                is_from_modRes);
 
 foreach my $label (@labels) {
     has $label => (
@@ -3061,21 +3257,21 @@ sub BUILD {
     # Avoid substr complaining if there are missing columns at end of string
     $ATOM_line = pack ( "A81", $ATOM_line );
     my %record
-        = ( ATOM => rm_trail( substr($ATOM_line, 0, 6) ),
-            serial =>  rm_trail( substr($ATOM_line, 6, 5) ),
-            name => rm_trail( substr($ATOM_line, 12, 4) ),
-            altLoc => rm_trail( substr($ATOM_line, 16, 1) ),
-            resName => rm_trail( substr($ATOM_line, 17, 3) ),
-            chainID => rm_trail( substr($ATOM_line, 21, 1) ),
-            resSeq => rm_trail( substr($ATOM_line, 22, 4) ),
-            iCode => rm_trail( substr($ATOM_line, 26, 1) ),
-            x => rm_trail( substr($ATOM_line, 30, 8) ),
-            y => rm_trail( substr($ATOM_line, 38, 8) ),
-            z => rm_trail( substr($ATOM_line, 46, 8) ),
-            occupancy => rm_trail( substr($ATOM_line, 54, 6) ),
-            tempFactor => rm_trail( substr($ATOM_line, 60, 6) ),
-            element => rm_trail( substr($ATOM_line, 76, 2 ) ),
-            charge => rm_trail( substr($ATOM_line, 78, 2) ),
+        = ( ATOM => rm_trail(substr($ATOM_line, 0, 6)),
+            serial =>  rm_trail(substr($ATOM_line, 6, 5)),
+            name => rm_trail(substr($ATOM_line, 12, 4)),
+            altLoc => rm_trail(substr($ATOM_line, 16, 1)),
+            resName => rm_trail(substr($ATOM_line, 17, 3)),
+            chainID => rm_trail(substr($ATOM_line, 21, 1)),
+            resSeq => rm_trail(substr($ATOM_line, 22, 4)),
+            iCode => rm_trail(substr($ATOM_line, 26, 1)),
+            x => rm_trail(substr($ATOM_line, 30, 8)),
+            y => rm_trail(substr($ATOM_line, 38, 8)),
+            z => rm_trail(substr($ATOM_line, 46, 8)),
+            occupancy => rm_trail(substr($ATOM_line, 54, 6)),
+            tempFactor => rm_trail(substr($ATOM_line, 60, 6)),
+            element => rm_trail(substr($ATOM_line, 76, 2 )),
+            charge => rm_trail(substr($ATOM_line, 78, 2)),
         );
 
     croak "It looks like you're trying to parse a non-ATOM or HETATM line: "
