@@ -108,6 +108,10 @@ $ENV{'LD_LIBRARY_PATH'} = "$ENV{'LD_LIBRARY_PATH'}:/usr/lib/pgsql";
 # SAAP related
 $saapServerBindir = "/home/bsm/martin/SAAP/server/";
 
+# WEKA related
+$wekaLib     = "/home/bsm3/zcbtfo4/weka-3-7-10/weka.jar";
+$javaForWeka = "/acrm/usr64/local/apps/java/jre1.6.0_21/bin/java";
+
 
 1;
 
