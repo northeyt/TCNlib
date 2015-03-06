@@ -47,6 +47,8 @@ $getresol = '/home/bsm/martin/bin/getresol';
 $idabchain = '/home/bsm/martin/bin/idabchain';
 $kabatnum = '/home/bsm/martin/abnum/installed/numbering/kabatnum.pl';
 $chaincontacts = '/home/bsm/martin/bin/chaincontacts';
+$pdb_db = "/home/bsm3/zcbtfo4/data/pdb/db/pdbaa";
+$blastall = "/acrm/usr/local/bin/blastall";
 
 # CDhit and related
 $cdhit = '/home/bsm3/zcbtfo4/cd-hit-4.6.1/cd-hit';
