@@ -38,7 +38,7 @@ sub getPDBFile {
                 $inputFile = _atoms2tmp($input);
             }
             else {
-                croak "Could not get pdb file from input $input!";
+                croak "Could not get pdb file from input '$input', err: $err";
             }
         }
     };
