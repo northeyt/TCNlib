@@ -317,7 +317,7 @@ sub get_patches {
     foreach my $pdb_obj (@{$self->pdb_object()}) {
         my($pc_errors, $patch_centres)
             = $pdb_obj->patch_centres(type => $self->ASA_type());
-
+        
         push(@{$all_patch_centres}, @{$patch_centres});
     }
     
@@ -356,6 +356,8 @@ sub forkMakePatch {
 
     my $pm = $forkFlag ? Parallel::ForkManager->new($self->numForks) : 0;
 
+    my $pProcID = $$;
+    
     for (my $i = 0 ; $i < @{$patchCentreAref} ; ++$i) {
         
         my $pid;
@@ -378,7 +380,9 @@ sub forkMakePatch {
             push(@atomSerials, $atomSerial);
         }
 
-        open(my $OUT, ">", "/tmp/$i") or die "Cannot open out file $i, $!";
+        my $fName = "/tmp/$pProcID.$i";
+        open(my $OUT, ">", $fName)
+            or die "Cannot open out file $fName, $!";
         
         print {$OUT} "@atomSerials\n";
              
@@ -391,7 +395,7 @@ sub forkMakePatch {
     
     foreach (my $i = 0 ; $i < @{$patchCentreAref} ; ++$i){
         
-        open(my $IN, "<", "/tmp/$i") or die $!;
+        open(my $IN, "<", "/tmp/$pProcID.$i") or die $!;
         my $serialLine = <$IN>;
         chomp $serialLine;
         my $atomSerialAref = [split(" ", $serialLine)];
