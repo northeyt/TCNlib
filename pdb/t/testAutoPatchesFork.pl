@@ -48,8 +48,9 @@ for (my $i = 1 ; $i < 11 ; ++$i) {
     my $partitionObj = pdb->new(pdb_code => $testPdbCode,
                                 pdb_file => $testPdbFile,
                                 atom_array => \@paritionAtoms,
-                                has_read_ASA => 1);
-
+                                has_read_ASA => 1,
+                                resid2RelASAHref => $testPdb->resid2RelASAHref);
+    
     foreach my $flag (0, 1) {
         my $aP = automatic_patches->new(pdb_object => $partitionObj,
                                         patch_type => 'normal',
