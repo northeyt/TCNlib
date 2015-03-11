@@ -266,11 +266,9 @@ sub map_chainSeq2msa {
         or die "map_chainSeq2msa must be passed an alignment string";
     my $chain_seq_str = shift
         or die "map_chainSeq2msa must be passed a chain sequence string";
-
+    
     my %return_map = ();
     my $sequence_count = 0;
-
-    print "DEBUG: alnStr: $alignment_str\nDEBUG: chnStr: $chain_seq_str\n";
     
     # Loop through alignment string
     for my $i ( 0 .. length ($alignment_str) - 1 ) {
