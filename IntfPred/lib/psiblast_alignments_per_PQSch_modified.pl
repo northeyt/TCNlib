@@ -171,7 +171,8 @@ sub retrieve_chain_seq
     
     #single chain sequence in $out 
     my $pdb2pir = $Perl_paths::martin_bin."pdb2pir";
-    `$pdb2pir -f -s -u $ch_pqs_file $out`;
+    # -i option required to extract only residues from chain
+    `$pdb2pir -f -s -u -i $ch_pqs_file $out`;
     `rm -f $ch_pqs_file`;
 
     return $out;
