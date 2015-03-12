@@ -2448,6 +2448,9 @@ sub determineEpitope {
         push(@CDRAtoms, $chain->getCDRAtoms());
     }
 
+    croak "No CDR atoms were found in passed antibody chains!"
+        if ! @CDRAtoms;
+    
     # Create array of CDR atoms and antigen chain atoms
     my @CDRAndAgAtoms = (@CDRAtoms, @{$self->atom_array()});
 
@@ -2687,6 +2690,7 @@ sub isInContact {
     my $contResults = $cContacts->getOutput();
     
     my $contactAref = $contResults->chain2chainContacts([$self], $chainAref);
+    
     if (scalar @{$contactAref} >= $contactMin) {
         return 1;
     }
