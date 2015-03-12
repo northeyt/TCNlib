@@ -1923,6 +1923,11 @@ sub _hashChains {
         elsif ($chainType eq 'Heavy' || $chainType eq 'Light') {
             $pairedHref->{$chain->chain_id()} = 0;
         }
+
+        # Set to is_ab_variable to ab variable chain type, unless chain is
+        # antigen.
+        $chain->is_ab_variable($chainType eq 'antigen' ? 0 : $chainType);
+        
         push(@{$chainTypesHref->{$chainType}}, $chain);
     }
 }
@@ -2680,9 +2685,8 @@ sub isInContact {
     my $cContacts = pdb::chaincontacts->new(input => \@allAtoms,
                                             threshold => $threshold);
     my $contResults = $cContacts->getOutput();
-
+    
     my $contactAref = $contResults->chain2chainContacts([$self], $chainAref);
-
     if (scalar @{$contactAref} >= $contactMin) {
         return 1;
     }
