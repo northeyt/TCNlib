@@ -2575,6 +2575,18 @@ sub labelInterfaceAtoms {
 }
 
 
+=item C<getResSeqs>
+
+Returns an array of all the resSeqs of the chain
+
+=cut
+
+sub getResSeqs {
+    my $self = shift;
+
+    return keys %{$self->atom_index->{$self->chain_id}};
+}
+
 =item C<getEpitopeResSeqs>
 
 Returns array of residue resSeqs, where each residue has at least one atom
