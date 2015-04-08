@@ -23,3 +23,17 @@ BEGIN { use_ok( 'cdhit' ); }
 
 my $testObj = new_ok(cdhit => [input => 'test.fasta']);
 ok($testObj->getClusters(), "getClusters() works okay");
+
+ok(testBuildWordLength($testObj), "_buildWordLength works ok");
+
+sub testBuildWordLength {
+    my $testObj = shift;
+    my %seqID2expWordLengths = ("0.5" => 2, "0.6" => 3, "0.7" => 4, "0.9" => 5);
+
+    while (my($seqID, $wLen) = each %seqID2expWordLengths) {
+        $testObj->seqIDThreshold($seqID);
+        return 0 if $testObj->_buildWordLength() ne $wLen;
+    }
+    return 1;
+}
+
