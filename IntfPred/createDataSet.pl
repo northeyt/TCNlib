@@ -22,7 +22,7 @@ my($patch_radius, $how_file, $chainIDsFile,
    $run_dir, $class_lab_file, $patches_dir,
    $intfStatFile, $surfStatFile, $newStatFiles,
    $setForTraining, $standardizeAgainst,
-   $unsupervised)
+   $unsupervised, $keepUnlabelled)
     = process_cmdline();
 
 my %input;
@@ -134,7 +134,8 @@ my $master_log = 'master.log';
 
 my @processes
     = get_processes_array(\%dr, \%hc, \%statFiles,
-                          $csv_file, \%input, $class_lab_file);
+                          $csv_file, \%input, $class_lab_file,
+                          $keepUnlabelled);
 
 # get full path names before changing directory
 for my $i (0 .. @processes - 1) {
@@ -201,7 +202,7 @@ exit;
 
 sub Usage {
     print <<EOF;
-$0 USAGE : [-c FILE -h FILE ] -u [-p DIR] -i FILE -s FILE -n [-t -T FILE] patchRadius OutputDir
+$0 USAGE : [-c FILE -h FILE ] -u -k [-p DIR] -i FILE -s FILE -n [-t -T FILE] patchRadius OutputDir
 
  -p : Specify a directory containing patch files, where line format for each
       line is like this example (i.e. patch summaries):
@@ -232,6 +233,9 @@ $0 USAGE : [-c FILE -h FILE ] -u [-p DIR] -i FILE -s FILE -n [-t -T FILE] patchR
 
  -u : Unsupervised. If set, then all patches will be missing class labels
 
+ -k : Keep unlabelled. If set, then unlabelled patches will be sent to final
+      dataset.
+
 If option -p is specified, then option -c must be specfified
 
 If neither -r nor -e are set, then the dataset will be standardized against
@@ -258,6 +262,7 @@ sub process_cmdline {
     my $intfStatFile = "";
     my $surfStatFile = "";
     my $unsupervised;
+    my $keepUnlabelled;
     
     GetOptions("c=s" => \$class_label_file,
                "p=s" => \$patch_file_dir,
@@ -268,7 +273,8 @@ sub process_cmdline {
                "n"   => \$newStatFiles,
                "r"   => \$setForTraining,
                "e=s" => \$standardizeAgainst,
-               "u"   => \$unsupervised);
+               "u"   => \$unsupervised,
+               "k"   => \$keepUnlabelled);
 
     # Check option selection is valid
     if ($class_label_file | $patch_file_dir) {
@@ -290,7 +296,7 @@ sub process_cmdline {
            $run_dir, $class_label_file, $patch_file_dir,
            $intfStatFile, $surfStatFile,
            $newStatFiles, $setForTraining, $standardizeAgainst,
-           $unsupervised);
+           $unsupervised, $keepUnlabelled);
 }
 
 # Given a ref to a file name, this sub checks the file exists and is readable,
@@ -383,6 +389,12 @@ sub get_processes_array {
         $classOptString = "-c $class_label_file";
     }
     
+    my $keepUnlabelled = shift;
+    my $keepUnlabelledOpt = "";
+    if ($keepUnlabelled) {
+        $keepUnlabelledOpt = "-k";
+    }
+    
     my @processes
         = ( ['create_process_files', 'create_process_files.pl',
              "$input{opt} $input{arg} -pdb_dir $dr{pdb} -xmas_dir $dr{xmas}"],
@@ -413,7 +425,7 @@ sub get_processes_array {
             [ 'fosta_scorecons', 'calc_patch_scorecons_modified.pl',
               "-patch_dir $dr{patches_dir} -aln_dir $dr{fosta_alignments} -log_dir $dr{log_files} -out_dir $dr{fosta_scorecons}" ],
             [ 'create_csv', 'prepare_csv_for_weka_modified.pl',
-              "-patch_dir $dr{patches_dir} $classOptString -prop_dir $dr{propensities} -hydr_dir $dr{hydrophobicity} -plan_dir $dr{planarity} -sstr_dir $dr{second_str} -rASA_dir $dr{rASA} -aASA_dir $dr{absASA} -SS_dir $dr{SSbonds} -Hb_dir $dr{Hbonds} -class_dir $dr{intf_sorting_patches} -fsc_dir $dr{fosta_scorecons} -bsc_dir $dr{psiblast_scorecons} -single ahpsSH -msa F -intf $input{threshold} -v_flag $input{unsupervised} -out $csv_file",
+              "-patch_dir $dr{patches_dir} $classOptString $keepUnlabelledOpt -prop_dir $dr{propensities} -hydr_dir $dr{hydrophobicity} -plan_dir $dr{planarity} -sstr_dir $dr{second_str} -rASA_dir $dr{rASA} -aASA_dir $dr{absASA} -SS_dir $dr{SSbonds} -Hb_dir $dr{Hbonds} -class_dir $dr{intf_sorting_patches} -fsc_dir $dr{fosta_scorecons} -bsc_dir $dr{psiblast_scorecons} -single ahpsSH -msa F -intf $input{threshold} -v_flag $input{unsupervised} -out $csv_file",
           ],
             [ 'create_arff', 'create_arff.pl',
               "-c $csv_file -w $hc{weka_lib} $hc{training} > dataset.arff"],
