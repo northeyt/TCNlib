@@ -16,21 +16,25 @@ my $minimal;
 my $vote;
 my $scoreAverage;
 my $scoreThresh;
+my $skipNonPatchResidues = 1;
 
 GetOptions("m"   => \$minimal,
            "v"   => \$vote,
            "s"   => \$scoreAverage,
-           "t=f" => \$scoreThresh);
+           "t=f" => \$scoreThresh,
+           "n"   => \$skipNonPatchResidues);
+
+$scoreThresh = 0.5 if ! $scoreThresh;
 
 croak "Score threshold must be between 0 and 1"
     if $scoreThresh < 0 || $scoreThresh > 1;
-
-$scoreThresh = 0.5 if ! $scoreThresh;
 
 my $option
     = $minimal ? 0 :
     $vote ? 1 :
     $scoreAverage ? 2 : 2; # Default = 2
+
+@ARGV or Usage();
 
 my $inputCSV       = shift @ARGV;
 my $patchesDir     = shift @ARGV;
@@ -43,6 +47,7 @@ my %resID2LabelMap = mapResID2Label($resIDLabelFile);
 
 my @csvLines = IntfPred::lib::editOutputCSV::getLinesFromCSVFile($inputCSV);
 my %patchID2PredMap = mapPatchID2Pred(@csvLines);
+
 my %patchID2ResSeqMap = mapPatchID2ResSeq($patchesDir);
 
 my %resID2PredAndValueMap
@@ -52,7 +57,8 @@ my %resID2PredAndValueMap
 print scalar (keys %resID2PredAndValueMap) . " residues found in patches\n";
 print scalar (keys %resID2LabelMap) . " residues found in resID label file\n";
 
-ammendValueLabels(\%resID2PredAndValueMap, \%resID2LabelMap);
+ammendValueLabels(\%resID2PredAndValueMap, \%resID2LabelMap,
+                  $skipNonPatchResidues);
 
 my $CSVheader = IntfPred::lib::editOutputCSV::getCSVHeader($inputCSV);
 # In header, replace patchID with residueID
@@ -84,9 +90,13 @@ sub printCSV {
 sub ammendValueLabels {
     my $resID2PredAndValueHref = shift;
     my $resID2LabelHref = shift;
-
+    my $skipNonPatchResidues = shift;
+    
     foreach my $resID (keys %{$resID2LabelHref}) {
         if (! exists $resID2PredAndValueHref->{$resID}) {
+            
+            next if $skipNonPatchResidues;
+            
             # Add resID to map
             $resID2PredAndValueHref->{$resID}
                 = {prediction => "2:S",
@@ -116,7 +126,8 @@ sub mapResID2Label {
 
     foreach my $line (@lines) {
         chomp $line;
-        my ($resID, $label) = split(":", $line);
+        my ($pdbCode, $chainID, $resSeq, $label) = split(/:/, $line);
+        my $resID = join(":", lc($pdbCode), $chainID, $resSeq);
         $map{$resID} = $labelConversion{$label};
     }
     return %map;
@@ -132,13 +143,12 @@ sub resID2PredAndValue {
 
     foreach my $patchID (keys %{$patchID2PredMap}) {
         
-        my @patchIDSplit = split(":", $patchID);
-        my $chainID = $patchIDSplit[0] . $patchIDSplit[1];
+        my ($pdbCode, $chainID) = split(":", $patchID);
         
         my @resSeqs = @{$patchID2ResSeqMap->{$patchID}};
         
         foreach my $resSeq (@resSeqs) {
-            my $resID = $chainID . $resSeq;
+            my $resID = join(":", lc($pdbCode), $chainID, $resSeq);
 
             if (! exists $resID2PredAndValue{$resID}) {
                 $resID2PredAndValue{$resID}
@@ -260,6 +270,37 @@ sub parsePatchLine {
     my @resids = $line =~ /[:.](\w+)/g;
 
     return @resids;
+}
+
+sub Usage {
+    print <<EOF;
+$0 [-m -v -s] -n -t NUM inputCSV patchesDir residueLabelFile
+
+This script transforms per-patch to per-residue predictions.
+Patches are mapped to their constituent residues and then patch
+scores are mapped to those residues. How labels are mapped to
+residues can be controlled via the options.
+
+ARGS:
+  inputCSV: output WEKA csv file containing patch predictions.
+  patchesDir: directory of .patch files that contain patch summary lines.
+  residueLabelFile: file of line format pdbCode::chainID::resSeq::label,
+                    where label = 0 if residue is surface and 1 if interface.
+
+OPTS:
+  -m : Minimal. If a residue is in any patch predicted as interface, then
+                residue prediction label is interface.
+  -v : Vote. If a residue is in more patches predicted interface than not,
+             then label residue interface.
+  -s : Score. The prediction scores for all the patches a residue occurs in
+              are averaged. If the average score is > threshold, residue is
+              labelled interface.
+
+  -t : Score treshold. Used for -s score option. DEFAULT = 0.5
+
+  -n : Only include residues that are seen in at least one patch. (There may
+       be residues found in the residueLabel file that are not found in patches)
+EOF
 }
 
 __END__
