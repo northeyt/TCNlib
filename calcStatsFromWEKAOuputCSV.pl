@@ -11,7 +11,8 @@ my ($negLabel, $posLabel, $csv) = @ARGV;
 
 open(my $IN, "<", $csv) or die "Cannot open file $csv, $!";
 
-my $WEKA = WEKA->new(posLabel => $posLabel, negLabel => $negLabel);
+my $WEKA = WEKA->new(posLabel => $posLabel, negLabel => $negLabel,
+                     undefLabel => "U");
 
 my $table = $WEKA->parseTableFromOutput([<$IN>]);
 $table->print_all();
