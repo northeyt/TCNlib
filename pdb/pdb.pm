@@ -2089,6 +2089,28 @@ sub storeInFile {
     return $fName;
 }
 
+=item C<squaredDistance(ATOM1, ATOM2)>
+
+This method returns the squared distance between the two atoms passed.
+Only use this method if speed is not a concern.
+
+=cut
+
+sub squaredDistance {
+    my $self  = shift;
+    my $atom1 = shift;
+    my $atom2 = shift;
+
+    croak "squaredDistance must be passed two atoms" if ! ($atom1 && $atom2);
+
+    my @deltas = map {($atom1->$_ - $atom2->$_)**2} qw(x y z);
+
+    my $sum = 0;
+    $sum += $_ foreach @deltas;
+
+    return $sum;
+}
+
 __PACKAGE__->meta->make_immutable;
 
 ################################ END OF PACKAGE ################################
