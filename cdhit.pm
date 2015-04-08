@@ -33,6 +33,29 @@ has 'seqIDThreshold' => (
     default => 0.9,
 );
 
+has 'wordLength' => (
+    isa => 'Num',
+    is => 'rw',
+    lazy => 1,
+    builder => '_buildWordLength'
+);
+
+### Attribute Builders
+
+sub _buildWordLength {
+    my $self = shift;
+
+    # Base world length for algorithm on seqID specified
+    # These are taken from the cd-hit guide
+    my $seqID = $self->seqIDThreshold();
+    
+    return $seqID > 0 && $seqID <= 0.5 ? 2 
+        : $seqID > 0.5 && $seqID <= 0.6 ? 3
+            : $seqID > 0.6 && $seqID <= 0.7 ? 4
+                : $seqID > 0.7 && $seqID <= 1 ? 5
+                    : croak "Invalid seqID threshold $seqID";
+}
+
 ### Methods
 
 sub getClusters {
@@ -118,13 +141,14 @@ sub _runExec {
 
     my $execPath = $self->execPath;
     my $seqThresh = $self->seqIDThreshold();
+    my $wordLength = $self->wordLength();
     my $FASTAFile = $self->_getFASTAFileFromInput();
     my $FASTAFileBName = basename($self->_getFASTAFileFromInput());
     
     my $outFile = '/tmp/' . $FASTAFileBName . ".out";
     my $outClusterFile = $outFile . ".clstr";
     
-    my $cmd = "$execPath -c $seqThresh -i $FASTAFile -o $outFile";
+    my $cmd = "$execPath -n $wordLength -c $seqThresh -i $FASTAFile -o $outFile";
 
     my($stdout, $stderr, $success, $exit_code) = capture_exec($cmd);
 
