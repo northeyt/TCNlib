@@ -66,6 +66,14 @@ my $pdb_file = '1djs.pdb';
 my $pdb = pdb->new( pdb_file => $pdb_file, pdb_code => '1djs' );
 isa_ok($pdb, 'pdb', "pdb object created ok");
 
+# test squaredDistance
+my $calpha1 = $pdb->resid_index->{"A.147"}->{CA};
+my $calpha2 = $pdb->resid_index->{"A.148"}->{CA};
+my $dist = $pdb->squaredDistance($calpha1, $calpha2);
+my $expDist = 14.391995;
+
+is($dist, $expDist, "squaredDistance ok");
+
 # BUILD method gets attributes from getresol objet
 
 cmp_deeply( [ $pdb->experimental_method(), $pdb->resolution(),
@@ -295,6 +303,7 @@ ok(testSortedAtomArray($pdb->sorted_atom_arrays()), "sorted_atoms works okay");
 
 # Test isAbVariable
 @chains = $abComplex->create_chains('A', 'L', 'H');
+
 my %return = map { $_->chain_id() => $_->isAbVariable()  } @chains;
 
 cmp_deeply(\%return, ExpChains(),
