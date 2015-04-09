@@ -22,7 +22,8 @@ my($patch_radius, $how_file, $chainIDsFile,
    $run_dir, $class_lab_file, $patches_dir,
    $intfStatFile, $surfStatFile, $newStatFiles,
    $setForTraining, $standardizeAgainst,
-   $unsupervised, $keepUnlabelled)
+   $unsupervised, $keepUnlabelled, $singleAttrStr,
+   $msaAttrStr)
     = process_cmdline();
 
 my %input;
@@ -77,7 +78,7 @@ my @skip_processes = $newStatFiles ? () : qw(prepare_intf prepare_surf);
 # Skip processes responsible for creating a dir of patches, if a dir of patches
 # has been specified
 if ($patches_dir) {
-    my @more_skips = qw(create_patch_files intf_sorting_patches);
+    my @more_skips = qw(create_patch_files); # intf_sorting_patches);
 
     print "The following processes will be skipped because a patch directory "
         ."has been specified: @more_skips\n";
@@ -135,7 +136,7 @@ my $master_log = 'master.log';
 my @processes
     = get_processes_array(\%dr, \%hc, \%statFiles,
                           $csv_file, \%input, $class_lab_file,
-                          $keepUnlabelled);
+                          $keepUnlabelled, $singleAttrStr, $msaAttrStr);
 
 # get full path names before changing directory
 for my $i (0 .. @processes - 1) {
@@ -202,7 +203,7 @@ exit;
 
 sub Usage {
     print <<EOF;
-$0 USAGE : [-c FILE -h FILE ] -u -k [-p DIR] -i FILE -s FILE -n [-t -T FILE] patchRadius OutputDir
+$0 USAGE : [-c FILE -h FILE ] -u -k [-p DIR] -i FILE -s FILE -n [-t -T FILE] -a STR -m STR patchRadius OutputDir
 
  -p : Specify a directory containing patch files, where line format for each
       line is like this example (i.e. patch summaries):
@@ -236,6 +237,15 @@ $0 USAGE : [-c FILE -h FILE ] -u -k [-p DIR] -i FILE -s FILE -n [-t -T FILE] pat
  -k : Keep unlabelled. If set, then unlabelled patches will be sent to final
       dataset.
 
+ -a : Single attribute string. This controls the attributes output to the final
+      datset arff file. See prepare_csv_for_weka modified for more details.
+      DEFAULT = 'C', (compatible with Anja's predictors).
+
+ -m : MSA attribute string. This controls the MSA-based attributes output to
+      the final dataset arff file. See prepare_csv_for_weka modified for more
+      details.
+      DEFAULT = 'C', (compatible with Anja's predictors).
+
 If option -p is specified, then option -c must be specfified
 
 If neither -r nor -e are set, then the dataset will be standardized against
@@ -253,16 +263,18 @@ EOF
 sub process_cmdline {
 
     my $class_label_file = "";
-    my $patch_file_dir = "";
-    my $how_file = "";
-    my $chainIDsFile = "";
+    my $patch_file_dir   = "";
+    my $how_file         = "";
+    my $chainIDsFile     = "";
     my $newStatFiles;
     my $setForTraining;
     my $standardizeAgainst;
-    my $intfStatFile = "";
-    my $surfStatFile = "";
+    my $intfStatFile     = "";
+    my $surfStatFile     = "";
     my $unsupervised;
     my $keepUnlabelled;
+    my $singleAttrStr    = "C";
+    my $msaAttrStr       = "C";
     
     GetOptions("c=s" => \$class_label_file,
                "p=s" => \$patch_file_dir,
@@ -274,7 +286,9 @@ sub process_cmdline {
                "r"   => \$setForTraining,
                "e=s" => \$standardizeAgainst,
                "u"   => \$unsupervised,
-               "k"   => \$keepUnlabelled);
+               "k"   => \$keepUnlabelled,
+               "a=s" => \$singleAttrStr,
+               "m=s" => \$msaAttrStr);
 
     # Check option selection is valid
     if ($class_label_file | $patch_file_dir) {
@@ -291,12 +305,11 @@ sub process_cmdline {
         or die "Patch radius must be a positive integer";
     
     my $run_dir  = shift @ARGV or Usage();
-
-    return($patch_radius, $how_file, $chainIDsFile,
-           $run_dir, $class_label_file, $patch_file_dir,
-           $intfStatFile, $surfStatFile,
-           $newStatFiles, $setForTraining, $standardizeAgainst,
-           $unsupervised, $keepUnlabelled);
+    
+    return($patch_radius, $how_file, $chainIDsFile, $run_dir, $class_label_file,
+           $patch_file_dir, $intfStatFile, $surfStatFile, $newStatFiles,
+           $setForTraining, $standardizeAgainst, $unsupervised, $keepUnlabelled,
+           $singleAttrStr, $msaAttrStr);
 }
 
 # Given a ref to a file name, this sub checks the file exists and is readable,
@@ -394,6 +407,9 @@ sub get_processes_array {
     if ($keepUnlabelled) {
         $keepUnlabelledOpt = "-k";
     }
+
+    my $singleAttrStr = shift;
+    my $msaAttrStr    = shift;
     
     my @processes
         = ( ['create_process_files', 'create_process_files.pl',
@@ -425,7 +441,7 @@ sub get_processes_array {
             [ 'fosta_scorecons', 'calc_patch_scorecons_modified.pl',
               "-patch_dir $dr{patches_dir} -aln_dir $dr{fosta_alignments} -log_dir $dr{log_files} -out_dir $dr{fosta_scorecons}" ],
             [ 'create_csv', 'prepare_csv_for_weka_modified.pl',
-              "-patch_dir $dr{patches_dir} $classOptString $keepUnlabelledOpt -prop_dir $dr{propensities} -hydr_dir $dr{hydrophobicity} -plan_dir $dr{planarity} -sstr_dir $dr{second_str} -rASA_dir $dr{rASA} -aASA_dir $dr{absASA} -SS_dir $dr{SSbonds} -Hb_dir $dr{Hbonds} -class_dir $dr{intf_sorting_patches} -fsc_dir $dr{fosta_scorecons} -bsc_dir $dr{psiblast_scorecons} -single ahpsSH -msa F -intf $input{threshold} -v_flag $input{unsupervised} -out $csv_file",
+              "-patch_dir $dr{patches_dir} $classOptString $keepUnlabelledOpt -prop_dir $dr{propensities} -hydr_dir $dr{hydrophobicity} -plan_dir $dr{planarity} -sstr_dir $dr{second_str} -rASA_dir $dr{rASA} -aASA_dir $dr{absASA} -SS_dir $dr{SSbonds} -Hb_dir $dr{Hbonds} -class_dir $dr{intf_sorting_patches} -fsc_dir $dr{fosta_scorecons} -bsc_dir $dr{psiblast_scorecons} -single $singleAttrStr -msa $msaAttrStr -intf $input{threshold} -v_flag $input{unsupervised} -out $csv_file",
           ],
             [ 'create_arff', 'create_arff.pl',
               "-c $csv_file -w $hc{weka_lib} $hc{training} > dataset.arff"],

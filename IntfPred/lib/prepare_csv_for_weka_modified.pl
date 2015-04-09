@@ -78,14 +78,21 @@ if ($single =~ /F/)
 {
     $single = 'ahpsrwSH';
 }
-
-if ($msa =~ /F/)
-{
-    # Removed A and B options (FOSTA and BLAST-based propensities - don't
-    # think Anja used these properties in the final WEKA input, it at all
-    $msa = 'sS';
+elsif ($single =~ /C/) {
+    # C = compatible. These are the attributes that Anja used when developing
+    # her final learners.
+    $single = "ahpsSH";
 }
 
+if ($msa =~ /C/)
+{
+    # C = compatible. These are the attributes that Anja used when developing
+    # her final learners.
+    $msa = 'sS';
+}
+elsif ($msa =~ /F/) {
+    $msa = 'ABsS'
+}
 
 ####   variables and handles   ####
 ###################################
@@ -379,7 +386,21 @@ sub get_class
     
     my $chain = chop($pqs_id);
     
-    if(-e $path){
+    if ($classLabelsHref) {
+
+        my $firstKey = join(":", ($pqs_id,$chain));
+        
+        foreach my $patchKey (keys %{$classLabelsHref->{$firstKey}}) {
+            my $csv_value = $$r_hash{$patchKey};
+
+            my $class = $classLabelsHref->{$firstKey}->{$patchKey};            
+            
+            my $new_value = &save_value($csv_value, $class, $patchKey, $colnum, $ext);
+            $$r_hash{$patchKey} = $new_value;
+            ++$value_count;
+        }
+    }
+    elsif(-e $path){
         open(V, "$path");
         while (my $line = <V>){
             chomp $line;
@@ -424,20 +445,6 @@ sub get_class
             }
         }
         close(V);
-    }
-    elsif ($classLabelsHref) {
-
-        my $firstKey = join(":", ($pqs_id,$chain));
-        
-        foreach my $patchKey (keys %{$classLabelsHref->{$firstKey}}) {
-            my $csv_value = $$r_hash{$patchKey};
-
-            my $class = $classLabelsHref->{$firstKey}->{$patchKey};            
-            
-            my $new_value = &save_value($csv_value, $class, $patchKey, $colnum, $ext);
-            $$r_hash{$patchKey} = $new_value;
-            ++$value_count;
-        }
     }
     
     return $value_count;
@@ -669,8 +676,13 @@ Every subsequent row is an instance of attribute values.
        pdbCode(lowercase):chainID(Uppercase):CentralResidueResSeq:label(I or S0)
 
 Needs at least one attribute to be selected to run.
+
 Running -single F and -msa F will run full version, including all options.
 Outfile will be intf[threshold].[options].csv\n\n";
+
+Running -single C and -msa C will run the attributes that Anja used in her
+finished learners.
+For single, this is the same as 'ahpsSH'. For -msa, the same as 'sS'.
 EOF
 }
 
