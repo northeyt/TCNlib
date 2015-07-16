@@ -2592,16 +2592,32 @@ sub labelInterfaceAtoms {
 }
 
 
-=item C<getResSeqs>
+=item C<getResSeqs(include_mising => BOOL)>
 
 Returns an array of all the resSeqs of the chain
+
+Opts:
+    include_missing : include resSeqs missing residues. DEFAULT = TRUE
 
 =cut
 
 sub getResSeqs {
     my $self = shift;
+    my %opt  = (@_);
 
-    return keys %{$self->atom_index->{$self->chain_id}};
+    my @resSeqs = keys %{$self->atom_index->{$self->chain_id}};
+
+    my $includeMissing
+        = exists $opt{include_missing} && ! $opt{include_missing} ? 0
+            : 1;
+    
+    if (! $includeMissing) {
+        my @resIDs = map {$self->chain_id() . ".$_"} @resSeqs;
+        my @presentResIDs
+            = grep {! exists $self->missing_resid_index->{$_}} @resIDs;
+        @resSeqs = map { [split(/\./, $_)]->[1] } @presentResIDs;
+    }
+    return @resSeqs;
 }
 
 =item C<getEpitopeResSeqs>
