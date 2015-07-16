@@ -37,6 +37,11 @@ BEGIN { use_ok('pdb'); }
 test_is_nt_chain();
 test_get_sequence();
 test_resid2ModResAref();
+test_calcAverageHydrophobicity();
+test_build_xmas_data();
+test_build_parseXMAS();
+test_labelppHbondedAtoms();
+test_labelSSbondedAtoms();
 
 # Atom object tests
 my $ATOM_line
@@ -384,6 +389,70 @@ is($testPatchFomSummary->summary(), $testSummaryLine,
    "patch built from summary: input summary returned after build");
 
 ### Subroutines ################################################################
+
+sub test_labelppHbondedAtoms {
+    my $testPDB = pdb->new(pdb_file => "1djs.pdb", xmas_file => "1djs.xmas");
+
+    $testPDB->labelppHbondedAtoms();
+
+    my $expDonors = {map {$_ => 1} qw(735 41 57 83 114 123 2497 149 148)};
+    my $expAcceptors = {map {$_ => 1} qw(39 289 281 269 97 101 113 134 1724)};
+
+    my $gotDonors = {};
+    my $gotAcceptors = {};
+        
+    foreach my $atom (@{$testPDB->atom_array}) {
+        if ($atom->has_HbDonor) {
+            my $donor = $atom->HbDonor;
+            $gotDonors->{$donor->serial} = 1;
+        }
+        elsif ($atom->has_HbAcceptor) {
+            my $acceptor = $atom->HbAcceptor;
+            $gotAcceptors->{$acceptor->serial} = 1;
+        }
+    }
+    cmp_deeply($gotDonors, $expDonors, "ppHb donors labelled ok");
+    cmp_deeply($gotAcceptors, $expAcceptors, "ppHb acceptors labelled ok");
+}
+
+sub test_labelSSbondedAtoms {
+    my $testPDB = pdb->new(pdb_file => "1djs.pdb", xmas_file => "1djs.xmas");
+
+    $testPDB->labelSSbondedAtoms();
+
+    my $expSSbondedAtoms = {265 => 683, 683 => 265, 1041 => 1482,
+                            1482 => 1041};
+
+    my $gotSSbondedAtoms = {};
+    
+    foreach my $atom (@{$testPDB->atom_array}) {
+        if ($atom->has_SSbond) {
+            my $partner = $atom->SSbond();
+            $gotSSbondedAtoms->{$atom->serial} = $partner->serial();
+        }
+    }
+    cmp_deeply($gotSSbondedAtoms, $expSSbondedAtoms, "SSbonds labelled ok");
+}
+
+sub test_build_parseXMAS {
+    my $testPDB = pdb->new(pdb_file => "1djs.pdb", xmas_file => "1djs.xmas");
+
+    is(ref $testPDB->parseXMAS, "pdb::parseXMAS", "build parseXMAS okay");
+}
+
+sub test_build_xmas_data {
+    # pdb_code = ???? To ensure that no xmas file is found to build data from
+    my $testPDB = pdb->new(pdb_file => "1afvH.pdb", pdb_code => "????");
+
+    ok($testPDB->xmas_data(), "build xmas data from pdb::pdb2xmas ok");
+}
+
+sub test_calcAverageHydrophobicity {
+    my $testPDB = pdb->new(pdb_code => "1h0d", pdb_file => "1h0d.pdb");
+
+    is($testPDB->calcAverageHydrophobicity(), -0.414946619217082,
+       "calcAverageHydrophobicity works ok");
+}
 
 sub test_resid2ModResAref {
     my $testPDB = pdb->new(pdb_code => "1h0d", pdb_file => "1h0d.pdb");
