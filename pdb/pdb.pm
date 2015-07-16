@@ -991,6 +991,23 @@ sub _parse_remark465 {
     return \%resSeqs;
 }
 
+sub _buildPDBCodeFromData {
+    my $self = shift;
+
+    my $headerLine;
+
+    foreach my $line (@{$self->pdb_data}) {
+        if ($line =~ /^HEADER/){
+            $headerLine = $line;
+            next;
+        }
+    }
+    croak "No header line parsed from pdb data!"
+        if ! defined $headerLine;
+
+    return lc(substr($headerLine, 62, 4));
+}
+
 # This method returns a ref to a hash of form
 # resID => [modifiedResidueName, standardResidueName]
 # e.g. A.281 => [MSE, MET]
