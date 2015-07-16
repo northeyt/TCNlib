@@ -2913,7 +2913,7 @@ use pdb::PatchOrder_v3 qw(&PatchOrder);
 use GLOBAL qq(&rm_trail);
 
 extends 'pdb';
-
+use overload '""' => 'stringify';
 
 =head1 Methods
 
