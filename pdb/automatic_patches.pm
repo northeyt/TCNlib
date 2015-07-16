@@ -181,7 +181,7 @@ sub _build_ASA_type {
     
     my $type
         = ref $self->pdb_object->[0] eq 'pdb' ? 'ASAc'
-            : 'ASAm';
+            : 'ASAb';
         
     return $type;
 }
