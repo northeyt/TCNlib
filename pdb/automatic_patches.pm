@@ -249,7 +249,8 @@ sub _build_pdb_object {
 
 sub get_patches {
     my $self = shift;
-
+    my %arg  = @_;
+    
     my $pdb_code = lc $self->pdb_code();
 
     my $class = $self->has_chain_id ? 'chain' : 'pdb';
@@ -292,7 +293,7 @@ sub get_patches {
     my @ATOM_lines = ();
 
     my $atomAref = pdb::pdbFunctions::generateAtomAref(@{$self->pdb_object});
-    
+
     foreach my $atom (@{$atomAref}) {
         
         # Avoid printing atoms to file that do not have ASA or are labelled
@@ -306,24 +307,35 @@ sub get_patches {
             push(@ATOM_lines, $atom->stringify_ter());
         }
     }
-
-    my $tmp = write2tmp->new(suffix => '.pdb', data => \@ATOM_lines);
     
-    my $tmp_file_name = $tmp->file_name();
-
+    my $tmp_file_name
+        = write2tmp->new(suffix => '.pdb', data => \@ATOM_lines)->file_name();
+            
     my $all_pc_errors = [];
     my $all_patch_centres = [];
-    
-    foreach my $pdb_obj (@{$self->pdb_object()}) {
-        my($pc_errors, $patch_centres)
-            = $pdb_obj->patch_centres(type => $self->ASA_type());
-        
-        push(@{$all_patch_centres}, @{$patch_centres});
+
+    if (exists $arg{patch_centres} && @{$arg{patch_centres}}) {
+        $all_patch_centres = $arg{patch_centres};
+    }
+    else {
+        $all_patch_centres = [$self->_get_patch_centres()];
     }
     
     my $patchAref = $self->forkMakePatch($all_patch_centres, $tmp_file_name);
 
     return @{$patchAref};
+}
+
+sub _get_patch_centres {
+    my $self = shift;
+    my @all_patch_centres = ();
+    foreach my $pdb_obj (@{$self->pdb_object()}) {
+        my($pc_errors, $patch_centres)
+            = $pdb_obj->patch_centres(type => $self->ASA_type());
+        
+        push(@all_patch_centres, @{$patch_centres});
+    }
+    return @all_patch_centres;
 }
 
 sub forkMakePatch {
