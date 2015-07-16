@@ -165,7 +165,7 @@ sub runExec {
     }
     
     my $cmd = "$exec -r $radiiFile -p $probeRadius -h $inputFile";
-    
+
     my $outputASAFile = File::Spec->rel2abs($baseName) . ".asa";
     my $outputRSAFile = File::Spec->rel2abs($baseName) . ".rsa";
     my $outputLogFile = File::Spec->rel2abs($baseName) . ".log";
@@ -181,7 +181,7 @@ sub runExec {
         croak "asurf64 failed: $stderr\nCmd run: $cmd\n";
     }
     elsif (! -e $outputASAFile) {
-        croak "asurf64 failed to create an output file";
+        croak "asurf64 failed to create an output file. STDERR: $stderr\n";
     }
     return ($outputASAFile, $outputRSAFile, $outputLogFile);
 }
