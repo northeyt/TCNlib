@@ -3013,6 +3013,19 @@ has 'is_multi_chain' => (
 ### Attribute Builder Methods ##################################################
 ################################################################################
 
+around 'get_sequence' => sub {
+    my $orig = shift;
+    my $self = shift;
+
+    my %arg = @_;
+
+    # Ensure that no missing residues that may be present in patch pdb data
+    # are included in sequence of patch
+    $arg{include_missing} = 0;
+
+    return $self->$orig(%arg);
+};
+
 sub _build_patch_id {
     my $self = shift;
 
