@@ -2623,31 +2623,51 @@ sub getEpitopeResSeqs {
     return keys %epitopeResSeqs;
 }
 
-=item C<getInterfaceResidues(CHAINS)>
+=item C<getInterfaceResidues(CHAINS or IN COMPLEX RESIDUE ASAs)>
 
 CHAINS = ref to array of chains that the chain forms an interface with.
-
+IN COMPLEX RESIDUE ASAs = ref to hash of form ResID => relASA
+ e.g A.139 => 0.19
+relASA measures should be for the resiudes in their complexed state.
 This method returns the resids of residues that form the interface between
 the chain and the set of chains supplied. The difference between the residue's
 rASA values in and out of complex must be greater or equal to 10 to be defined
 as interface.
 
+This method can be passed either an aref of chains that are complexed with
+the chain or a href of ResID => relASA values, where relASA values has been
+calculated in the context of a complex of interest.
+
 =cut
 
 sub getInterfaceResidues {
     my $self = shift;
-    my $otherChainsAref = shift;
 
-    $self->read_ASA() if ! $self->has_read_ASA();
-
-    my $atomAref
-        = pdb::pdbFunctions::generateAtomAref($self, @{$otherChainsAref});
+    my $complexResid2RelASAHref;
     
-    # Calculate ASAb values of self + otherChains
-    my $asurf = pdb::asurf64->new(input => $atomAref);
-    my $atomSerialHref = $asurf->getOutput();
-    my $complexResid2RelASAHref = $asurf->resid2RelASAHref();
+    if (ref $_[0] eq 'ARRAY') {
+        my $otherChainsAref = shift;
 
+        $self->read_ASA() if ! $self->has_read_ASA();
+
+        my $atomAref
+            = pdb::pdbFunctions::generateAtomAref($self, @{$otherChainsAref});
+    
+        # Calculate ASAb values of self + otherChains
+        my $asurf = pdb::asurf64->new(input => $atomAref);
+        my $atomSerialHref = $asurf->getOutput();
+        $complexResid2RelASAHref = $asurf->resid2RelASAHref();
+    }
+    elsif (ref $_[0] eq 'HASH') {
+        $complexResid2RelASAHref = shift;
+    }
+    else {
+        croak "getInterfaceResidues must be passed an aref of chains or an href"
+            . " of resID => inComplexRelASA";
+    }
+
+    $self->read_ASA if ! %{$self->resid2RelASAHref};
+    
     my @interfaceResidues = ();
 
     foreach my $resid (keys %{$self->resid_index()}) {
