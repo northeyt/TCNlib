@@ -76,15 +76,14 @@ sub _write_file {
     
     my %arg = ( DIR => $self->dir,
                 SUFFIX => $self->suffix,
-                UNLINK => ( $self-> retain ? 0 : 1 )
+                UNLINK => ( write2tmp->retainAll || $self->retain ? 0 : 1 )
             );
 
     my $tmp = File::Temp->new(%arg);
-
-    confess "data array contains no data" if ! @{ $self->data };
                 
     print $tmp @{ $self->data };
-
+    $tmp->flush();
+    
     my $fname = $tmp->filename;
 
     if ( exists write2tmp->Cache->{$fname} ) {
