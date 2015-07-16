@@ -33,7 +33,7 @@ BEGIN { use_ok( 'automatic_patches' ); }
 my %arg
     = ( radius => 8,
         patch_type => 'normal',
-        pdb_code => '1afv',
+        pdb_code => '1qok',
     );
 
 my $auto = automatic_patches->new(%arg);
@@ -89,6 +89,14 @@ my $ap_from_pdb = new_ok('automatic_patches', [ pdb_object => $chain,
                                                 radius => 8,
                                                 patch_type => 'contact' ]
                                             );
+# Test patch_centres arg to get_patches
+my @patches
+    = $ap_from_pdb->get_patches(patch_centres => [$chain->atom_array->[212]]);
+
+is(scalar @patches, 1,
+   "get_patches called w/ patch_centres arg returns correct num of patches ...");
+is($patches[0]->central_atom->resSeq(), '173',
+   "... and patch has correct central_atom");
 
 # Test production of patches from multiple chains
 my @chains = getChainArray();
@@ -98,6 +106,8 @@ my $multiChainAP
                              patch_type => 'contact');
 
 ok(testForMultiChainPatches($multiChainAP), "multi-chain input works ok");
+
+
 
 # Test must be run on automatic_patches initialized with 1djs chains A and B
 sub testForMultiChainPatches {
