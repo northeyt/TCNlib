@@ -45,10 +45,13 @@ use Math::MatrixReal;
 use Math::Trig;
 
 use pdb::xmas2pdb;
+use pdb::pdb2xmas;
 use pdb::getresol;
 use pdb::rotate2pc;
 use pdb::get_files;
 use pdb::asurf64;
+use pdb::princip;
+use pdb::parseXMAS;
 
 =head1 Methods
 
@@ -431,7 +434,34 @@ has 'resNameMod2StdHref' => (
     builder => '_build_resNameMod2StdHref',
 );
 
+has 'threelc2hydrophobicValueHref' => (
+    isa => 'HashRef',
+    is => 'rw',
+    lazy => 1,
+    builder => '_buildHydroPhoHrefFromFile',
+);
 
+has 'threelc2hydrophobicValueFile' => (
+    isa => 'FileReadable',
+    is => 'rw',
+    lazy => 1,
+    default => $TCNPerlVars::hydroPhoValueFile,
+);
+
+has 'parseXMAS' => (
+    isa => 'pdb::parseXMAS',
+    is => 'rw',
+    lazy => 1,
+    builder => '_build_parseXMAS'
+);
+
+has 'resID2secStructHref' => (
+    isa => 'HashRef',
+    is  => 'rw',
+    lazy => 1,
+    builder => '_build_resID2secStructHref',
+);
+    
 # Consume antigen role
 with 'pdb::antigen';
 
@@ -479,14 +509,23 @@ sub _get_xmas_file {
 
 sub _build_pdb_data {
     my $self = shift;
-    return $self->_build_data('pdb');
-}
-sub _build_xmas_data {
-    my $self = shift;
-    return $self->_build_data('xmas');
+    return $self->_build_data_from_file('pdb');
 }
 
-sub _build_data {
+sub _build_xmas_data {
+    my $self = shift;
+
+    # Attempt to get xmas data from file
+    my $attempt = eval {$self->_build_data_from_file('xmas')};
+    return $attempt if $attempt;
+
+    # Build xmas file from pdb data
+    my $pdb2xmas = pdb::pdb2xmas->new(input => $self);
+
+    return [$pdb2xmas->output];
+}
+
+sub _build_data_from_file {
     my($self, $att) = @_;
 
     my $att_file = $att . '_file';
@@ -1053,6 +1092,48 @@ sub _build_resNameMod2StdHref {
         $modRes2StdResNames{$modRes} = $stdRes;
     }
     return \%modRes2StdResNames;
+}
+
+sub _buildHydroPhoHrefFromFile {
+    my $self = shift;
+
+    my $inFile = $self->threelc2hydrophobicValueFile();
+
+    open(my $IN, "<", $inFile) or die "Cannot open file $inFile, $!";
+
+    my %threelc2hydrophovalue = ();
+    
+    while (my $line = <$IN>) {
+        next if $line =~ /^#/;
+
+        my ($code, $value) = $line =~ /(\S+)\s+([0-9-.]+)/g;
+
+        $threelc2hydrophovalue{uc $code} = $value;
+    }
+    return \%threelc2hydrophovalue;
+}
+
+sub _build_parseXMAS {
+    my $self = shift;
+
+    my $parser = pdb::parseXMAS->new(xmasData => $self->xmas_data);
+    $parser->parseXMAS();
+    
+    return $parser;
+}
+
+sub _build_resID2secStructHref {
+    my $self = shift;
+
+    my %resID2secStruct = %{$self->parseXMAS->resID2secStructHref};
+    my %parsedResID2secStruct = ();
+    
+    while (my ($resID, $secStruct) = each %resID2secStruct) {
+        if (exists $self->resid_index->{$resID}){
+            $parsedResID2secStruct{$resID} = $secStruct;
+        }
+    }
+    return \%parsedResID2secStruct;
 }
 
 ### BUILD Method ###############################################################
@@ -2173,6 +2254,113 @@ sub squaredDistance {
     $sum += $_ foreach @deltas;
 
     return $sum;
+}
+
+sub calcAverageHydrophobicity {
+    my $self = shift;
+
+    my $threelc2valueHref = $self->threelc2hydrophobicValueHref;
+
+    return $self->calcAveragePropensity($threelc2valueHref);
+}
+
+sub calcAveragePropensity {
+    my $self = shift;
+    my $threelc2valueHref = shift;
+    
+    # Get residues using get_sequence
+    my @getSequenceRet = $self->get_sequence(return_type => 3);
+    
+        my @sequence = ();
+    
+    if (ref $getSequenceRet[0] eq 'HASH') {
+        # Flatten sequence arrays (referenced as values in returned hash)
+        # from each chain
+        @sequence = map {@{$_}} values %{$getSequenceRet[0]};
+    }
+    else {
+        # Sequence has been returned as array
+            @sequence = @getSequenceRet;
+        }
+    
+    my $total;
+        $total += $threelc2valueHref->{$_} foreach @sequence;
+    my $avg = $total / scalar @sequence;
+    
+    return $avg;
+}
+
+sub planarity {
+    my $self = shift;
+
+    my $princip = pdb::princip->new(input => $self);
+
+    return $princip->getPlanarity;
+}
+
+# pp = protein-protein
+sub labelppHbondedAtoms {
+    my $self = shift;
+
+    my %ppHbDonor2Acceptor = %{$self->parseXMAS->ppHbDonor2AcceptorHref};
+
+    while (my ($dSerial, $aSerial) = each %ppHbDonor2Acceptor) {
+        # Only assign hydrogen bonds if both atoms are present
+        if (exists $self->atom_serial_hash->{$dSerial}
+                && exists $self->atom_serial_hash->{$aSerial}) {
+            my $dAtom = $self->atom_serial_hash->{$dSerial};
+            my $aAtom = $self->atom_serial_hash->{$aSerial};
+
+            $dAtom->HbAcceptor($aAtom);
+            $aAtom->HbDonor($dAtom);
+        }
+    }
+}
+
+sub labelSSbondedAtoms {
+    my $self = shift;
+
+    my %SSbonds = %{$self->parseXMAS->SSbondHref};
+
+    while (my ($aSerial, $bSerial) = each %SSbonds){
+        # Only assign if both atoms are present
+        if (exists $self->atom_serial_hash->{$aSerial}
+                && exists $self->atom_serial_hash->{$bSerial}) {
+            my $aAtom = $self->atom_serial_hash->{$aSerial};
+            my $bAtom = $self->atom_serial_hash->{$bSerial};
+
+            $aAtom->SSbond($bAtom);
+            $bAtom->HbDonor($aAtom);
+        }        
+    }
+}
+
+=item C<getResIDs>
+
+Returns an array of all the resIDs of the chain
+
+=cut
+
+sub getResIDs {
+    my $self = shift;
+
+    return keys %{$self->resid_index};
+}
+
+=item C<getResNames(resIDS)>
+
+Given an array of residue IDs (e.g, A.101, B.102), this method
+returns the corresponding residue names (e.g, HIS, GLY)
+
+=cut
+
+sub getResNames {
+    my $self = shift;
+    my @resIDs = @_;
+
+    # For each resID, get first atom from resid_index then get that atom's
+    # name
+    return map { [values %{$self->resid_index->{$_}}]->[0]->resName() } @resIDs;
 }
 
 __PACKAGE__->meta->make_immutable;
