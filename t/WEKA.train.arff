@@ -1,0 +1,30 @@
+@relation train.r14_intf50.ahpsSH.sS-weka.filters.unsupervised.attribute.Remove-Rfirst-weka.filters.unsupervised.attribute.NominalToBinary-R4
+
+@attribute propensity numeric
+@attribute hydrophobicity numeric
+@attribute planarity numeric
+@attribute secondary_str=H numeric
+@attribute secondary_str=EH numeric
+@attribute secondary_str=E numeric
+@attribute secondary_str=C numeric
+@attribute SSbonds numeric
+@attribute Hbonds numeric
+@attribute fosta_scorecons numeric
+@attribute blast_scorecons numeric
+@attribute intf_class {I,S}
+
+@data
+
+0.1624,-0.3833,1.886171,1,0,0,0,0,0.833333,?,0.515333,I
+0.0046,-0.8143,2.70813,1,0,0,0,0,0.952381,?,0.64181,S
+-0.0205,-0.9684,2.72697,1,0,0,0,0,0.947368,?,0.633737,S
+-0.0403,-0.5706,2.244751,1,0,0,0,0,0.882353,?,0.541412,S
+0.0128,-0.8282,4.927214,0,1,0,0,0,0.846154,?,0.699077,S
+-0.029,-0.4955,2.997078,1,0,0,0,0,0.909091,?,0.546727,S
+-0.0419,-0.4045,2.987561,1,0,0,0,0,0.909091,?,0.523045,S
+-0.0281,-0.4933,2.572677,1,0,0,0,0,0.933333,?,0.488133,S
+-0.0351,-0.3941,2.438349,1,0,0,0,0,0.941176,?,0.474706,S
+-0.0271,-0.9778,3.087371,1,0,0,0,0,1,?,0.4885,S
+-0.1249,-2.8667,2.620032,1,0,0,0,0,1,?,0.46825,S
+-0.123,-2.7455,2.753635,1,0,0,0,0,1,?,0.495091,S
+-0.0235,-1.3562,2.76784,1,0,0,0,0,1,?,0.48725,S
