@@ -2655,15 +2655,18 @@ sub getInterfaceResidues {
         # Skip if this a solvent residue
         next if [values %{$self->resid_index->{$resid}}]->[0]->is_solvent();
         
-        my $complexRelASA = $complexResid2RelASAHref->{$resid}->{allAtoms};
-        my $molRelASA = $self->resid2RelASAHref->{$resid}->{allAtoms};
+        my $complexRelASA   = $complexResid2RelASAHref->{$resid}->{allAtoms};
+        my $monomericRelASA = $self->resid2RelASAHref->{$resid}->{allAtoms};
 
-        unless (defined $complexRelASA && defined $molRelASA) {
-            croak "Undefined value for " . $self->pdb_code()
-                . $self->chain_id() . " $resid!\n";
-        }
-        
-        my $ASAdiff = $molRelASA - $complexRelASA;
+        confess "Undefined in complex relASA for value for "
+            . $self->pdb_code() . $self->chain_id() . " $resid!\n"
+                if ! defined $complexRelASA;
+
+        confess "Undefined relASA for value for "
+            . $self->pdb_code() . $self->chain_id() . " $resid!\n"
+                if ! defined $monomericRelASA;
+                
+        my $ASAdiff = $monomericRelASA - $complexRelASA;
         
         push(@interfaceResidues, $resid) if $ASAdiff >= 10;
     }
