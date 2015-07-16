@@ -18,9 +18,8 @@ sub getPDBFile {
     
     # Is input a pdb or chain object?
     try {
-        my $inputAtomArray = eval {$input->atom_array()};
+        my $inputAtomArray = $input->atom_array();
         $inputFile = _atoms2tmp($inputAtomArray);
-        
     }
     catch ($err) {
         # Is input a file path?
