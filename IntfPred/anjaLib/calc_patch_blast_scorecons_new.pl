@@ -110,8 +110,6 @@ while ( my $patches_fname = readdir($PATCHES_DH) ) {
 
     # Combine mapping to create resSeq to scorecons hash
 
-=debug
-
     print "\n\nmap_resSeq2chainSeq\n\n";
     
     print "resSeq $_, chainSeq $map_resSeq2chainSeq{$_}\n" foreach sort { $a <=> $b }keys %map_resSeq2chainSeq;
@@ -124,7 +122,6 @@ while ( my $patches_fname = readdir($PATCHES_DH) ) {
     
     print "msa $_, scorecons $map_msa2scorecons{$_}\n" foreach sort { $a <=> $b }keys %map_msa2scorecons;
 
-=cut
     
     my %map_resSeq2scorecons
         = map_resSeq2scorecons( \%map_resSeq2chainSeq, \%map_chainSeq2msa,

@@ -219,8 +219,8 @@ sub pdbfile2rms
         }
     }  
 
-    print "rm -f $file\n" if ($v_flag);
-    `rm -f $file`;
+    print "rm -f $file\n"; # if ($v_flag);
+    # `rm -f $file`;
 
     return $rms;
 }

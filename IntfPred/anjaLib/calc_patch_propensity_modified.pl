@@ -83,7 +83,7 @@ my %AA_surf_ASAmean = ('ala' => '0',
 ##############
 my @filelist = `ls $patch_dir`;
 
- my %intf_averages = &extract_percentages($intf_summary);
+my %intf_averages = &extract_percentages($intf_summary);
 my %surf_averages = &extract_percentages_and_averages($surf_summary, \%AA_surf_ASAmean);
  
 my %ln = &calc_ln_part(\%intf_averages, \%surf_averages);
@@ -183,6 +183,8 @@ sub read_patches
             my $patch_propensity;
             my $propensity_sum = 0;
 
+            print "DEBUG: patch Centre = $central\n";
+            
             $central =~ s/\./:/g;            
             $list =~ s/\s+$//;
             my @patch_res = split(' ', $list);
@@ -197,9 +199,12 @@ sub read_patches
 
                     #eliminates rare cases of UNK as AA type
                     if ($$r_surf_ASAmean{$aa})
-                    {
-                        my $res_propensity = $$r_ln{$aa} * ($asa / $$r_surf_ASAmean{$aa});
-                        $propensity_sum += $res_propensity;
+                        {
+                            print "DEBUG: $aa: $asa, ln = " . $$r_ln{$aa}
+                                . " surfMean = " . $$r_surf_ASAmean{$aa} . "\n";
+                        
+                            my $res_propensity = $$r_ln{$aa} * ($asa / $$r_surf_ASAmean{$aa});
+                            $propensity_sum += $res_propensity;
                     }
                     else
                     {
