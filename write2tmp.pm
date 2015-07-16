@@ -53,7 +53,8 @@ has 'suffix' => (
 has 'data' => (
     is => 'rw',
     isa => 'ArrayRef[Str]',
-    required => 1,
+    lazy => 1,
+    default => sub { [ ] },
 );
 
 has 'file_name' => (
