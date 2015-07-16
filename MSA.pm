@@ -1,206 +1,248 @@
-package MSA;
+package BioBlastHitAdapter;
 
 use Moose;
-use types;
+use Moose::Util::TypeConstraints;
+
+subtype 'BioBlastHit',
+    as 'Object',
+    where {$_->can("hsp") && $_->hsp->can("hit_string")},
+    message {"Object does not look like a Bio Blast hit object!'"};
+
+
+has 'toAdapt' => (
+    isa => 'BioBlastHit',
+    is  => 'rw',
+    required => 1,
+);
+
+# Allow calling like so: BioBlastHitAdapter::new($bioBlastObj) 
+around BUILDARGS => sub {
+    my $orig  = shift;
+    my $class = shift;
+    
+    if (@_ == 1) {
+        return $class->$orig(toAdapt => $_[0]);
+    }
+    else {
+        return $class->$orig(@_);
+    }
+};
+
+sub getFASTAStr {
+    my $self = shift;
+
+    my $id = $self->toAdapt->name();
+    my $seqStr = $self->hsp->hit_string();
+
+    # Remove any "-" characters from string that represent an alignment
+    $seqStr =~ s/-//g;
+    
+    return "$id\n$seqStr";
+}
+
+package MSAligner;
+use Moose::Role;
+use Moose::Util::TypeConstraints;
 use Carp;
-use TCNPerlVars;
-use TryCatch;
 use write2tmp;
-use IO::CaptureOutput qw(capture_exec);
-use File::Basename;
+use roles::consScoreCalculating;
 
-### Attributes #################################################################
+requires 'align';
+requires 'getAlignedSeqStringAref';
 
-has 'clustalwExec' => (
+subtype 'canGetFASTAStr',
+    as 'Object',
+    where {$_->can("getFASTAStr")},
+    message {"Must be able to perform getFASTAStr method on passed seqs!"};
+
+coerce 'canGetFASTAStr',
+    from 'BioBlastHit',
+    via {BioBlastHitAdapter->new($_)};
+
+has 'seqs' => (
+    is      => 'rw',
+    isa     => 'ArrayRef[canGetFASTAStr]',
+    lazy    => 1,
+    builder => '_buildSeqsFromOtherInput',
+);
+
+has 'consScoreCalculator' => (
     is => 'rw',
-    isa => 'FileExecutable',
-    default => $TCNPerlVars::clustalw
+    does => 'roles::consScoreCalculating', # Can do consScoreCalculator
+    predicate => 'hasConsScoreCalculator',
 );
 
-has 'clustalOExec' => (
-    is => 'rw',
-    isa => 'FileExecutable',
-    default => $TCNPerlVars::clustalO
-);
+sub _buildSeqsFromOtherInput {
+    croak "_buildSeqsFromOtherInput has not been implemented for this class!";
+}
 
-has 'program' => (
-    is => 'rw',
-    isa => 'Str',
-    default => 'o',
-);
-
-has 'input' => (
-    is => 'rw',
-);
-
-has 'processedInput' => (
-    is => 'ro',
-    isa => 'ArrayRef[Str]',
-    builder => '_processInput',
-    lazy => 1,
-);
-
-has 'processedInputIDs' => (
-    is => 'ro',
-    isa => 'ArrayRef[Str]',
-    builder => '_getInputIDs',
-    lazy => 1,
-);
-
-
-### Methods ####################################################################
-
-# This method aligns the sequences given in the input. The method returns an
-# array of sequences, where each element corresponds to the alignment sequence
-# for an input sequence. The sequences will be in the same order that was given
-# in the input
-sub align {
+sub getInputIDs {
     my $self = shift;
 
-    # Get input
-    my $inputAref = $self->processedInput();
-
-    # If array only contains one sequence, return that sequence
-    # (no need to align!)
-    if (scalar @{$inputAref} == 1) {
-        return (seqStrFromFASTAStr($inputAref->[0]));
-    }
-    
-    my $inputFile = writeInput2File($inputAref);
-
-    my @output = $self->_getOutput($inputFile);
-
-    return @output;
+    return map {seqStr::parseIDFromFASTA($_->getFASTAStr)} @{$self->seqs};
 }
 
-sub _processInput {
+sub calculateConsScores {
     my $self = shift;
-
-    my @processedInput = ();
     
-    if (ref $self->input() eq 'ARRAY') { 
-        foreach my $ele (@{$self->input()}) {
-            # If ele is a string, assume it is a FASTA seq string
-            if (! ref $ele) {
-                push(@processedInput, $ele);
-            }
-            else {
-                # Else try and get FASTAStr from element
-                try {
-                    push(@processedInput, $ele->getFASTAStr());
-                }
-                catch {
-                    croak "Could not get FASTA seq from input element $ele, $@";
-                }
-            }
-        }
-    }
-    elsif (-e $self->input()) {
-        # Assume that input is a file containing FASTA seqs
-        push(@processedInput, parseFASTAFile($self->input()));
-    }
-    elsif (! ref $self->input()) {
-        # Assume that input is a string containing multiple FASTA seqs
-        push(@processedInput, splitFASTAsStr($self->input()));
-    }
+    croak "No consScoreCalculator supplied!"
+        if ! $self->hasConsScoreCalculator;
 
-    return \@processedInput;
+    my @seqs
+        = map {sequence->new($_)} $self->alignedSeqFASTStrs();
+    
+    $self->consScoreCalculator->seqs(\@seqs);
+    
+    return $self->consScoreCalculator->calcConservationScores();
 }
 
-sub _getInputIDs {
+sub alignedSeqFASTStrs {
     my $self = shift;
+    my @seqIDs = $self->getInputIDs;
+    my @seqs   = @{$self->getAlignedSeqStringAref};
 
-    my @IDs = ();
+    my @FASTAs = ();
     
-    foreach my $FASTA (@{$self->processedInput()}) {
-        my ($id) = $FASTA =~ />(\S+)/g;
-        push(@IDs, $id);
+    for (my $i = 0 ; $i < @seqIDs ; ++$i) {
+        my $seqID = $seqIDs[$i];
+        my $seq   = $seqs[$i];
+        
+        push(@FASTAs, ">" . $seqID . "\n" . $seq);
     }
-
-    return \@IDs;
-}
-
-
-sub parseFASTAFile {
-    my $fileName = shift;
-    
-    open(my $FH, "<", $fileName) or croak "Cannot open file $fileName";
-    my $FASTAsString = join("", <$FH>);
-
-    return splitFASTAsStr($FASTAsString);
-}
-
-
-sub splitFASTAsStr {
-    my $FASTAsString = shift;
-    
-    my @FASTAs = split(/(?=>)/, $FASTAsString);
-
     return @FASTAs;
 }
 
-sub writeInput2File {
-    my $inputAref = shift;
+package MSAexec;
+use Moose::Role;
+use Carp;
+use sequence;
 
-    my $w2t = write2tmp->new(data => $inputAref, suffix => ".fasta");
+with ('roles::fileExecutor', 'MSAligner');
 
-    return $w2t->file_name();
+sub align {
+    my $self = shift;
+    return $self->runExec();
 }
 
-sub _getOutput {
+has 'inputSeqsStr' => (
+    isa => 'Str',
+    is  => 'rw',
+    lazy => 1,
+    builder => '_buildStrFromSeqs',
+);
+
+has 'inputSeqsFile' => (
+    isa => 'FileReadable',
+    is  => 'rw',
+    lazy => 1,
+    builder => '_writeSeqsStr2File',
+);
+
+before 'align' => sub {
     my $self = shift;
-    my $inputFile = shift;
+    
+    if (@{$self->seqs} < 2) {
+        croak "Only one sequence supplied: you must supply more than one sequence to align!";
+    }
+};
 
-    my $rawOutputFile = $self->_runClustal($inputFile);
+sub _writeSeqsStr2File {
+    my $self = shift;
 
-    return $self->_parseClustalOutput($rawOutputFile);
+    # Write string to temporary file
+    return write2tmp->new(data => [$self->inputSeqsStr])->file_name();
 }
 
-
-sub _runClustal {
+sub _buildStrFromSeqs {
     my $self = shift;
+    return join("\n", map {$_->getFASTAStr()} @{$self->seqs});
+}
+
+# If seqs has not been supplied directly (but rather in string or file form),
+# attempt to reverse build seqs from alternative input
+sub _buildSeqsFromOtherInput {
+    my $self = shift;
+
+    # Try to parse input fasta sequences from inputSeqsFile
+    # The inputSeqsFile attribute builder mean that we only have to try and
+    # parse from file.
+    my @FASTASeqs = parseFASTASeqsFromFile($self->inputSeqsFile());
+    return [map {sequence->new($_)} @FASTASeqs];
+}
+
+sub parseFASTASeqsFromFile {
     my $inputFile = shift;
+    open(my $IN, "<", $inputFile)
+        or die "Cannot open $inputFile, $!";
 
-    my ($prog, $exec) = $self->_getProgAndExec();
+    my $fData;
+    {
+        local $/;
+        $fData = <$IN>;
+    }
+    return split(/(?=>)/, $fData);
+}
 
+package MSA::Clustal;
+use Moose;
+use Carp;
+use File::Basename;
+use Bio::SeqIO;
+
+with 'MSAexec';
+
+# Build clustal format cmd
+sub cmdStringFromInputs {
+    my $self = shift;
+
+    my $inputFile = $self->inputSeqsFile();
+    my $outputFile = $self->getTmpOutputFile();
+    my $exec = $self->execFilePath();
+
+    my $flags = $self->getFlags;
+    my $opts  = $self->getOpts;
+
+    return "$exec -OUTFILE=$outputFile -INFILE=$inputFile";
+}
+
+sub getTmpOutputFile {
+    my $self = shift;  
+    my $inputFile = $self->inputSeqsFile;
     my $inputFileBaseName = basename($inputFile);
+
+    # TODO: create output file through write2tmp
     my $outputFile = '/tmp/' . $inputFileBaseName . '.aln';
 
     # Assign output file to tmp Cache
     write2tmp->Cache->{$outputFile} = 1;
-    
-    my $cmd = "$exec -OUTFILE=$outputFile -INFILE=$inputFile";
-
-    my($stdout, $stderr, $success, $exit_code) = capture_exec($cmd);
-    
-    if (! $success) {
-        foreach my $file ($outputFile, $inputFile) {
-            # If files are temporary, retain for error checking
-            if (exists write2tmp->Cache->{$file}) {
-                write2tmp->retain_file(file_name => $file);
-            }
-        }
-        my $err = "$prog run failed.\nCommand run: $cmd\nSTDERR: $stderr";
-        croak $err;
-    }
-
     return $outputFile;
 }
 
-sub _getProgAndExec {
+sub getAlignedSeqStringAref {
     my $self = shift;
 
-    return lc($self->program()) eq 'o' ? ('ClustalO', $self->clustalOExec())
-         : lc($self->program()) eq 'w' ? ('ClustalW', $self->clustalwExec())
-         : croak "program type is invalid! Either w = clustalw or O = clustalO";
+    if (! eval {$self->align}) {
+        if ($@ =~ /Only one sequence supplied/) {
+            # Only one sequence has been supplied, so simply parse sequence
+            # from input file
+            return [map {$_->string()} @{$self->seqs()}];
+        }
+        else {
+            croak $@;
+        }
+    }
+    else {
+        # Parse aligned sequence strings from output file
+        return [$self->getAlignedSeqStringsFromOutFile()];
+    }
 }
 
-sub _parseClustalOutput {
+sub getAlignedSeqStringsFromOutFile {
     my $self = shift;
-    my $rawOutputFile = shift;
 
-    open(my $FH, "<", $rawOutputFile)
-        or croak "Cannot open file $rawOutputFile";
+    my $file2parse = $self->getTmpOutputFile();
+    open(my $FH, "<", $file2parse)
+        or croak "Cannot open file $file2parse";
 
     my %id2AlnStr = ();
     
@@ -217,76 +259,89 @@ sub _parseClustalOutput {
             $id2AlnStr{$id} .= $alnStr;
         }
     }
+    # Return aligned sequence strings, ordered by order of input
+    return map {$id2AlnStr{$_}} $self->getInputIDs();    
+}
 
-    my @orderedStrs = ();
+sub getSequenceStringsFromInputFile {
+    my $self = shift;
 
-    foreach my $id (@{$self->processedInputIDs()}) {
-        push(@orderedStrs, $id2AlnStr{$id});
+    my $seqIO = Bio::SeqIO->new(-file => $self->inputSeqsFile(),
+                                '-format' => 'Fasta');
+    my @seqStrings = ();
+    while (my $seq = $seqIO->next_seq) {
+        push(@seqStrings, $seq->seq);
+    }
+    return @seqStrings;
+}
+
+package MSA::Clustalw;
+use Moose;
+use TCNPerlVars;
+
+extends 'MSA::Clustal';
+
+sub _buildExecPath {
+    return $TCNPerlVars::clustalw;
+}
+
+package MSA::ClustalO;
+
+use Moose;
+use TCNPerlVars;
+
+extends 'MSA::Clustal';
+
+sub _buildExecPath {
+    return $TCNPerlVars::clustalO;
+}
+
+package MSA::Muscle;
+use Moose;
+use Carp;
+
+with 'MSAexec';
+
+sub cmdStringFromInputs {
+    my $self = shift;
+
+    # Build muscle format cmd
+    my $exec = $self->execFilePath();
+    my $inputFile = $self->inputSeqsFile();
+
+    # Ensure that quiet mode is on
+    push(@{$self->flags}, "-quiet") if ! grep {/^-quiet$/} @{$self->flags};
+
+    my $flags = $self->getFlags;
+    my $opts  = $self->getOpts;
+    
+    return "$exec $flags $opts -in $inputFile";
+}
+
+sub _buildExecPath {
+    return $TCNPerlVars::muscle;
+}
+
+sub getAlignedSeqStringAref {
+    my $self = shift;
+
+    croak "alignment was not successful"
+        if ! $self->success();
+
+    my %id2AlnStr = ();
+    
+    # Parse aligned sequence strings from output
+    my %id2seq = $self->stdout =~ />(.*?)\n # ID line, starting with >
+                                   (.*?)    # Sequence, including newlines
+                                   (?=>|\z) # Up to next fasta entry /gxms;
+    
+    # Parse id and remove whitespace from each fasta sequence
+    while (my ($id, $seq) = each %id2seq){
+        # Remove whitespace from sequence
+        $seq =~ s/\s//gms;
+        $id2AlnStr{$id} = $seq;
     }
 
-    return @orderedStrs;
+    # Return aligned sequence strings, ordered by order of input
+    return [map {$id2AlnStr{$_}} $self->getInputIDs()];
 }
-
-sub seqStrFromFASTAStr {
-    my $FASTAStr = shift;
-
-    my ($seq) = $FASTAStr =~ /> \S* \s+ (.*) /gxms;
-
-    # Remove any whitespace from seq
-    $seq =~ s/\s//g;
-
-    return $seq;
-}
-
-__PACKAGE__->meta->make_immutable;
-
-1;
-__END__
-
-=head1 NAME
-
-alignment - Perl extension for blah blah blah
-
-=head1 SYNOPSIS
-
-   use alignment;
-   blah blah blah
-
-=head1 DESCRIPTION
-
-Stub documentation for alignment, 
-
-Blah blah blah.
-
-=head2 EXPORT
-
-None by default.
-
-=head1 SEE ALSO
-
-Mention other useful documentation such as the documentation of
-related modules or operating system documentation (such as man pages
-in UNIX), or any relevant external documentation such as RFCs or
-standards.
-
-If you have a mailing list set up for your module, mention it here.
-
-If you have a web site set up for your module, mention it here.
-
-=head1 AUTHOR
-
-Tom Northey, E<lt>zcbtfo4@acrm18E<gt>
-
-=head1 COPYRIGHT AND LICENSE
-
-Copyright (C) 2014 by Tom Northey
-
-This program is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.8.2 or,
-at your option, any later version of Perl 5 you may have available.
-
-=head1 BUGS
-
-None reported... yet.
-
-=cut

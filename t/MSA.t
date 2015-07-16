@@ -21,23 +21,83 @@ BEGIN { use_ok( 'MSA' ); }
 # Insert your test code below, the Test::More module is used here so read
 # its man page ( perldoc Test::More ) for help writing this test script.
 
-my $testInput = "test.fasta";
-my $testObj = new_ok('MSA', [input => $testInput]);
-$testObj->program('w');
+ok(testClustalw(), "MSA::ClustalW ok");
+ok(testMuscle(), "MSA:Muscle ok");
+ok(testClustalO(), "MSA::ClustalO ok");
+ok(testCalcConservationScores(), "testCalcConservationScores ok");
+ok(test_getSequenceStringsFromInputFile(), "getSequenceStringsFromInputFile ok");
 
-my $expStr = ">4hpyP\nELRDKKQKVHALFYKLDIV\n\n";
-is($testObj->processedInput()->[0], $expStr, "_processInput works okay");
+sub testClustalw {
+    my $testInput = "test.fasta";
+    my $testObj = new_ok('MSA::Clustalw', [inputSeqsFile => $testInput]);
+    
+    my $expEle
+        = "---------------------------------------------------------------------"
+        . "---------------------------------------------------------------------"
+        . "---------------------------------------------------------------------"
+        . "---------------------------------------------------------------------"
+        . "-----------------ELRDKKQKV--------------------HALFYKLDIV-------------"
+        . "---------------------------------------------------------------------"
+        . "-----------------------------------------------------------------";
+    
+    is(scalar @{$testObj->getAlignedSeqStringAref}, 32,
+       "all seqs present in align");
+    is($testObj->getAlignedSeqStringAref->[0], $expEle,
+       "align works okay");
+}
 
-my $expEle
-    = "---------------------------------------------------------------------"
-    . "---------------------------------------------------------------------"
-    . "---------------------------------------------------------------------"
-    . "---------------------------------------------------------------------"
-    . "-----------------ELRDKKQKV--------------------HALFYKLDIV-------------"
-    . "---------------------------------------------------------------------"
-    . "-----------------------------------------------------------------";
+sub testClustalO {
+    my $testInput = "test.fasta";
+    my $testObj = new_ok('MSA::ClustalO', [inputSeqsFile => $testInput]);
+    
+    is(scalar @{$testObj->getAlignedSeqStringAref}, 32,
+       "all seqs present in align");
+}
 
-is([$testObj->align()]->[0], $expEle, "align works okay");
+sub testMuscle {
+    my $testInput = "test.fasta";
+    my $muscleTestObj = new_ok('MSA::Muscle', [inputSeqsFile => $testInput]);
 
-my $expSeqStr = "ELRDKKQKVHALFYKLDIV";
-is(MSA::seqStrFromFASTAStr($expStr), $expSeqStr, "seqStrFromFASTAStr ok");
+    my $expEle
+        = "------------------------------------------------------------"
+        . "------------------------------------------------------------"
+        . "------------------------------------------------------------"
+        . "------------------ELRDKKQK----VH----------------------------"
+        . "------------------------------------------------------------"
+        . "------------------------------------------------------------"
+        . "------------------ALF---YKLDIV------------------------------"
+        . "-------------------------------------------------";
+
+    is(scalar @{$muscleTestObj->getAlignedSeqStringAref}, 32,
+     "all seqs present in align");
+    is($muscleTestObj->getAlignedSeqStringAref->[0], $expEle,
+       "align works okay");
+}
+
+sub testCalcConservationScores {
+    my $testInput = "test.fasta";
+    use scorecons;
+    my $testObj = new_ok('MSA::Clustalw', [inputSeqsFile => $testInput]);
+
+    $testObj->consScoreCalculator(scorecons->new());
+    ok($testObj->calculateConsScores(), "calculateConsScores ok");    
+}
+
+sub test_getSequenceStringsFromInputFile {
+    my $testInput = "test.fasta";
+    my $testObj = new_ok('MSA::Clustalw', [inputSeqsFile => $testInput]);
+
+    my @seqStrings = $testObj->getSequenceStringsFromInputFile();
+    is(scalar @seqStrings, 32, "all sequences from input file returned");
+
+    is($seqStrings[0], 'ELRDKKQKVHALFYKLDIV', "first seq is correct");
+
+    my $expLastSeq = 'MKHHHHHHHHHHSSDYKDDDDKGENLYFQGSKIEEGKLVIWINGDKGYNGLAEVGKK'
+        . 'FEKDTGIKVTVEHPDKLEEKFPQVAATGDGPDIIFWAHDRFGGYAQSGLLAEITPDKAFQDKLYPFTW'
+        . 'DAVRYNGKLIAYPIAVEALSLIYNKDLLPNPPKTWEEIPALDKELKAKGKSALMFNLQEPYFTWPLIA'
+        . 'ADGGYAFKYENGKYDIKDVGVDNAGAKAGLTFLVDLIKNKHMNADTDYSIAEAAFNKGETAMTINGPW'
+        . 'AWSNIDTSKVNYGVTVLPTFKGQPSKPFVGVLSAGINAASPNKELAKEFLENYLLTDEGLEAVNKDKP'
+        . 'LGAVALKSYEEELAKDPRIAATMENAQKGEIMPNIPQMSAFWYAVRTAVINAASGRQTVDEALKDAQTN';
+    
+    is($seqStrings[31], $expLastSeq, "last seq is correct");
+}
