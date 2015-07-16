@@ -406,8 +406,10 @@ sub forkMakePatch {
     my @patches = ();
     
     foreach (my $i = 0 ; $i < @{$patchCentreAref} ; ++$i){
+
+        my $inFile = "/tmp/$pProcID.$i";
+        open(my $IN, "<", $inFile) or die $!;
         
-        open(my $IN, "<", "/tmp/$pProcID.$i") or die $!;
         my $serialLine = <$IN>;
         chomp $serialLine;
         my $atomSerialAref = [split(" ", $serialLine)];
@@ -421,11 +423,12 @@ sub forkMakePatch {
                          parent_pdb => $self->pdb_object,
                          central_atom => $centralAtom,
                          atom_array => \@atoms);
-
+        
         my $patch = patch->new(%patchArgs);
         
         push(@patches, $patch);
-
+        close $IN;
+        unlink $inFile;
     }    
     return \@patches;
 }
