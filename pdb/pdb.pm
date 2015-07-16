@@ -1132,7 +1132,8 @@ sub _multi_model {
 
 Where %arg = (chain_id => ... , return_type => ... , include_missing => BOOL)
 
-chain_id = Chain identifier of chain you wish to know the sequence of
+chain_id = Chain identifier of chain you wish to know the sequence of OR aref of
+           chains identifiers.
 
 return_type = 1 OR 3. (DEFAULT = 1)
     If 1, array of 1-letter AA codes is returned.
@@ -1146,10 +1147,17 @@ std = BOOL. (DEFAULT = TRUE)
     If TRUE, modified residues are included using their standard name.
     e.g. MSE (selonmethionine) will be included as MET (methionine).
 
-This method returns an array of 1 or 3-letter amino acid codes that represent
-the sequence of the chain specified. e.g.
+If a single chain identifier is passed, this method returns an array of 1 or
+3-letter amino acid codes that represent the sequence of the chain specified.
+e.g.
 
     @sequence = $pdb->get_sequence(chain_id => A, return_type => 3, include_missing => 1, std => 0);
+
+If more than one chain identifier is passed, then a href is returned of form
+chainID => sequenceAref.
+
+If no chain identifiers are passed, then all chain sequences will be returned
+(within a href as described above).
 
 =cut
 
@@ -1163,9 +1171,25 @@ sub get_sequence {
         . Dumper $self->multi_resName_resids()
             if %{ $self->multi_resName_resids };
     
-    my %arg = _check_get_sequence_args(@_);
+    my %arg = %{$self->_check_get_sequence_args(@_)};
     
-    my $chain_id = $arg{chain_id};
+    my %chainID2seqAref
+        = map {$_ => $self->_get_chain_sequence($_, %arg)} @{$arg{chain_id}};
+
+    if (keys %chainID2seqAref == 1) {
+        # Get only key in the hash
+        my $key = [keys %chainID2seqAref]->[0];
+        return @{$chainID2seqAref{$key}};
+    }
+    else {
+        return \%chainID2seqAref;
+    }
+}
+
+sub _get_chain_sequence {
+    my $self     = shift;
+    my $chain_id = shift;
+    my %arg      = @_;
     
     my %resSeq2ChainSeq
         = $self->map_resSeq2chainSeq(chain_id => $chain_id,
@@ -1178,11 +1202,11 @@ sub get_sequence {
             keys %resSeq2ChainSeq;
     
     my @residues = ();
-
+    
     # This hash is used to map modified residue names to standard residue names,
     # if arg std has been set to TRUE
     my %modRes2StdRes = %{$self->resNameMod2StdHref};
-
+    
     # Find a residue name for each resSeq
     foreach my $resSeq (@sortedResSeqs){
         
@@ -1226,7 +1250,7 @@ sub get_sequence {
             $residues[$i] = $onelc;
         }
     }
-    return @residues;
+    return \@residues;
 }
 
 # Checks get_sequence args to make sure that a chain ID has been specified
@@ -1234,10 +1258,10 @@ sub get_sequence {
 # Also supplies default values for other args. Defaults:
 # return_type => 1, include_missing => 1, std => 1
 sub _check_get_sequence_args {
+    my $self = shift;
     my %arg = @_;
 
-    croak "get_sequence must be passed a chain_id arg. e.g. chain_id => 'A'"
-        if ! exists $arg{chain_id};
+    $self->_process_get_sequence_chain_id_arg(\%arg);
     
     $arg{return_type} = 1 if ! exists $arg{return_type};
     $arg{include_missing} = 1 if ! exists $arg{include_missing};
@@ -1247,7 +1271,30 @@ sub _check_get_sequence_args {
         . " return_type must be 1 or 3."
             if $arg{return_type} != 1 && $arg{return_type} != 3;
     
-    return %arg;
+    return \%arg;
+}
+
+sub _process_get_sequence_chain_id_arg {
+    my $self    = shift;
+    my $argHref = shift;
+
+    # chain_id arg must either be an aref of chain_ids or a single chain_id
+    # string which will be packaged into an aref. An exception will be thrown
+    # if it anything else.
+        
+    if (! exists $argHref->{chain_id}) {
+        # Set arg to aref of all chain ids present in pdb
+        $argHref->{chain_id} = [keys %{$self->atom_index}];
+    }
+    elsif (ref $argHref->{chain_id} eq "") {
+        # Arg is a string (hopefully corresponding to a chain ID!)
+        # Package into an aref
+        $argHref->{chain_id} = [$argHref->{chain_id}];
+    }
+    elsif (ref $argHref->{chain_id} ne 'ARRAY') {
+        # Throw exception because arg is not valid form
+        croak "Chain id arg " . $argHref->{chain_id} . "is not valid";
+    }
 }
 
 =item C<getFASTAStr(%args)>
