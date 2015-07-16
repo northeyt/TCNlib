@@ -3224,6 +3224,12 @@ sub parseSummaryLine {
     return ($centralResid, @resids);
 }
 
+sub stringify {
+    my $self = shift;
+    return $self->pdb_code . ":" . $self->central_atom->chainID()
+        . "." . $self->central_atom->resSeq();
+}
+
 __PACKAGE__->meta->make_immutable;
 
 ################################################################################
