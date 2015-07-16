@@ -3109,8 +3109,12 @@ sub BUILD {
         
         # Replace atoms with corresponding atoms from parent pdb
         # (including central atom)
-        foreach my $atom (@{$self->atom_array()}, $self->central_atom()) {
-            push(@atom_array, $atomSerialHref->{$atom->serial()});
+        foreach my $atom (@{$self->atom_array()}) {
+            my $parentAtom = $atomSerialHref->{$atom->serial()};
+            if ($atom->serial eq $self->central_atom->serial) {
+                $self->central_atom($parentAtom);
+            }
+            push(@atom_array, $parentAtom);
         }
         $self->atom_array(\@atom_array);
     }
