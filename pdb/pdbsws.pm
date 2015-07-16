@@ -89,6 +89,20 @@ sub get_ac {
     return @ac;
 }
 
+sub seqFromAC {
+    my $self = shift;
+    my $ac   = shift;
+    
+    my $sql = "SELECT sequence FROM sprot WHERE ac = '$ac';";
+    my $sequence = $self->dbh->selectrow_array($sql);
+    if ($sequence){
+        return $sequence;
+    }
+    else {
+        croak "seqFromAC: No sequence returned for ac $ac";
+    }
+}
+
 1;
 __END__
 
