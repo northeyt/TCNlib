@@ -8,11 +8,18 @@ use Carp;
 use TCNPerlVars;
 use types;
 use write2tmp;
+use pdb::pdbFunctions;
 
+# Retaining this for compatibility, but new scripts should use the input
+# attribute.
 has 'pdb_file' => (
     is => 'rw',
     isa => 'FileReadable',
-    required => 1,
+    predicate => 'has_pdb_file'
+);
+
+has 'input' => (
+    is => 'rw',
 );
 
 has 'pdb2xmas_file' => (
@@ -51,7 +58,10 @@ has 'last_output' => (
 sub output {
     my $self = shift;
     
-    my $abs_pdb_path = File::Spec->rel2abs( $self->pdb_file() );
+    my $abs_pdb_path
+        = $self->has_pdb_file ? File::Spec->rel2abs($self->pdb_file)
+            : File::Spec->rel2abs(pdb::pdbFunctions::getPDBFile($self->input));
+    
     local $CWD = $self->process_bin();
 
     my $pdb2xmas = $self->pdb2xmas_file();
