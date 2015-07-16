@@ -441,11 +441,11 @@ with 'pdb::antigen';
 sub _build_pdb_code {
     my $self = shift;
 
-    if ($self->has_parent_pdb()) {
+    if ($self->can("has_parent_pdb") && $self->has_parent_pdb) {
         return $self->parent_pdb->pdb_code();
     }
     else {
-        croak "No pdb code has been set!";
+        $self->_buildPDBCodeFromData();
     }
 }
 
