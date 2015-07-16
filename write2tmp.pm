@@ -26,6 +26,12 @@ class_has 'Cache_Limit' => (
     default => 0,
 );
 
+class_has 'retainAll' => (
+    is => 'rw',
+    isa => 'Bool',
+    default => 0,
+);
+
 no MooseX::ClassAttribute;
 
 # Subtypes
