@@ -6,17 +6,16 @@ use types;
 use TCNPerlVars;
 
 use Carp;
-
-# Subtypes
-
-# Attributes
+use TryCatch;
+use local::error;
+use pdb::file_cache;
 
 has 'pdb_code' => (
     is => 'rw',
     isa => 'ValidPDB',
 );
 
-for my $name ( 'pdb', 'xmas' ) {
+foreach my $name ('pdb', 'xmas') { 
     my $att_name = $name . '_file';
     my $builder = "_build_$name" . "_fname";
     
@@ -25,25 +24,45 @@ for my $name ( 'pdb', 'xmas' ) {
                        builder => $builder,
                        lazy => 1,
                    );
-    
 }
+
+# Attributes for finding pdb file in local depo
+has 'pdbprepname' => (is => 'rw', isa => 'Str',
+                      default => $TCNPerlVars::pdbprepname);
+has 'pdbext'      => (is => 'rw', isa => 'Str',
+                      default => $TCNPerlVars::pdbext);
+has 'pdbdir'      => (is => 'rw', isa => 'Str',
+                      default => $TCNPerlVars::pdbdir);
+
+# Attributes for finding local pdb files
+has 'xmasprep' => (is => 'rw', isa => 'Str', default => $TCNPerlVars::xmasprep);
+has 'xmasext'  => (is => 'rw', isa => 'Str', default => $TCNPerlVars::xmasext);
+has 'xmasdir'  => (is => 'rw', isa => 'Str', default => $TCNPerlVars::xmasdir);
+
+has 'local_cache' => (
+    is      => 'rw',
+    isa     => 'pdb::file_cache',
+    lazy    => 1,
+    default => sub {pdb::file_cache->new()},
+);
 
 # Methods
 
 sub _build_pdb_fname {
     my $self = shift;
 
-    my $pdbprep = $TCNPerlVars::pdbprep;
-    my $pdbext  = $TCNPerlVars::pdbext;
-    my $pdbdir  = $TCNPerlVars::pdbdir;
+    my $fname;
     
-    my $pdb_code = $self->pdb_code();
-    my $fname = $pdbprep . lc $pdb_code . $pdbext ;
-    croak "No file for $pdb_code was found in $pdbdir. File name: $fname"
-        if ! -e $fname;
-    
+    try {
+        $fname = $self->_fileFromLocalDepo();
+    }
+    catch (local::error $e where {$_->type eq 'FileNotFoundInLocalDepo'}) {
+        $fname = $self->_fileFromLocalCache();
+    };
+
     return $fname;
 }
+
 sub _build_xmas_fname {
     my $self = shift;
         
@@ -60,7 +79,27 @@ sub _build_xmas_fname {
     return $fname; 
 }
 
+sub _fileFromLocalDepo {
+    my $self  = shift;
+    my $fname = $self->pdbdir() . '/' . $self->pdbprepname()
+        . lc $self->pdb_code() . $self->pdbext();
 
+    if (! -e $fname) {
+        my $message = "No file for " . $self->pdb_code() . " was found in "
+            . $self->pdbdir() . ". File name: $fname";
+        my $err = local::error->new(type => 'FileNotFoundInLocalDepo',
+                                    data => $self, message => $message);
+        croak $err;
+    }
+    return $fname;
+}
+
+sub _fileFromLocalCache {
+    my $self = shift;
+
+    $self->local_cache->pdb_code($self->pdb_code());
+    return $self->local_cache->get_file();
+}
 
 __PACKAGE__->meta->make_immutable;
 
