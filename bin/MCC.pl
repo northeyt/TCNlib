@@ -1,4 +1,4 @@
-#!/acrm/usr/local/bin/perl
+#!/usr/bin/env perl
 
 @ARGV == 4 or die "Supply four numbers: TP, TN, FP, FN\n";
 my ($TP, $TN, $FP, $FN) = @ARGV;

@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl -w
 # mergeArffs.pl --- merge multiple arff files into a single arff file
 # Author: Tom Northey <zcbtfo4@acrm18>
 # Created: 27 Mar 2015

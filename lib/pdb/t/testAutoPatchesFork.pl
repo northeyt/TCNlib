@@ -1,4 +1,4 @@
-#!/acrm/usr/local/bin/perl
+#!/usr/bin/env perl
 # This script tests the speed of automatic_patches under a number of different
 # conditions, primarily to assess the efficacy of forking during repeated
 # make_patch calls

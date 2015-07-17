@@ -1,4 +1,4 @@
-#!/acrm/usr/local/bin/perl -s
+#!/usr/bin/env perl -s
 
 use strict;
 use warnings;
