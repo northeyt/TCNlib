@@ -38,10 +38,12 @@ test_is_nt_chain();
 test_get_sequence();
 test_resid2ModResAref();
 test_calcAverageHydrophobicity();
-test_build_xmas_data();
-test_build_parseXMAS();
-test_labelppHbondedAtoms();
-test_labelSSbondedAtoms();
+
+warn "WARNING: SKIPPING TESTS RELATED TO XMAS PARSING\n";
+#test_build_xmas_data();
+#test_build_parseXMAS();
+#test_labelppHbondedAtoms();
+#test_labelSSbondedAtoms();
 
 # Atom object tests
 my $ATOM_line
@@ -153,7 +155,7 @@ ok($pdb->map_resSeq2chainSeq(chain_id => 'A'), "mapresSeq2chainSeq ok");
 # test out chain solvent determination
 
 my $multi_term_pdb_code = '2we8';
-my $multi_term_file = '/acrm/data/pdb/pdb2we8.ent';
+my $multi_term_file = '2we8.pdb';
 
 my $mterm_pdb = pdb->new( pdb_code => $multi_term_pdb_code,
                           pdb_file => $multi_term_file, );
@@ -206,6 +208,8 @@ is($chain->chain_length, 206, "chain length determined ok");
 
 # reading ASAs and radii from xmas2pdb object
 
+=xmas
+
 my $xmas2pdb_file = 'xmas2pdb';
 my $xmas_file     = '1djs.xmas';
 my $radii_file    = 'radii.dat';
@@ -219,20 +223,26 @@ my %arg = (xmas2pdb_file => $xmas2pdb_file,
 
 my $x2p = xmas2pdb->new(%arg);
 
+=cut 
 my $test_atom = $pdb->atom_array->[1];
 
-$pdb->read_ASA($x2p);
+$pdb->read_ASA();
 
 ok($test_atom->radius(), "Radius read from xmas2pdb object" );
 ok($test_atom->ASAc(), "Multimer ASA read from xmas2pdb object" );
+
+=xmas
 
 $arg{form} = 'monomer';
 
 my $mono_x2p = xmas2pdb->new(%arg);
 
-$pdb->read_ASA($mono_x2p);
+
+$pdb->read_ASA();
 
 ok($test_atom->ASAm(), "Monomer ASA read from xmas2pdb object" );
+
+=cut
 
 # test highestASA method
 
@@ -251,7 +261,7 @@ my ($errors, $patch_centres) = $pdb->patch_centres( %pc_arg );
 
 ok( @{ $errors }, "Errors returned if ASAm has not been set for chain" );
 
-$chain->read_ASA($mono_x2p);
+$chain->read_ASA();
 
 ok( $chain->patch_centres( %pc_arg),
     "patch_centres modified for chain object" );
