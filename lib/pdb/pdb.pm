@@ -49,7 +49,7 @@ use pdb::pdb2xmas;
 use pdb::getresol;
 use pdb::rotate2pc;
 use pdb::get_files;
-use pdb::asurf64;
+use pdb::solv;
 use pdb::princip;
 use pdb::parseXMAS;
 
@@ -1539,9 +1539,9 @@ sub read_ASA {
 
     my @errors = ();
 
-    # asurf64 must also be run in order to get relative ASAs
-    my $asurf = pdb::asurf64->new(input => $self);
-    my $atomSerial2ASARadHref = $asurf->getOutput();
+    # solv must also be run in order to get relative ASAs
+    my $solv = pdb::solv->new(input => $self);
+    my $atomSerial2ASARadHref = $solv->getOutput();
     
     # Use xmas2pdb object if it has been passed, otherwise create one
     if (@_) {
@@ -1555,8 +1555,8 @@ sub read_ASA {
     else {
 
         my $ASAType = ref $self eq 'pdb' ? 'ASAc' : 'ASAb' ;
-         
-        # Use asurf64 per atom output
+        
+        # Use solv per atom output
         foreach my $atom (@{$self->atom_array()}) {
             next if $atom->is_solvent()
                 || ! $atomSerial2ASARadHref->{$atom->serial()};
@@ -1568,7 +1568,7 @@ sub read_ASA {
         }
     }
     
-    $self->resid2RelASAHref($asurf->resid2RelASAHref());    
+    $self->resid2RelASAHref($solv->resid2RelASAHref());    
     $self->has_read_ASA(1);
     
     return \@errors;
@@ -1680,8 +1680,8 @@ sub patch_centres {
     # chain, otherwise use ASAc
     my $type
         = exists $arg{type} ? $arg{type}
-        : ref $self eq 'chain' ? 'ASAm'
-        : 'ASAc';
+        : ref $self eq 'pdb' ? 'ASAc'
+        : 'ASAb';
     
     my @central_atoms = ();
     
@@ -2905,9 +2905,9 @@ sub getInterfaceResidues {
             = pdb::pdbFunctions::generateAtomAref($self, @{$otherChainsAref});
     
         # Calculate ASAb values of self + otherChains
-        my $asurf = pdb::asurf64->new(input => $atomAref);
-        my $atomSerialHref = $asurf->getOutput();
-        $complexResid2RelASAHref = $asurf->resid2RelASAHref();
+        my $solv = pdb::solv->new(input => $atomAref);
+        my $atomSerialHref = $solv->getOutput();
+        $complexResid2RelASAHref = $solv->resid2RelASAHref();
     }
     elsif (ref $_[0] eq 'HASH') {
         $complexResid2RelASAHref = shift;

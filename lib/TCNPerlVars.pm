@@ -1,7 +1,7 @@
 package TCNPerlVars;
 
 # Where this file lives
-$libdir = "/home/bsm3/zcbtfo4/scripts/lib";
+$libdir = "~/scripts/lib/tcnutils";
 
 # Data
 $datadir = "/acrm/data/people/zcbtfo4";
@@ -47,10 +47,11 @@ $pdb_db        = "/home/bsm3/zcbtfo4/data/pdb/db/pdbaa";
 $blastall      = "/acrm/usr/local/bin/blastall";
 $princip64     = "/acrm/usr/local/apps/surfnet/bin64/princip";
 $scorecons     = "/home/bsm/anya/tools/scorecons/bin/scorecons";
+$pdbsolv       = "/home/bsm/martin/bin/pdbsolv";
 
 # Data files for pdb and related classes
 $hydroPhoValueFile = "/home/bsm3/zcbtfo4/data/hydrophobic.dat";
-$radii_file = "/acrm/data/people/zcbtfo4/radii.dat";
+$radii_file = "/home/bsm/martin/bioplib/data/radii.dat";
 $asurf_radii_file = "/acrm/data/people/zcbtfo4/vdw.radii";
 
 # CDhit and related
@@ -64,7 +65,7 @@ $muscle   = '/acrm/usr/local/bin/muscle';
 
 # asurf64 and related
 $asurf64 = "/home/bsm/martin/bin/asurf64";
-$standardData = "/home/bsm3/zcbtfo4/scripts/lib/pdb/standard.data";
+$standardData = "$libdir/pdb/standard.data";
 
 # SACS Antibody-containing PDB XML File 
 $SACSxml = '/acrm/data/abs/xml/all.xml';
