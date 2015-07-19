@@ -21,4 +21,4 @@ my ($subStr) = $string =~ /(?:=== Stratified cross-validation)* .* === Confusion
 
 my ($tp, $fn, $fp, $tn) = $subStr =~ /[^=](?= (\d+))/g;
 
-print `~/scripts/lib/MCC.pl $tp $tn $fp $fn`;
+print `MCC.pl $tp $tn $fp $fn`;
