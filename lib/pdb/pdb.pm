@@ -53,6 +53,7 @@ use pdb::solv;
 use pdb::princip;
 use pdb::parseXMAS;
 use pdb::ss;
+use pdb::secstrCalculator;
 
 =head1 Methods
 
@@ -1126,9 +1127,10 @@ sub _build_parseXMAS {
 sub _build_resID2secStructHref {
     my $self = shift;
 
-    my %resID2secStruct = %{$self->parseXMAS->resID2secStructHref};
-    my %parsedResID2secStruct = ();
+    my %resID2secStruct
+        = pdb::secstrCalculator->new(input => $self)->getResID2secStructHref();
     
+    my %parsedResID2secStruct = ();
     while (my ($resID, $secStruct) = each %resID2secStruct) {
         if (exists $self->resid_index->{$resID}){
             $parsedResID2secStruct{$resID} = $secStruct;

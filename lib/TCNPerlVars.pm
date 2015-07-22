@@ -49,6 +49,7 @@ $princip64     = "/acrm/usr/local/apps/surfnet/bin64/princip";
 $scorecons     = "/home/bsm/anya/tools/scorecons/bin/scorecons";
 $pdbsolv       = "/home/bsm/martin/bin/pdbsolv";
 $pdbsslist     = "/home/bsm3/zcbtfo4/bin/pdblistss";
+$pdbsecstr     = "/home/bsm/martin/bin/pdbsecstr";
 
 # Data files for pdb and related classes
 $hydroPhoValueFile = "/home/bsm3/zcbtfo4/data/hydrophobic.dat";
