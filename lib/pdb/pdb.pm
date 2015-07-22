@@ -52,6 +52,7 @@ use pdb::get_files;
 use pdb::solv;
 use pdb::princip;
 use pdb::parseXMAS;
+use pdb::ss;
 
 =head1 Methods
 
@@ -2320,18 +2321,19 @@ sub labelppHbondedAtoms {
 sub labelSSbondedAtoms {
     my $self = shift;
 
-    my %SSbonds = %{$self->parseXMAS->SSbondHref};
+    my @ssBonds = pdb::ssFinder->new(input => $self)->getssArray($self);
 
-    while (my ($aSerial, $bSerial) = each %SSbonds){
-        # Only assign if both atoms are present
+    foreach my $ssBond (@ssBonds) {
+        my ($aSerial, $bSerial) = @{$ssBond->atomSerialPairAref};
+        
         if (exists $self->atom_serial_hash->{$aSerial}
                 && exists $self->atom_serial_hash->{$bSerial}) {
             my $aAtom = $self->atom_serial_hash->{$aSerial};
             my $bAtom = $self->atom_serial_hash->{$bSerial};
 
             $aAtom->SSbond($bAtom);
-            $bAtom->HbDonor($aAtom);
-        }        
+            $bAtom->SSbond($aAtom);
+        }
     }
 }
 

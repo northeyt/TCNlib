@@ -39,11 +39,11 @@ test_get_sequence();
 test_resid2ModResAref();
 test_calcAverageHydrophobicity();
 
-warn "WARNING: SKIPPING TESTS RELATED TO XMAS PARSING\n";
+warn "WARNING: SKIPPING SOME TESTS RELATED TO XMAS PARSING\n";
 #test_build_xmas_data();
 #test_build_parseXMAS();
 #test_labelppHbondedAtoms();
-#test_labelSSbondedAtoms();
+test_labelSSbondedAtoms();
 
 # Atom object tests
 my $ATOM_line
@@ -230,6 +230,8 @@ $pdb->read_ASA();
 
 ok($test_atom->radius(), "Radius read from xmas2pdb object" );
 ok($test_atom->ASAc(), "Multimer ASA read from xmas2pdb object" );
+
+warn "Skipping test related to ASAm reading\n";
 
 =xmas
 
