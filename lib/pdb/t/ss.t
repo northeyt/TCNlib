@@ -40,7 +40,7 @@ subtest "running getssArray" => sub {
     my $testFile = "1qok.pdb";
     my @ssArray   = pdb::ssFinder->new(input => $testFile)->getssArray();
 
-    cmp_deeply(\@ssArray, array_each(all(isa("pdb::ss"))), "getssArray returns an array of ss objects")
+    cmp_deeply(\@ssArray, array_each(isa("pdb::ss")), "getssArray returns an array of ss objects")
         or explain \@ssArray;
 
     is(scalar @ssArray, 2, "and array is expected length");
