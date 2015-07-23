@@ -26,6 +26,8 @@ BEGIN { use_ok( 'pdb::hbondFinder' ); }
 new_ok('pdb::hbondFinder');
 new_ok('pdb::Hb', [donorSerial => 1, acceptorSerial => 2]);
 
+=asd
+
 subtest "getHbonds" => sub {
     my $testFile = "1qok.pdb";
     my @gotArray
@@ -43,3 +45,19 @@ subtest "getHbonds" => sub {
     is($testHb->acceptorSerial(), 176,
        "donor and acceptor correctly parsed in one test case");
 };
+
+=cut
+
+subtest "only pp should be returned when bondType => pp" => sub {
+    my $testFile = "1djs.pdb";
+     my @gotArray
+        = pdb::hbondFinder->new(input => $testFile)->getHbonds();
+
+    my $plHbDonorSerial = 123;
+    ok((! grep {$_->donorSerial == $plHbDonorSerial} @gotArray),
+       "plHbond is not returned");
+
+    my $nonHbondDonorSerial = 124;
+    ok((! grep {$_->donorSerial == $nonHbondDonorSerial} @gotArray),
+       "nonHbond is not returned");
+}
