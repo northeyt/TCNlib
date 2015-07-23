@@ -42,27 +42,13 @@ test_calcAverageHydrophobicity();
 warn "WARNING: SKIPPING SOME TESTS RELATED TO XMAS PARSING\n";
 #test_build_xmas_data();
 #test_build_parseXMAS();
-#test_labelppHbondedAtoms();
+test_labelppHbondedAtoms();
 test_labelSSbondedAtoms();
 
 subtest "resID2secStructHref" => sub {
     my $testPDB = pdb->new(pdb_file => "1qok.pdb");
     ok($testPDB->resID2secStructHref(), "resID2secStrucHref ok");
 };
-
-subtest "labelppHbondedAtoms" => sub {
-    my $testPDB = pdb->new(pdb_file => "1qok.pdb");
-    $testPDB->labelppHbondedAtoms();
-
-    my $acceptorAtom = $testPDB->atom_serial_hash->{176};
-    my $donorAtom    = $testPDB->atom_serial_hash->{17};
-    
-    is($donorAtom->HbAcceptor(), $acceptorAtom,
-       "Hbond donor assigned correct Hbond acceptor");
-    is($acceptorAtom->HbDonor(), $donorAtom,
-       "Hbond acceptor assigned correct Hbond donor");
-};
-
 # Atom object tests
 my $ATOM_line
     = "ATOM     13  CG  LEU A 148      13.227  45.000  23.178  1.00 47.53           C";
@@ -421,14 +407,14 @@ is($testPatchFomSummary->summary(), $testSummaryLine,
 ### Subroutines ################################################################
 
 sub test_labelppHbondedAtoms {
-    my $testPDB = pdb->new(pdb_file => "1djs.pdb", xmas_file => "1djs.xmas");
+    my $testPDB = pdb->new(pdb_file => "1qok.reduced.pdb");
 
     $testPDB->labelppHbondedAtoms();
 
-    my $expDonors = {map {$_ => 1} qw(735 41 57 83 114 123 2497 149 148)};
-    my $expAcceptors = {map {$_ => 1} qw(39 289 281 269 97 101 113 134 1724)};
+    my $expDonors    = {map {$_ => 1} qw(17  34  52  112)};
+    my $expAcceptors = {map {$_ => 1} qw(176 164 152 94)};
 
-    my $gotDonors = {};
+    my $gotDonors    = {};
     my $gotAcceptors = {};
         
     foreach my $atom (@{$testPDB->atom_array}) {
@@ -441,7 +427,7 @@ sub test_labelppHbondedAtoms {
             $gotAcceptors->{$acceptor->serial} = 1;
         }
     }
-    cmp_deeply($gotDonors, $expDonors, "ppHb donors labelled ok");
+    cmp_deeply($gotDonors,    $expDonors,    "ppHb donors labelled ok");
     cmp_deeply($gotAcceptors, $expAcceptors, "ppHb acceptors labelled ok");
 }
 
