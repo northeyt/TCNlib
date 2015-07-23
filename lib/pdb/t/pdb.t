@@ -47,7 +47,20 @@ test_labelSSbondedAtoms();
 
 subtest "resID2secStructHref" => sub {
     my $testPDB = pdb->new(pdb_file => "1qok.pdb");
-    ok($testPDB->resID2secStructHref(), "resID2secStrucHref() ok");
+    ok($testPDB->resID2secStructHref(), "resID2secStrucHref ok");
+};
+
+subtest "labelppHbondedAtoms" => sub {
+    my $testPDB = pdb->new(pdb_file => "1qok.pdb");
+    $testPDB->labelppHbondedAtoms();
+
+    my $acceptorAtom = $testPDB->atom_serial_hash->{176};
+    my $donorAtom    = $testPDB->atom_serial_hash->{17};
+    
+    is($donorAtom->HbAcceptor(), $acceptorAtom,
+       "Hbond donor assigned correct Hbond acceptor");
+    is($acceptorAtom->HbDonor(), $donorAtom,
+       "Hbond acceptor assigned correct Hbond donor");
 };
 
 # Atom object tests

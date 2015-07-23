@@ -54,6 +54,7 @@ use pdb::princip;
 use pdb::parseXMAS;
 use pdb::ss;
 use pdb::secstrCalculator;
+use pdb::hbondFinder;
 
 =head1 Methods
 
@@ -2305,17 +2306,19 @@ sub planarity {
 sub labelppHbondedAtoms {
     my $self = shift;
 
-    my %ppHbDonor2Acceptor = %{$self->parseXMAS->ppHbDonor2AcceptorHref};
+    my @ppHbs
+        = pdb::hbondFinder->new(input => $self, type => 'pp')->getHbonds();
 
-    while (my ($dSerial, $aSerial) = each %ppHbDonor2Acceptor) {
-        # Only assign hydrogen bonds if both atoms are present
+    foreach my $hb (@ppHbs) {
+        my $dSerial = $hb->donorSerial();
+        my $aSerial = $hb->acceptorSerial();
         if (exists $self->atom_serial_hash->{$dSerial}
                 && exists $self->atom_serial_hash->{$aSerial}) {
+            
             my $dAtom = $self->atom_serial_hash->{$dSerial};
             my $aAtom = $self->atom_serial_hash->{$aSerial};
-
             $dAtom->HbAcceptor($aAtom);
-            $aAtom->HbDonor($dAtom);
+            $aAtom->HbDonor($dAtom);            
         }
     }
 }
