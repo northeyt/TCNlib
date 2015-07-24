@@ -17,38 +17,26 @@ use Test::Exception;
 
 use pdb::pdb;
 
-BEGIN { use_ok( pdb::getHomologueStructures ); }
+BEGIN { use_ok( 'pdb::getHomologueStructures' ); }
 
 #########################
 
 # Insert your test code below, the Test::More module is used here so read
 # its man page ( perldoc Test::More ) for help writing this test script.
 
-test_getHomologueStructures();
-
-sub test_getHomologueStructures { 
+subtest 'test getHomologueStructures' => sub { 
     
     my $chain = chain->new(pdb_code => "1za7",
                            pdb_file => "1za7.pdb",
                            chain_id => "A");
 
-    my $testObj
-        = pdb::getHomologueStructures->new(query => $chain,
-                                           db => "testDB/pdbaa");
-
-    can_ok($testObj, "runBlastall");
+    my $testObj = pdb::getHomologueStructures->new(db => "testDB/pdbaa");
+    $testObj->setQuery($chain);
+    
+    can_ok($testObj, "runBlast");
            
     my @hits = $testObj->getHits();
-  
-    is(scalar @hits, 3, "getHits - correct number of hits returned");
-    
-    my $tests = all(
-        isa("Bio::Search::Hit::BlastHit"),
-    );
-    
-    cmp_deeply(\@hits, array_each($tests),
-               "getHits: hits are Bio::Search::Hit::BlastHit objects");
-    
+        
     my @expHitNames = qw(pdb1CWPA refNP_041199.1 pdb1YC6A);
     my @gotHitNames = map {join("",$testObj->_parseHitName($_))} @hits;
 
@@ -65,7 +53,7 @@ sub test_getHomologueStructures {
 
     cmp_deeply(\%gotAlignMap, {expAlignMap()}, "getAlignMap ok");
 
-}
+};
 
 sub expAlignMap {
     my @query = (1  .. 140);

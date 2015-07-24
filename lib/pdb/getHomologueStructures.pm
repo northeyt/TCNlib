@@ -1,6 +1,3 @@
-################################ CLASS #########################################
-###################### pdb::getHomologueStructures #############################
-################################################################################
 package pdb::getHomologueStructures;
 
 =head1 NAME
@@ -26,9 +23,6 @@ an alignment mapping from query to hit, or hit to query.
 
 =cut
 
-use strict; 
-use warnings;
-
 use Moose;
 use Carp;
 
@@ -39,8 +33,7 @@ use pdb::pdb;
 use Bio::SeqIO;
 use Bio::Tools::Run::StandAloneBlast;
 use File::Basename;
-
-extends 'pdb::runBlast';
+use pdb::runBlast;
 
 ### Attributes #################################################################
 ################################################################################
@@ -59,13 +52,48 @@ e.g. /path/to/my/db (no file extension is neccessary)
 
 =cut
 
+has 'db' => (
+    is       => 'rw',
+    required => 1,
+    lazy     => 1,
+    default  => '_build_db',
+);
+
+has 'remote' => (
+    is      => 'rw',
+    isa     => 'Bool',
+    default => 0,
+);
+
+has 'blaster' => (
+    is      => 'rw',
+    does    => 'pdb::blaster',
+    handles => 'pdb::blaster',
+    lazy    => 1,
+    builder => '_buildBlaster'
+);
+
+with 'pdb::blaster';
+
+has 'blastFactory' => (
+    is             => 'rw',
+    isa            => 'pdb::BlastFactory',
+    lazy           => 1,
+    default        => sub { pdb::BlastFactory->new() },
+);
+
 ### Attribute Builders #########################################################
 ################################################################################
 
-# Note that this build method overwrites the pdb::runBastall method with a
-# a database of sequences in the pdb
 sub _build_db {
-    return $TCNPerlVars::pdb_db
+    my $self = shift;
+    return $self->remote ? "pdb" : $TCNPerlVars::pdb_db;
+}
+
+sub _buildBlaster {
+    my $self = shift;
+    return $self->blastFactory->getBlaster(db     => $self->db,
+                                           remote => $self->remote);
 }
 
 ### Methods ####################################################################
@@ -137,9 +165,9 @@ sub getAlignMap {
 
     my %arg = @_;
     
-    my $queryID  = $self->query->pdbID();
-    my $queryLen = scalar $self->query->get_sequence(include_missing => 1,
-                                                     return_type => 1);
+    my $queryID  = $self->getQuery()->pdbID();
+    my $queryLen = scalar $self->getQuery()->get_sequence(include_missing => 1,
+                                                          return_type => 1);
     my %q2h = ();
     
     while (my $hsp = $hit->next_hsp()) {
