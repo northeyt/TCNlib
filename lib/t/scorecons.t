@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/usr/bin/env perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl scorecons.t'
@@ -23,11 +23,11 @@ sub test_startup {
     my $test     = shift;
     my $testFile = "test.aln.fasta";
     my $testObj  = new_ok("scorecons", ["inputAlignedSeqsStringFile", $testFile]);
+
+    my @gotScores = $testObj->calcConservationScores();
+    is(scalar @gotScores, 209, "all scores parsed");
+    is($gotScores[0], 0.149, "score is correct");
+    
+    $testObj->targetSeqIndex(2);
+    $testObj->calcConservationScores();
 }
-
-my @gotScores = $testObj->calcConservationScores();
-is(scalar @gotScores, 209, "all scores parsed");
-is($gotScores[0], 0.149, "score is correct");
-
-$testObj->targetSeqIndex(2);
-$testObj->calcConservationScores();
