@@ -16,45 +16,105 @@ use warnings;
 
 use Test::More qw( no_plan );
 use Test::Deep;
+use Test::Exception;
 use Bio::SearchIO::blast;
 use IO::CaptureOutput qw(capture);
 use Test::MockObject::Extends;
 
-BEGIN { use_ok( 'pdb::runBlast' ); }
+BEGIN { use_ok( 'pdb::BLAST' ); }
 
 #########################
 
 # Insert your test code below, the Test::More module is used here so read
 # its man page ( perldoc Test::More ) for help writing this test script.
 
-subtest "runBlast local" => sub {
-    my $testObj = pdb::runBlastLocal->new(query => _getTestChain(),
-                                          db => "testDB/pdbaa");
+subtest "BLAST local" => sub {
+    my $testObj = pdb::BLAST::Local->new(query         => _getTestChain(),
+                                         db            => "testDB/pdbaa",
+                                         reportHandler => pdb::BLAST::Report::PDBseq->new());
     can_ok($testObj, "runBlast");
     my $gotBlastReport = $testObj->runBlast();
     cmp_deeply($gotBlastReport, isa("Bio::SearchIO::blast"),
                "runBlast returns a blast report");
 };
 
-
-subtest "runBlast remote" => sub {
-    my $testObj = pdb::runBlastRemote->new(query => _getTestChain(),
-                                           db => "swissprot");
+subtest "BLAST remote" => sub {
+    my $testObj = pdb::BLAST::Remote->new(query         => _getTestChain(),
+                                          db            => "swissprot",
+                                          reportHandler => pdb::BLAST::Report::SwissProt->new());
     can_ok($testObj, "runBlast");
     my $gotBlastReport = $testObj->runBlast();
     cmp_deeply($gotBlastReport, isa("Bio::SearchIO::blast"),
                "runBlast returns a blast report");
 };
 
-subtest "getHits" => sub {
-    my $testObj = pdb::runBlastLocal->new(query => _getTestChain(),
-                                          db => "testDB/pdbaa");    
-    my @hits = $testObj->getHits(report => _getMockBlastReport());
+subtest "BLAST Report" => sub {
+    my $testObj = pdb::BLAST::Report::PDBseq->new(query => _getTestChain(),
+                                                  report => _getMockBlastReport());
+    my @hits = $testObj->getHits();
     
     is(scalar @hits, 3, "getHits - correct number of hits returned");
     cmp_deeply(\@hits, array_each(isa("Bio::Search::Hit::BlastHit")),
                "getHits: hits are Bio::Search::Hit::BlastHit objects");
 };
+
+subtest "BLAST PDBseq" => sub {
+    my $chain = chain->new(pdb_code => "1za7",
+                           pdb_file => "1za7.pdb",
+                           chain_id => "A");
+    
+    my $testObj = pdb::BLAST::Factory->new(db     => "testDB/pdbaa",
+                                           dbType => 'pdb')->getBlaster();
+    $testObj->setQuery($chain);
+    
+    can_ok($testObj, "runBlast");
+    $testObj->runBlast();
+    
+    my @hits = $testObj->reportHandler->getHits();
+    
+    my @expHitNames
+        = qw(pdb1CWPA refNP_041199.1 pdb1YC6A);
+    my @gotHitNames
+        = map {join("",$testObj->reportHandler->_parseHitName($_))} @hits;
+
+    cmp_deeply(\@gotHitNames, \@expHitNames, "_parseHitName works ok");
+
+    my $hitChain = $testObj->reportHandler->getHitStructure($hits[0]);
+    is($hitChain->pdbID(), "1CWPA", "getHitStructure works ok");
+
+    my $badHit = $hits[1];
+    dies_ok { $testObj->reportHandler->getHitStructure($badHit) }
+        'getHitStructure dies when hit is not a pdb chain sequence';
+
+    my %gotAlignMap = $testObj->reportHandler->getAlignMap($hits[0], $hitChain);
+
+    cmp_deeply(\%gotAlignMap, {expAlignMap()}, "getAlignMap ok");
+
+};
+
+subtest "BLAST SwissProt" => sub {
+    
+    my $testChain = chain->new(pdb_code => "1afv", pdb_file => "1afv.pdb",
+                               chain_id => "A");
+    my $testObj
+        = pdb::BLAST::Factory->new(dbType => 'swsprot')->getBlaster();
+    $testObj->setQuery($testChain);
+
+    $testObj->runBlast();
+    my @hits = $testObj->reportHandler->getHits(reliable => 1);
+
+    my $testAC   = "P12345";
+    my $testName = "sp|$testAC|GAG_HV1N5";
+    $hits[0]->name($testName);
+
+    is($testObj->reportHandler->parseACFromHit($hits[0]), $testAC,
+       "parseACFromHitName works ok");
+
+    like($testObj->reportHandler->swissProtSeqFromHit($hits[0]), qr/[A-Z]+/,
+         "swissProtSeqFromHit ok");
+    
+};
+
 
 ### SUBROUTINES ################################################################
 ################################################################################
@@ -107,4 +167,15 @@ sub _getBlastHit {
         = capture sub { Bio::Search::Hit::BlastHit->new(name => "mockID",
                                                         frac_idendtical => 0.5) };
     return $hit;
+}
+
+sub expAlignMap {
+    my @query = (1  .. 140);
+    
+    my @hit   = (26 .. 165);
+    
+    my %hash = ();
+    @hash{@query} = @hit;
+   
+    return %hash;
 }

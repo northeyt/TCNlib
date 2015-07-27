@@ -1,6 +1,7 @@
 package pdb::blaster;
 use Moose::Role;
 use Carp;
+use pdb::BLAST::Report;
 
 =item <evalue>
 
@@ -28,6 +29,12 @@ has 'opts' => (
     lazy => 1,
 );
 
+has 'reportHandler' => (
+    is   => 'rw',
+    does => 'pdb::BLAST::ReportHandler',
+    required => 1,
+);
+
 =item C<db>
 
 Name of database for blast to be run against.
@@ -50,81 +57,18 @@ has 'db'     => (
 
 sub _getSeqFromQuery {
     my $self = shift;
+    confess "No query has been set!" if ! $self->getQuery();
     my $query = $self->getQuery();
     my $querySeq = join("", $query->get_sequence(include_missing => 1,
                                                  return_type => 1));
     return Bio::Seq->new(-id  => $query->pdbID, -seq => $querySeq);
 }
 
-=item C<report>
-
-Bio::SearchIO::blast object that is report of lastest run.
-
-=cut
-
-has 'report'  => (
-    isa       => 'Bio::SearchIO::blast',
-    is        => 'rw',
-    predicate => 'has_report',
-);
-
 requires 'runBlast';
 requires 'getQuery';
 requires 'setQuery';
 
-=item C<getHits>
-
-Returns an array of Bio::Search::Hit::BlastHit objects. If a
-Bio::SearchIO::blast object is passed using report arg then this will be used -
-otherwise, runBlastall is called to obtain a Bio::SearchIO::blast object.
-
-A sequence identity threshold can also be passed with seq_id
-
-# The @hits will be the same as @hits2 ...
-$getHStruct = getHomologueStructures->new(query => $inChain);
-@hits  = $getHStruct->getHits(seq_id => 0.95);
-@hits2 = $getHStruct->getHits(report => $self->report(), seq_id => 0.95);
-
-
-=cut
-
-sub getHits {
-    my $self   = shift;
-    my %arg = @_;
-        
-    my $blastReport;
-    if (! exists $arg{report}) {
-        $blastReport = $self->runBlast();
-    }
-    else {
-        $blastReport = $arg{report};
-    }
-
-    my $seq_id = $arg{seq_id} ? $arg{seq_id} : 0;
-    
-    my @hits = ();
-
-    # Used to check hit names against
-    my $queryID
-        = join("|", ("pdb", uc($self->getQuery()->pdb_code),
-                     $self->getQuery()->chain_id));
-    
-    while (my $result = $blastReport->next_result ) {
-        while (my $hit = $result->next_hit ) {
-            # Avoid inclusion of query in hits array
-            next if $hit->name eq $queryID;
-
-            # Skip if hit has seq_id less than threshold
-            if ($seq_id) {
-                next if $hit->frac_identical() < $seq_id;
-            }
-            push(@hits, $hit);
-        }
-    }
-    return @hits;
-}
-
-package pdb::runBlastLocal;
+package pdb::BLAST::Local;
 
 =head1 NAME
 
@@ -154,7 +98,6 @@ use pdb::pdb;
 use Bio::SeqIO;
 use Bio::Tools::Run::StandAloneBlast;
 use File::Basename;
-
 
 =item C<blastallExec>
 
@@ -208,8 +151,8 @@ sub runBlast {
     
     my $blastReport = $self->_getFactory()->blastall($self->_getSeqFromQuery());
 
-    $self->report($blastReport);
-    
+    $self->reportHandler->query($self->getQuery());
+    $self->reportHandler->report($blastReport);
     return $blastReport;
 }
 
@@ -220,7 +163,7 @@ sub _getFactory {
     my $factory = Bio::Tools::Run::StandAloneBlast->new(@params);
 }
 
-package pdb::runBlastRemote;
+package pdb::BLAST::Remote;
 use Moose;
 
 use Bio::SeqIO;
@@ -262,7 +205,8 @@ sub runBlast {
         }
         else {
             print " finished\n";
-            $self->report($statusCodeOrReport);
+            $self->reportHandler->query($self->getQuery());
+            $self->reportHandler->report($statusCodeOrReport);
             return $statusCodeOrReport;
         }
     }
@@ -280,9 +224,10 @@ sub _getFactory {
     return Bio::Tools::Run::RemoteBlast->new(@params);
 }
 
-package pdb::BlastFactory;
+package pdb::BLAST::Factory;
 use Moose;
 use Moose::Util::TypeConstraints;
+use TCNPerlVars;
 
 has 'remote' => (
     is       => 'rw',
@@ -291,15 +236,57 @@ has 'remote' => (
     default  => 0,
 );
 
+has 'dbType' => (
+    is  => 'rw',
+    isa => enum([qw(pdb swsprot)]),
+);
+
+has 'db' => (
+    is      => 'rw',
+    isa     => 'Str',
+    lazy    => 1,
+    builder => '_buildDB'
+);
+
+has 'reportHandler' => (
+    is  => 'rw',
+    isa => 'pdb::BLAST::ReportHandler',
+    lazy => 1,
+    required => 1,
+    builder => '_buildReportHandler',
+);
+
+sub _buildReportHandler {
+    my $self = shift;
+    return $self->dbType eq 'pdb' ? pdb::BLAST::Report::PDBseq->new()
+        : pdb::BLAST::Report::SwissProt->new();
+}
+
+sub _buildDB {
+    my $self = shift;
+    if ($self->remote) {
+        return $self->dbType eq 'pdb' ? 'pdb'
+            : 'swissprot';
+    }
+    else {
+        return $self->dbType eq 'pdb' ? $TCNPerlVars::pdb_db
+            : $TCNPerlVars::swissProtDB;
+    }
+}
+
 sub getBlaster {
     my $self = shift;
     my @args = @_;
 
     if ($self->remote()) {
-        return pdb::runBlastRemote->new(@args);
+        return pdb::BLAST::Remote->new(db => $self->db,
+                                       reportHandler => $self->reportHandler,
+                                       @args);
     }
     else {
-        return pdb::runBlastLocal->new(@args);
+        return pdb::BLAST::Local->new(db => $self->db,
+                                      reportHandler => $self->reportHandler,
+                                      @args);
     }
 }
 
