@@ -13,6 +13,7 @@
 
 use strict;
 use warnings;
+use sequence;
 use Test::More qw( no_plan );
 BEGIN { use_ok( 'MSA' ); }
 
@@ -21,13 +22,7 @@ BEGIN { use_ok( 'MSA' ); }
 # Insert your test code below, the Test::More module is used here so read
 # its man page ( perldoc Test::More ) for help writing this test script.
 
-ok(testClustalw(), "MSA::ClustalW ok");
-ok(testMuscle(), "MSA:Muscle ok");
-ok(testClustalO(), "MSA::ClustalO ok");
-ok(testCalcConservationScores(), "testCalcConservationScores ok");
-ok(test_getSequenceStringsFromInputFile(), "getSequenceStringsFromInputFile ok");
-
-sub testClustalw {
+subtest "testClustalw" => sub  {
     my $testInput = "test.fasta";
     my $testObj = new_ok('MSA::Clustalw', [inputSeqsFile => $testInput]);
     
@@ -44,46 +39,37 @@ sub testClustalw {
        "all seqs present in align");
     is($testObj->getAlignedSeqStringAref->[0], $expEle,
        "align works okay");
-}
+};
 
-sub testClustalO {
+subtest "testClustalO" => sub {
     my $testInput = "test.fasta";
     my $testObj = new_ok('MSA::ClustalO', [inputSeqsFile => $testInput]);
     
     is(scalar @{$testObj->getAlignedSeqStringAref}, 32,
        "all seqs present in align");
-}
+};
 
-sub testMuscle {
+subtest "run muscle locally" => sub {
     my $testInput = "test.fasta";
-    my $muscleTestObj = new_ok('MSA::Muscle', [inputSeqsFile => $testInput]);
+    my $muscleTestObj = new_ok('MSA::Muscle::Local', [inputSeqsFile => $testInput]);
+    _testMuscleAlignedSeqStringAref($muscleTestObj->getAlignedSeqStringAref());
+};
 
-    my $expEle
-        = "------------------------------------------------------------"
-        . "------------------------------------------------------------"
-        . "------------------------------------------------------------"
-        . "------------------ELRDKKQK----VH----------------------------"
-        . "------------------------------------------------------------"
-        . "------------------------------------------------------------"
-        . "------------------ALF---YKLDIV------------------------------"
-        . "-------------------------------------------------";
+subtest "run muscle remotely" => sub {
+    my $muscleTestObj = new_ok('MSA::Muscle::Remote', [seqs => [_getSeqs()]]);
+    _testMuscleAlignedSeqStringAref($muscleTestObj->getAlignedSeqStringAref());
+};
 
-    is(scalar @{$muscleTestObj->getAlignedSeqStringAref}, 32,
-     "all seqs present in align");
-    is($muscleTestObj->getAlignedSeqStringAref->[0], $expEle,
-       "align works okay");
-}
-
-sub testCalcConservationScores {
+subtest "testCalcConservationScores" => sub {
     my $testInput = "test.fasta";
     use scorecons;
     my $testObj = new_ok('MSA::Clustalw', [inputSeqsFile => $testInput]);
 
     $testObj->consScoreCalculator(scorecons->new());
-    ok($testObj->calculateConsScores(), "calculateConsScores ok");    
-}
+    ok($testObj->calculateConsScores(), "calculateConsScores ok");
+};
 
-sub test_getSequenceStringsFromInputFile {
+subtest "test_getSequenceStringsFromInputFile" => sub {
     my $testInput = "test.fasta";
     my $testObj = new_ok('MSA::Clustalw', [inputSeqsFile => $testInput]);
 
@@ -100,4 +86,27 @@ sub test_getSequenceStringsFromInputFile {
         . 'LGAVALKSYEEELAKDPRIAATMENAQKGEIMPNIPQMSAFWYAVRTAVINAASGRQTVDEALKDAQTN';
     
     is($seqStrings[31], $expLastSeq, "last seq is correct");
+};
+
+sub _testMuscleAlignedSeqStringAref {
+    my $seqStrAref = shift;
+
+    is(scalar @{$seqStrAref}, 32, "all seqs present in alignment");
+    
+    my $expSeq        = "ELRDKKQKVHALFYKLDIV";
+    my $gotAlignedSeq = $seqStrAref->[0]; 
+    $gotAlignedSeq    =~ s/-//g;
+    is($gotAlignedSeq, $expSeq, "first sequence is fully aligned");
+}
+
+sub _getSeqs {
+    my $inFile = "test.fasta";
+    open(my $IN, "<", $inFile) or die "Cannot open file $inFile, $!";
+    my $data;
+    {
+        local $/;
+        $data = <$IN>;
+    }
+    my @FASTASeqs = split(/\n\n/, $data);
+    return map {sequence->new($_)} @FASTASeqs;
 }

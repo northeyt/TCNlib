@@ -1,16 +1,123 @@
-package pdb::pdbsws;
+package pdb::pdbsws::querier;
+use Moose::Role;
+
+requires 'getACsFromPDBCodeAndChainID';
+requires 'getIDsFromPDBCodeAndChainID';
+requires 'mapResSeq2SwissProtNum';
+
+package pdb::pdbsws::Remote;
+use Moose;
+use Carp;
+use LWP::UserAgent;
+use UNIPROT;
+
+with 'pdb::pdbsws::querier';
+
+has '_ua' => (
+    is       => 'rw',
+    isa      => 'LWP::UserAgent',
+    required => 1,
+    lazy     => 1,
+    default  => sub {LWP::UserAgent->new()},
+);
+
+has '_URLBase' => (
+    is => 'rw',
+    isa => 'Str',
+    required => 1,
+    lazy => 1,
+    default => "http://www.bioinf.org.uk/cgi-bin/pdbsws/query.pl?plain=1&qtype=",
+);
+
+sub getACsFromPDBCodeAndChainID {
+    my $self = shift;
+    my ($pdbCode, $chainID) = @_;
+    my $queryString = "pdb&id=$pdbCode&chain=$chainID";
+    my $responseString = $self->_query($queryString);
+    return map {$_->{AC}}
+        $self->_getEntryHashesFromResponseString($responseString)
+}
+
+sub getIDsFromPDBCodeAndChainID {
+    my $self = shift;
+    my ($pdbCode, $chainID) = @_;
+    my $queryString = "pdb&id=$pdbCode&chain=$chainID";
+    my $responseString = $self->_query($queryString);
+    return map {$_->{ID}}
+        $self->_getEntryHashesFromResponseString($responseString)
+}
+
+sub mapResSeq2SwissProtNum {
+    my $self     = shift;
+    my $pdbCode  = shift;
+    my $chainID  = shift;
+    my $targetAC = shift;
+
+    my $queryString    = "pdb&id=$pdbCode&chain=$chainID&all=yes";
+    my $responseString = $self->_query($queryString);
+
+    my @residueMappings = _parseMapFromResponseString($responseString);
+    return map {$_->[0] => $_->[2]} grep {$_->[1] eq $targetAC} @residueMappings;
+}
+
+sub _parseMapFromResponseString {
+    my $string = shift;
+    _removeHeader(\$string);
+    return map { [_parseMapLine($_)] } split(/\n/, $string);
+}
+
+sub _parseMapLine {
+    my $line = shift;
+    my ($pdbCode, $chainID, $chainSeq, $resName, $resSeq, $ac, $r1lc, $spNum)
+        = split (/\s+/, $line);
+    return ($resSeq, $ac, $spNum);
+}
+
+sub _removeHeader {
+    my $stringRef = shift;
+    ${$stringRef} =~ s/-.*-\n//xms;
+}
+
+sub _query {
+    my $self         = shift;
+    my $queryString  = shift;
+    my $url          = $self->_URLBase. "$queryString";
+    my $response     = $self->_ua->get($url);
+    confess "user agent get request was not successful.\nURL: $url"
+        if ! $response->is_success();
+
+    return $response->decoded_content();
+}
+
+sub _getEntryHashesFromResponseString {
+    my $self   = shift;
+    my $string = shift;
+    my @entryStrings = $self->_getEntryStringsFromResponseString($string);
+    return map { {$self->_getHashFromEntryString($_)} } @entryStrings;
+};
+
+sub _getEntryStringsFromResponseString {
+    my $self = shift;
+    my $string = shift;
+    # Grep to avoid trailing newline at end of string
+    return grep {! /^\n$/} split(m{//}, $string);
+}
+
+sub _getHashFromEntryString {
+    my $self = shift;
+    my $string = shift;
+    return $string =~ /(\S+?): \s+ (\S+?)\n+/gxms;
+}
+
+package pdb::pdbsws::Local;
 
 use Moose;
 use types;
-use local::error;
 use DBI;
 use TCNPerlVars;
-
 use Carp;
 
-# Subtypes
-
-# Attributes
+with 'pdb::pdbsws::querier';
 
 has 'dbhost' => (
     isa => 'Str',
@@ -31,10 +138,6 @@ has 'dbh' => (
     builder => '_get_dbh', 
 );
 
-
-
-# Methods
-
 sub _get_dbh {
     my $self = shift;
 
@@ -47,23 +150,30 @@ sub _get_dbh {
     return $dbh;
 }
 
-sub get_ac {
-    my $self = shift;
-    croak "get_ac: no pdbid supplied" if ! @_;
+sub getIDsFromPDBCodeAndChainID {
+    my $self     = shift;
+    my $pdbCode  = shift;
+    my $chainID  = shift;
+    my @acs      = $self->getACsFromPDBCodeAndChainID($pdbCode, $chainID);
+    return map { $self->_getSwissProtIDFromAC($_) } @acs;
+}
 
-    my $pdbid = shift;
+sub getACsFromPDBCodeAndChainID {
+    my $self     = shift;
+    my $pdbCode  = shift;
+    my $chain    = shift;
     
-    croak "get_ac: pdbid '$pdbid' is not valid"
-        unless $pdbid =~ /^(\d\w{3})([A-Z])$/i;
+    my $sql = "SELECT ac
+               FROM pdbsws
+               WHERE pdb = '$pdbCode'
+               AND chain = '$chain'
+               AND valid = 't'
+               AND aligned = 't'
+               AND ac != 'SHORT'
+               AND ac != 'DNA'
+               AND ac != 'ERROR';";
 
-    my $pdb   = lc $1;
-    my $chain = uc $2;
-
-    my $sql
-        = "SELECT DISTINCT ac FROM alignment WHERE pdb='$pdb' AND chain='$chain'";
-    my $dbh = $self->dbh();
-    
-    my $sth = $dbh->prepare($sql);
+    my $sth = $self->dbh->prepare($sql);
 
     my @ac = ();
     
@@ -72,36 +182,72 @@ sub get_ac {
             push(@ac, $pdb_ac);
         }
     }
-
-    if (! @ac) {
-        my $message
-            = "get_ac: no accession code returned for pdbid '$pdbid'";
-
-        my $error = local::error->new( message => $message,
-                                       type => 'no_ac_for_pdbid',
-                                       data => { pdbid => $pdbid,
-                                                 sql => $sql,
-                                                 pdbsws_object => $self, },
-                                   );
-
-        return $error;
-    }
     return @ac;
 }
 
-sub seqFromAC {
+sub get_ac {
     my $self = shift;
-    my $ac   = shift;
+    croak "get_ac is no longer supported! please replace with getSwissProtACFromPDBCodeAndChainID"
+        . " and note that pdb code and chain id are now passed separately"
+            . " \ne.g. getSwissProtACFromPDBCodeAndChainID('4hou', 'A')";
+}
+
+sub _getSwissProtIDFromAC {
+    my $self     = shift;
+    my $sprot_ac = shift;
     
-    my $sql = "SELECT sequence FROM sprot WHERE ac = '$ac';";
-    my $sequence = $self->dbh->selectrow_array($sql);
-    if ($sequence){
-        return $sequence;
+    my $sql = "SELECT i.id FROM idac i, acac a WHERE a.altac = '$sprot_ac' AND i.ac = a.ac;";
+    my $sprot_id = $self->dbh->selectrow_array($sql);
+    return $sprot_id;
+}
+
+sub mapResSeq2SwissProtNum {
+    my $self     = shift; 
+    my $pdbCode  = shift;
+    my $chainID  = shift;
+    my $targetAC = shift;
+    
+    my $sql = "SELECT resid, pdbaa, ac, swsaa, swscount
+               FROM alignment
+               WHERE pdb = '$pdbCode'
+               AND chain = '$chainID';";
+    
+    my $pdbswssth = $self->dbh->prepare($sql);
+
+    my %resSeq2SprotResNum = ();
+    if($pdbswssth->execute){
+        while (my ($pdbResSeq, $pdbRes, $sprotAC, $sprotRes, $sprotResNum)
+                   = $pdbswssth->fetchrow_array){
+            if ($sprotAC eq $targetAC) {
+                $resSeq2SprotResNum{$pdbResSeq} = $sprotResNum;
+            }
+        }
+    }
+    return %resSeq2SprotResNum;
+}
+
+package pdb::pdbsws::Factory;
+use Moose;
+
+has 'remote' => (
+    is       => 'rw',
+    isa      => 'Bool',
+    required => 1,
+    default  => 0,
+);
+
+sub getpdbsws {
+    my $self = shift;
+    my @args = @_;
+
+    if ($self->remote) {
+        return pdb::pdbsws::Remote->new(@args);
     }
     else {
-        croak "seqFromAC: No sequence returned for ac $ac";
+        return pdb::pdbsws::Local->new(@args);
     }
 }
+
 
 1;
 __END__

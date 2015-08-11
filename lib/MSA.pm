@@ -66,6 +66,13 @@ has 'seqs' => (
     builder => '_buildSeqsFromOtherInput',
 );
 
+has 'inputSeqsStr' => (
+    isa => 'Str',
+    is  => 'rw',
+    lazy => 1,
+    builder => '_buildStrFromSeqs',
+);
+
 has 'consScoreCalculator' => (
     is => 'rw',
     does => 'roles::consScoreCalculating', # Can do consScoreCalculator
@@ -74,6 +81,11 @@ has 'consScoreCalculator' => (
 
 sub _buildSeqsFromOtherInput {
     croak "_buildSeqsFromOtherInput has not been implemented for this class!";
+}
+
+sub _buildStrFromSeqs {
+    my $self = shift;
+    return join("\n", map {$_->getFASTAStr()} @{$self->seqs});
 }
 
 sub getInputIDs {
@@ -124,13 +136,6 @@ sub align {
     return $self->runExec();
 }
 
-has 'inputSeqsStr' => (
-    isa => 'Str',
-    is  => 'rw',
-    lazy => 1,
-    builder => '_buildStrFromSeqs',
-);
-
 has 'inputSeqsFile' => (
     isa => 'FileReadable',
     is  => 'rw',
@@ -151,11 +156,6 @@ sub _writeSeqsStr2File {
 
     # Write string to temporary file
     return write2tmp->new(data => [$self->inputSeqsStr])->file_name();
-}
-
-sub _buildStrFromSeqs {
-    my $self = shift;
-    return join("\n", map {$_->getFASTAStr()} @{$self->seqs});
 }
 
 # If seqs has not been supplied directly (but rather in string or file form),
@@ -296,11 +296,35 @@ sub _buildExecPath {
     return $TCNPerlVars::clustalO;
 }
 
-package MSA::Muscle;
+package MSA::Muscle::OutputHandler;
+use Moose::Role;
+
+sub _parseOrderedAlignedSeqStringArefFromString {
+    my $self   = shift;
+    my $string = shift;
+
+    my %id2AlnStr = ();
+    
+    # Parse aligned sequence strings from output
+    my %id2seq = $string =~ />(.*?)\n # ID line, starting with >
+                             (.*?)    # Sequence, including newlines
+                             (?=>|\z) # Up to next fasta entry /gxms;
+    
+    # Parse id and remove whitespace from each fasta sequence
+    while (my ($id, $seq) = each %id2seq){
+        # Remove whitespace from sequence
+        $seq =~ s/\s//gms;
+        $id2AlnStr{$id} = $seq;
+    }
+    # Return aligned sequence strings, ordered by order of input
+    return [map {$id2AlnStr{$_}} $self->getInputIDs()];    
+}
+
+package MSA::Muscle::Local;
 use Moose;
 use Carp;
 
-with 'MSAexec';
+with 'MSAexec', 'MSA::Muscle::OutputHandler';
 
 sub cmdStringFromInputs {
     my $self = shift;
@@ -324,24 +348,53 @@ sub _buildExecPath {
 
 sub getAlignedSeqStringAref {
     my $self = shift;
-
-    croak "alignment was not successful"
-        if ! $self->success();
-
-    my %id2AlnStr = ();
-    
-    # Parse aligned sequence strings from output
-    my %id2seq = $self->stdout =~ />(.*?)\n # ID line, starting with >
-                                   (.*?)    # Sequence, including newlines
-                                   (?=>|\z) # Up to next fasta entry /gxms;
-    
-    # Parse id and remove whitespace from each fasta sequence
-    while (my ($id, $seq) = each %id2seq){
-        # Remove whitespace from sequence
-        $seq =~ s/\s//gms;
-        $id2AlnStr{$id} = $seq;
-    }
-
-    # Return aligned sequence strings, ordered by order of input
-    return [map {$id2AlnStr{$_}} $self->getInputIDs()];
+    croak "alignment was not successful" if ! $self->success();
+    return $self->_parseOrderedAlignedSeqStringArefFromString($self->stdout());
 }
+
+package MSA::Muscle::Remote;
+use Moose;
+use Carp;
+use WEB::MUSCLE;
+
+with 'MSAligner', 'MSA::Muscle::OutputHandler';
+
+sub align {
+    my $self = shift;
+    my ($error, $result) = WEB::MUSCLE::RunMuscle($self->inputSeqsStr(),
+                                                  "northeyt\@gmail.com");
+    croak "align unsuccessful - remote run returned error cdoe $error"
+        if $error;
+
+    return $result;
+}
+
+sub getAlignedSeqStringAref {
+    my $self   = shift;
+    my $result = $self->align();
+    return $self->_parseOrderedAlignedSeqStringArefFromString($result);
+}
+
+package MSA::Muscle::Factory;
+use Moose;
+
+has 'remote' => (
+    is       => 'rw',
+    isa      => 'Bool',
+    required => 1,
+    default  => 0,
+);
+
+sub getMuscle {
+    my $self = shift;
+    my @args = @_;
+
+    if ($self->remote) {
+        return MSA::Muscle::Remote->new(@args);
+    }
+    else {
+        return MSA::Muscle::Local->new(@args);
+    }
+}
+
+1;

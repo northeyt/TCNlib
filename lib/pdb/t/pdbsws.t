@@ -12,6 +12,7 @@
 # change 'tests => 1' to 'tests => last_test_to_print';
 
 use Test::More qw( no_plan );
+use Test::Deep;
 BEGIN { use_ok( 'pdb::pdbsws' ); }
 
 #########################
@@ -19,9 +20,35 @@ BEGIN { use_ok( 'pdb::pdbsws' ); }
 # Insert your test code below, the Test::More module is used here so read
 # its man page ( perldoc Test::More ) for help writing this test script.
 
-my $pdbsws = pdb::pdbsws->new();
 
-is( [ $pdbsws->get_ac('4houA') ]->[0], 'P09914', "get_ac returns ac okay" );
+subtest "test pdbsws locally" => sub {
+    my $pdbsws = new_ok('pdb::pdbsws::Local');
+    testpdbsws($pdbsws);    
+};
 
-is( ref $pdbsws->get_ac('4houZ'), 'local::error', 
-    "get_ac returns error when no ac found" );
+subtest "test pdbsws remote" => sub {
+    my $pdbsws = new_ok('pdb::pdbsws::Remote');
+    testpdbsws($pdbsws);
+};
+
+sub testpdbsws {
+    my $pdbsws = shift;
+    
+    cmp_deeply([$pdbsws->getACsFromPDBCodeAndChainID('4hou', 'A') ],
+               ['P09914'], " getACsFromPDBCodeAndChainID returns correct ACs");
+    
+    cmp_deeply([$pdbsws->getIDsFromPDBCodeAndChainID('4hou', 'A') ],
+               ['IFIT1_HUMAN'], " getIDsFromPDBCodeAndChainID returns correct IDs");
+    
+    testMapResSeq2SwissProtNum($pdbsws);
+}
+
+sub testMapResSeq2SwissProtNum {
+    my $pdbsws = shift;
+    my %gotMap = $pdbsws->mapResSeq2SwissProtNum("4hou", 'A', 'P09914');
+    my $expMapSize = 255;
+    
+    is (scalar keys %gotMap, $expMapSize, "expected number of residues mapped");
+    is($gotMap{10},  10,  "first chain residue is mapped correctly");
+    is($gotMap{278}, 278, "last chain residue is mapped correctly");    
+}

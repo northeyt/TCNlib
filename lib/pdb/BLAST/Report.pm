@@ -166,17 +166,10 @@ sub _colFromResNum {
 
 package pdb::BLAST::Report::SwissProt;
 use Moose;
-use pdb::pdbsws;
+use UNIPROT;
 use sequence;
 
 with 'pdb::BLAST::ReportHandler';
-
-has 'pdbsws' => (
-    isa  => 'pdb::pdbsws',
-    is   => 'rw',
-    lazy => 1,
-    default => sub {pdb::pdbsws->new()},
-);
 
 # If reliable option has been passed, filter hits using isHitReliable.
 around 'getHits' => sub {
@@ -210,9 +203,9 @@ sub swissProtSeqFromHit {
     my $self = shift;
     my $hit  = shift;
     
-    my $ac  = $self->parseACFromHit($hit);
-    my $seq = $self->pdbsws->seqFromAC($ac);
-    return sequence->new(id => $ac, string => $seq);
+    my $ac       = $self->parseACFromHit($hit);
+    my $FASTAStr = UNIPROT::GetFASTA($ac, -remote => 1);
+    return sequence->new($FASTAStr);
 }
 
 sub parseACFromHit {
