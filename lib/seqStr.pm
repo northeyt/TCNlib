@@ -13,7 +13,7 @@ sub parse {
 }
 
 sub isFASTA {
-    return $_[0] =~ />(\s*?\S+\s*?)\n([A-Z-\n\s]+)/i;
+    return $_[0] =~ />(.*)\n([A-Z-\n\s]+)/i;
 };
 
 sub parseSeqFromFASTA {
