@@ -1,3 +1,3 @@
-[submodule "SAAP"]
-	path = SAAP
-	url = git@github.com:ACRMGroup/SAAP.git
+[submodule "smods/SAAP"]
+	path = smods/SAAP
+	url = git@github.com:northeyt/SAAP.git

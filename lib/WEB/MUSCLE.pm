@@ -1,1 +1,1 @@
-../../SAAP/server/plugins/modules/WEB/MUSCLE.pm
+../../smods/SAAP/server/plugins/modules/WEB/MUSCLE.pm

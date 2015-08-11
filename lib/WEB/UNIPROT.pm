@@ -1,1 +1,1 @@
-../../SAAP/server/plugins/modules/WEB/UNIPROT.pm
+../../smods/SAAP/server/plugins/modules/WEB/UNIPROT.pm
