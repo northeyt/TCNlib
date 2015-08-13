@@ -11,6 +11,7 @@
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
+use lib ("../..");
 use strict;
 use warnings;
 use Test::More qw( no_plan );

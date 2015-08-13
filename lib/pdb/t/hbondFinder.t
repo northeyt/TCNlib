@@ -13,6 +13,8 @@
 
 use strict;
 use warnings;
+use lib ("../..");
+
 use Test::More qw( no_plan );
 use Test::Deep;
 BEGIN { use_ok( 'pdb::hbondFinder' ); }
@@ -22,20 +24,14 @@ BEGIN { use_ok( 'pdb::hbondFinder' ); }
 # Insert your test code below, the Test::More module is used here so read
 # its man page ( perldoc Test::More ) for help writing this test script.
 
-
 new_ok('pdb::hbondFinder');
 new_ok('pdb::Hb', [donorSerial => 1, acceptorSerial => 2]);
-
-=asd
 
 subtest "getHbonds" => sub {
     my $testFile = "1qok.pdb";
     my @gotArray
         = pdb::hbondFinder->new(input => $testFile)->getHbonds();
 
-    # TOMORROW: Test all elements of array are pdb::Hb objects
-    #           Test correct number of elements returned
-    #           Test a Hb object for acceptor and donor serials
     cmp_deeply(\@gotArray, array_each(isa("pdb::Hb")),
                "getHbonds returns array of Hb");
 
@@ -45,8 +41,6 @@ subtest "getHbonds" => sub {
     is($testHb->acceptorSerial(), 176,
        "donor and acceptor correctly parsed in one test case");
 };
-
-=cut
 
 subtest "only pp should be returned when bondType => pp" => sub {
     my $testFile = "1djs.pdb";

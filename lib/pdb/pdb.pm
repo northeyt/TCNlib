@@ -46,7 +46,6 @@ use Math::Trig;
 
 use pdb::xmas2pdb;
 use pdb::pdb2xmas;
-use pdb::getresol;
 use pdb::rotate2pc;
 use pdb::get_files;
 use pdb::solv;
@@ -338,7 +337,7 @@ Experimental method of structure determination, parsed from pdb data.
 
 has 'experimental_method' => (
     is => 'rw',
-    isa => 'Str',
+    isa => enum([ ('X-RAY DIFFRACTION', 'NMR') ]),
     predicate => 'has_experimental_method',
     lazy => 1,
     builder => '_build_experimental_method',
@@ -845,39 +844,29 @@ sub _build_multi_resName_resids {
 }
 
 sub _build_resolution {
-    my $self = shift;
-
-    my($expMethod, $resolution, $rValue) = $self->_run_getresol();
-
-    # Set the other two values
-    $self->experimental_method($expMethod);
-    $self->r_value($rValue);
-    
-    return $resolution;
+    my $self      = shift;
+    my $remarkStr = join("", map {${$_}} @{$self->remark_hash()->{2}});
+    my ($resValue)  = $remarkStr =~ /RESOLUTION\. \s+ ([0-9.]+)/gxms;
+    croak "No resolution was parsed from pdb header remarks!" if ! $resValue;
+    return $resValue;
 }
 
 sub _build_r_value {
-    my $self = shift;
-
-    my($expMethod, $resolution, $rValue) = $self->_run_getresol();
-
-    # Set the other two values
-    $self->experimental_method($expMethod);
-    $self->resolution($resolution);
-   
+    my $self      = shift;
+    my $remarkStr = join("", map {${$_}} @{$self->remark_hash()->{3}});
+    my ($rValue)
+        = $remarkStr =~ /R \s VALUE \s+ \(WORKING \s (?: \+ \s TEST \s)* SET\) \s : \s
+                         ([0-9.]+)/gxms;
+    croak "No r-value was parsed from pdb header remarks!" if ! $rValue;
     return $rValue;
 }
 
 sub _build_experimental_method {
     my $self = shift;
-
-    my($expMethod, $resolution, $rValue) = $self->_run_getresol();
-
-    # Set the other two values
-    $self->resolution($resolution);
-    $self->r_value($rValue);
-    
-    return $expMethod;
+    my ($expDataLine) = grep {/^EXPDTA/} @{$self->pdb_data()};
+    my ($method) = $expDataLine =~ / \A EXPDTA \s+ (\S+.*?) \s* \z /gxms;
+    croak "No experimental method was parsed from pdb header!" if ! $method;
+    return $method;
 }
 
 sub _build_atom_serial_hash {
@@ -1143,18 +1132,11 @@ sub _build_resID2secStructHref {
 ### BUILD Method ###############################################################
 ################################################################################
 
-# Attempt to build experimental_method, resolution and r_factor from getresol
-# object. Also check if pdb is multi-model
+# check if pdb is multi-model
 sub BUILD {
     my $self = shift;
 
     return if ! $self->has_pdb_file();
-
-    my ($expMethod, $resolution, $rValue) = eval {$self->_run_getresol()};
-
-    $self->experimental_method($expMethod) if $expMethod;
-    $self->resolution($resolution) if $resolution;
-    $self->r_value($rValue) if $rValue;
      
     if ( $self->pdb_data && $self->_multi_model) {
         my $message
@@ -1168,32 +1150,6 @@ sub BUILD {
 
         croak $error;
     }
-}
-
-# This method is used by BUILD method to determine experimental_method,
-# resolution and r_value attributes, by running pdb::getresol
-sub _run_getresol {
-
-    my $self = shift;
-    
-    my $getresol = pdb::getresol->new(pdb_file => $self->pdb_file);
-
-    my $expMethod;
-    my $resolution;
-    my $rValue;
-
-    my $ret = $getresol->run();
-    
-    if (ref $ret  ne 'local::error'){
-        $expMethod  = $getresol->experimental_method();
-        $resolution = $getresol->resolution();
-        $rValue     = $getresol->r_value();
-    }
-    else {
-        croak $ret;
-    }
-
-    return ($expMethod, $resolution, $rValue);
 }
 
 sub _multi_model {

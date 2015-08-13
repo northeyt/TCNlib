@@ -11,14 +11,14 @@
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use lib ('../');
+use lib ('../..');
 use Test::More qw( no_plan );
 use Test::Exception;
 use Test::Deep;
 
 use strict;
 use warnings;
-use pdb;
+use pdb::pdb;
 
 BEGIN { use_ok( 'pdb::idabchain' ); }
 

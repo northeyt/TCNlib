@@ -1,10 +1,13 @@
 package TCNPerlVars;
-
 # Where this file lives
 $libdir = "~/scripts/lib/tcnutils";
 
 # Data
 $datadir = "/acrm/data/people/zcbtfo4";
+
+## bioplib and bioptools
+$bioptoolsBin = $ENV{HOME} ."/bin";
+$bioplibDataDir = $ENV{HOME} . "/data";
 
 # Tmp dir
 $tmpdir = "/tmp/TCN";
@@ -39,22 +42,21 @@ $makepatch     = "/home/bsm/martin/bin/makepatch";
 $xmas2pdb      = "/home/bsm/martin/acrm/CONSULTANCY/inpharmatica/software/xmas2pdb/xmas2pdb";
 $pdb2xmas      = "/home/bsm/martin/acrm/CONSULTANCY/inpharmatica/software/pdb2xmas/pdb2xmas";
 $pdb2xmas_bin  = "/home/bsm/martin/acrm/CONSULTANCY/inpharmatica/software/bin/";
-$getresol      = '/home/bsm/martin/bin/getresol';
-$idabchain     = '/home/bsm/martin/bin/idabchain';
+$idabchain     = "$bioptoolsBin/idabchain";
 $kabatnum      = '/home/bsm/martin/abnum/installed/numbering/kabatnum.pl';
-$chaincontacts = '/home/bsm/martin/bin/chaincontacts';
+$chaincontacts = "$bioptoolsBin/chaincontacts";
 $pdb_db        = "/home/bsm3/zcbtfo4/data/pdb/db/pdbaa";
 $blastall      = "/acrm/usr/local/bin/blastall";
 $princip64     = "/acrm/usr/local/apps/surfnet/bin64/princip";
 $scorecons     = "/home/bsm/anya/tools/scorecons/bin/scorecons";
-$pdbsolv       = "/home/bsm/martin/bin/pdbsolv";
-$pdbsslist     = "/home/bsm3/zcbtfo4/bin/pdblistss";
-$pdbsecstr     = "/home/bsm/martin/bin/pdbsecstr";
-$pdbhbond      = "/home/bsm/martin/bin/pdbhbond";
+$pdbsolv       = "$bioptoolsBin/pdbsolv";
+$pdbsslist     = "$bioptoolsBin/pdblistss";
+$pdbsecstr     = "$bioptoolsBin/pdbsecstr";
+$pdbhbond      = "$bioptoolsBin/pdbhbond";
 
 # Data files for pdb and related classes
-$hydroPhoValueFile = "/home/bsm3/zcbtfo4/data/hydrophobic.dat";
-$radii_file = "/home/bsm/martin/bioplib/data/radii.dat";
+$hydroPhoValueFile = $bioplibDataDir . "/kyte.hpb";
+$radii_file = "$bioplibDataDir/radii.dat";
 $asurf_radii_file = "/acrm/data/people/zcbtfo4/vdw.radii";
 
 # CDhit and related
@@ -81,17 +83,8 @@ $ssapbindir = "/acrm/home/andrew/ssap/bin";
 $mlsabindir = "/acrm/home/andrew/mlsa";
 $sstrucbindir = "/acrm/home/andrew/sstruc/bin";
 
-# Environment variables for Kabat related programs
-#$ENV{'KABATALIGN'} = "/acrm/home/andrew/kabat/data"; # Alignment matrices
-$ENV{'KABATDIR'}   = "/acrm/data/kabat/kabatman";    # KabatMan data 
-$ENV{'KABATALIGN'} = "/home/bsm/martin/kabat/data"; # Alignment matrices
-#$ENV{'KABATDIR'}   = "/home/bsm/martin/kabat/data";    # KabatMan data 
-
-
-
-# My general data directory
-$ENV{'DATADIR'}    = "/home/bsm/martin/data";
-
+# Environment variables for Kabat related programs 
+$ENV{'KABATALIGN'} = $bioplibDataDir; # Alignment matrices
 
 # BLAST related
 $BlastAllExe       = "/acrm/usr/local/bin/blastall";

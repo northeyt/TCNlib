@@ -16,7 +16,7 @@ use warnings;
 
 use Data::Dumper;
 
-use lib ( '..' );
+use lib ( '../..' );
 use Test::More qw( no_plan );
 use Test::Deep;
 use Carp;
@@ -24,7 +24,7 @@ use Carp;
 use Test::Exception;
 use pdb::pdbFunctions;
 
-BEGIN { use_ok('pdb'); }
+BEGIN { use_ok('pdb::pdb'); }
 
 #########################
 
@@ -85,13 +85,10 @@ my $expDist = 14.391995;
 
 is($dist, $expDist, "squaredDistance ok");
 
-# BUILD method gets attributes from getresol objet
-
-cmp_deeply( [ $pdb->experimental_method(), $pdb->resolution(),
-              $pdb->r_value ],
-            [ 'crystal', '2.40', '0.227' ],
-            "BUILD method gets attributes from getresol object okay" );
-
+is($pdb->experimental_method(),  'X-RAY DIFFRACTION',
+   "experimental_method matches expected");
+is($pdb->resolution(), '2.40',  "resolution matches expected");
+is($pdb->r_value(),    '0.227', "r_value matches expected"); 
 
 # fh builder test
 is( ref $pdb->pdb_data, 'ARRAY', "fh builder okay" );
@@ -235,7 +232,7 @@ $pdb->read_ASA();
 ok($test_atom->radius(), "Radius read from xmas2pdb object" );
 ok($test_atom->ASAc(), "Multimer ASA read from xmas2pdb object" );
 
-warn "Skipping test related to ASAm reading\n";
+warn "WARNING: SKIPPING TEST RELATED TO ASAm READING\n";
 
 =xmas
 
@@ -336,12 +333,18 @@ testSeqRangeAtoms();
 # test $atom->contacting()
 testAtomContacting();
 
+warn "WARNING: SKIPPING TESTS THAT RELY ON RUNNING kabatnum.pl";
+
+=skip
+
 # test chain->determineEpitope
 ok(testDetermineEpitope(@chains),
    "determineEpitope identifies epitope residues ok");
 
 # Test getAbPairs()
 testGetAbPairs($abComplex);
+
+=cut
 
 # Test isInContact
 testIsInContact($abComplex);
