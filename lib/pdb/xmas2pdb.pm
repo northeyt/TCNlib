@@ -2,9 +2,9 @@ package xmas2pdb;
 
 use Moose;
 use Moose::Util::TypeConstraints;
-use types;
+use TCNUtil::types;
 use TCNPerlVars;
-use write2tmp;
+use TCNUtil::write2tmp;
 
 use Carp;
 

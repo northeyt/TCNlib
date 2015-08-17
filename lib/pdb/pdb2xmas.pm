@@ -6,8 +6,8 @@ use IO::CaptureOutput qw(capture_exec);
 use Carp;
 
 use TCNPerlVars;
-use types;
-use write2tmp;
+use TCNUtil::types;
+use TCNUtil::write2tmp;
 use pdb::pdbFunctions;
 
 # Retaining this for compatibility, but new scripts should use the input

@@ -14,9 +14,13 @@
 use strict;
 use warnings;
 
+use File::Basename;
+my ($testFile, $testDir, $suffix) = fileparse($0);
+chdir($testDir);
+
 use Data::Dumper;
 
-use lib ( '../..' );
+
 use Test::More qw( no_plan );
 use Test::Deep;
 use Carp;
@@ -24,7 +28,7 @@ use Carp;
 use Test::Exception;
 use pdb::pdbFunctions;
 
-BEGIN { use_ok('pdb::pdb'); }
+BEGIN { use_ok('pdb'); }
 
 #########################
 

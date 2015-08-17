@@ -1,22 +1,17 @@
 package automatic_patches;
 use Moose;
 use Moose::Util::TypeConstraints;
-
-use types;
-
 use Carp;
-use pdb::pdb;
+use pdb;
 use pdb::makepatch;
 use pdb::pdb2xmas;
 use pdb::pdbFunctions;
 use pdb::multiChain;
-use GLOBAL qw(&rm_trail);
-
 use Parallel::ForkManager;
-
-use write2tmp;
-
+use TCNUtil::GLOBAL qw(&rm_trail);
+use TCNUtil::write2tmp;
 use TCNPerlVars;
+use TCNUtil::types;
 
 # Subtypes
 
@@ -128,9 +123,8 @@ has 'forkFlag' => (
 has 'numForks' => (
     is => 'rw',
     isa => 'Int',
-    default => `nproc` - 1,
+    default => 4
 );
-
 
 # Methods
 

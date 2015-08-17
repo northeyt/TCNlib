@@ -167,7 +167,7 @@ sub _colFromResNum {
 package pdb::BLAST::Report::SwissProt;
 use Moose;
 use UNIPROT;
-use sequence;
+use TCNUtil::sequence;
 
 with 'pdb::BLAST::ReportHandler';
 

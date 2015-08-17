@@ -18,7 +18,7 @@ use Data::Dumper;
 
 use lib ( '..' );
 use Test::More qw( no_plan );
-use pdb::pdb;
+use pdb;
 
 #BEGIN { use_ok( 'antigen' ); }
 

@@ -4,8 +4,8 @@ use TCNPerlVars;
 
 use Moose;
 use Moose::Util::TypeConstraints;
-use types;
-use pdb::pdb;
+use TCNUtil::types;
+use pdb;
 
 use Carp;
 

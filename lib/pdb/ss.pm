@@ -1,11 +1,11 @@
 package pdb::ssFinder;
 use Moose;
-use types;
+use TCNUtil::types;
 use TCNPerlVars;
 use pdb::pdbFunctions;
 use Carp;
 
-with 'roles::fileExecutor';
+with 'TCNUtil::roles::fileExecutor';
 
 has 'input' => (
     is => 'rw',

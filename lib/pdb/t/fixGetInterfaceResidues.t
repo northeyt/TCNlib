@@ -14,7 +14,7 @@
 use strict;
 use warnings;
 use Test::More qw( no_plan );
-use pdb::pdb;
+use pdb;
 
 my $errChain = chain->new(pdb_code => '2iff', chain_id => 'Y',
                           pdb_file => '2iff.pdb');

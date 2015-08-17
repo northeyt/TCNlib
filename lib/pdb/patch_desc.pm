@@ -2,7 +2,7 @@ package patch_desc;
 
 use Moose;
 use Moose::Util::TypeConstraints;
-use types;
+use TCNUtil::types;
 
 use Math::Trig;
 use Math::VectorReal qw(:all);
@@ -13,9 +13,9 @@ use pdb::rotate2pc qw(:all);
 use pdb::pdbFunctions;
 
 use TCNPerlVars;
-use GLOBAL qw( three2one_lc );
+use TCNUtil::GLOBAL qw( three2one_lc );
 use Data::Dumper;
-use local::error;
+use TCNUtil::local::error;
 
 use Carp;
 

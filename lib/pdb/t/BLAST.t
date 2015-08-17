@@ -20,6 +20,7 @@ use Test::Exception;
 use Bio::SearchIO::blast;
 use IO::CaptureOutput qw(capture);
 use Test::MockObject::Extends;
+use pdb;
 
 BEGIN { use_ok( 'pdb::BLAST' ); }
 

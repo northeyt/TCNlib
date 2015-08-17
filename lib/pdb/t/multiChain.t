@@ -14,7 +14,7 @@
 use strict;
 use warnings;
 use Test::More qw( no_plan );
-use pdb::pdb;
+use pdb;
 
 BEGIN { use_ok( 'pdb::multiChain' ); }
 

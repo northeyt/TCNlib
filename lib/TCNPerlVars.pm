@@ -24,7 +24,7 @@ $obspdbprep = "pdb";
 $obspdbext = ".ent";
 
 # pdb file cache
-$pdb_file_cache_dir = "/home/bsm3/zcbtfo4/pdb-cache/";
+$pdb_file_cache_dir = $ENV{HOME} . '/pdb-cache';
 
 # Other PDB-related files
 $pdbdomdir = "/acrm/data/dompdb";
@@ -45,10 +45,9 @@ $pdb2xmas_bin  = "/home/bsm/martin/acrm/CONSULTANCY/inpharmatica/software/bin/";
 $idabchain     = "$bioptoolsBin/idabchain";
 $kabatnum      = '/home/bsm/martin/abnum/installed/numbering/kabatnum.pl';
 $chaincontacts = "$bioptoolsBin/chaincontacts";
-$pdb_db        = "/home/bsm3/zcbtfo4/data/pdb/db/pdbaa";
-$blastall      = "/acrm/usr/local/bin/blastall";
+$blastall      = "/Users/tcn/software/blast-2.2.22/bin/blastall";
 $princip64     = "/acrm/usr/local/apps/surfnet/bin64/princip";
-$scorecons     = "/home/bsm/anya/tools/scorecons/bin/scorecons";
+$scorecons     = "$bioptoolsBin/scorecons";
 $pdbsolv       = "$bioptoolsBin/pdbsolv";
 $pdbsslist     = "$bioptoolsBin/pdblistss";
 $pdbsecstr     = "$bioptoolsBin/pdbsecstr";
@@ -66,7 +65,7 @@ $clstr2xml = '/home/bsm3/zcbtfo4/cd-hit-4.6.1/clstr2xml.pl';
 # Clustal and Muscle (MSAs)
 $clustalw = '/acrm/usr/local/bin/clustalw';
 $clustalO = '/home/bsm3/zcbtfo4/clustalo-1.2.0-Ubuntu-x86_64';
-$muscle   = '/acrm/usr/local/bin/muscle';
+$muscle   = $ENV{'HOME'} . '/software/muscle-3.8.31/muscle';
 
 # asurf64 and related
 $asurf64 = "/home/bsm/martin/bin/asurf64";
@@ -110,11 +109,12 @@ $ENV{'LD_LIBRARY_PATH'} = "$ENV{'LD_LIBRARY_PATH'}:/usr/lib/pgsql";
 $saapServerBindir = "/home/bsm/martin/SAAP/server/";
 
 # WEKA related
-$wekaLib     = "/home/bsm3/zcbtfo4/weka-3-7-10/weka.jar";
-$javaForWeka = "/acrm/usr64/local/apps/java/jre1.6.0_21/bin/java";
+$wekaLib     = $ENV{'HOME'} . "/software/weka-3-7-10/weka.jar";
+$javaForWeka = "/usr/bin/java";
 
-# SwissProt database formatted for blast searching
-$swissProtDB = "/acrm/data/tmp/fosta/swissprot/uniprot_sprot.fasta";
+# seq dbs formatted for blast searching
+$swissProtDB  = $ENV{'HOME'} . '/data/blast/swissprot';
+$pdb_db       = $ENV{'HOME'} . '/data/blast/pdbaa';
 
 1;
 

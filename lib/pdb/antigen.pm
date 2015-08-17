@@ -2,7 +2,7 @@ package pdb::antigen;
 
 use Moose::Role;
 use Moose::Util::TypeConstraints;
-use types;
+use TCNUtil::types;
 
 use Carp;
 

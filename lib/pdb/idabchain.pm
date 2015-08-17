@@ -4,11 +4,11 @@ use Moose;
 use Carp;
 use IO::CaptureOutput qw(capture_exec);
 use TCNPerlVars;
-use types;
+use TCNUtil::types;
 use TryCatch;
-use write2tmp;
+use TCNUtil::write2tmp;
 use pdb::pdbFunctions;
-use local::error;
+use TCNUtil::local::error;
 
 ### Attributes ################################################################
 

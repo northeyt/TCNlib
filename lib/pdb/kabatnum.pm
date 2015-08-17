@@ -4,9 +4,9 @@ package pdb::kabatnum;
 use Moose;
 use Carp;
 use IO::CaptureOutput qw(capture_exec);
-use write2tmp;
+use TCNUtil::write2tmp;
 use TCNPerlVars;
-use types;
+use TCNUtil::types;
 use pdb::pdbFunctions;
 
 ### Attributes ################################################################

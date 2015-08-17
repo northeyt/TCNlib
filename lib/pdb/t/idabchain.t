@@ -18,7 +18,7 @@ use Test::Deep;
 
 use strict;
 use warnings;
-use pdb::pdb;
+use pdb;
 
 BEGIN { use_ok( 'pdb::idabchain' ); }
 

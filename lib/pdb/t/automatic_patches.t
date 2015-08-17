@@ -18,7 +18,7 @@ use Data::Dumper;
 
 use lib ( '..' );
 
-use pdb::pdb;
+use pdb;
 
 use Test::More qw( no_plan );
 use Test::Deep;

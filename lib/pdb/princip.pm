@@ -7,7 +7,7 @@ use Moose;
 use Carp;
 use pdb::pdbFunctions;
 use IO::CaptureOutput qw(qxx);
-use types;
+use TCNUtil::types;
 
 ### ATTRIBUTES #################################################################
 ################################################################################

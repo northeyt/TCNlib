@@ -2,15 +2,15 @@ package pdb::solv;
 
 use Moose;
 use Carp;
-use types;
+use TCNUtil::types;
 use TCNPerlVars;
-use GLOBAL qw(rm_trail);
+use TCNUtil::GLOBAL qw(rm_trail);
 use pdb::pdbFunctions;
 use IO::CaptureOutput qw(capture_exec);
 use File::Spec;
 use File::Basename;
 use Cwd;
-use write2tmp;
+use TCNUtil::write2tmp;
 write2tmp->Cache_Limit(100);
 
 # Attributes

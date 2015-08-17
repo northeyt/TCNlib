@@ -92,9 +92,9 @@ pdb::getHomologueStructres.
 
 use Moose;
 use Carp;
-use types;
+use TCNUtil::types;
 use TCNPerlVars;
-use pdb::pdb;
+use pdb;
 use Bio::SeqIO;
 use Bio::Tools::Run::StandAloneBlast;
 use File::Basename;
