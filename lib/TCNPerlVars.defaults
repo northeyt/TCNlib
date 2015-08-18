@@ -118,3 +118,4 @@ $pdb_db       = $ENV{'HOME'} . '/data/blast/pdbaa';
 
 1;
 
+test
