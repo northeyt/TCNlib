@@ -1,4 +1,4 @@
-package roles::consScoreCalculating;
+package TCNUtil::roles::consScoreCalculating;
 use Moose::Role;
 use Carp;
 
