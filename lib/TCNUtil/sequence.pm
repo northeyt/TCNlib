@@ -22,6 +22,14 @@ has 'id' => (
     builder => '_build_id'
 );
 
+has 'description' => (
+    is => 'rw',
+    isa => 'Str',
+    required => 1,
+    lazy => 1,
+    default => 'No Description Supplied!',
+);
+
 has 'string' => (
     is => 'rw',
     isa => 'SeqStr',
@@ -29,6 +37,36 @@ has 'string' => (
     lazy => 1,
     builder => '_build_seqString'
 );
+
+has 'type' => (
+    is => 'rw',
+    isa => enum([ qw(protein    protein-frag dna-linear dna-circular
+                     rna-linear rna-fragment unknown) ]),
+    default => 'protein',
+);
+
+has '_PIRCodeForSequenceType' => (
+    isa => 'HashRef',
+    is  => 'rw',
+    lazy => 1,
+    builder => '_buildPIRCodeForSequenceType',
+);
+
+sub getFASTAStr {
+    my $self = shift;
+    return ">" . $self->id() . "\n" . $self->string() . "\n";
+}
+
+sub getPIRStr {
+    my $self = shift;
+    return ">" . $self->getPIRCode()  . ";" . $self->id() . "\n"
+        . $self->description() . "\n" . $self->string()   . "*\n";
+}
+
+sub getPIRCode {
+    my $self = shift;
+    return $self->_PIRCodeForSequenceType($self->type());
+}
 
 # Allows lazy object creation: SeqStringAdapter->($myString)
 around BUILDARGS => sub {
@@ -60,10 +98,12 @@ sub _build_seqString {
     defined $seq ? return $seq
         : croak "no seq parsed from input string, " . $self->inputString();
 }
-        
-sub getFASTAStr {
-    my $self = shift;
-    return ">" . $self->id() . "\n" . $self->string() . "\n";
+
+sub _buildPIRCodeForSequenceType {
+    return {'protein'    => 'P1', 'protein-frag' => 'F1',
+            'dna-linear' => 'DL', 'dna-circular' => 'DC',
+            'rna-linear' => 'RL', 'rna-circular' => 'RC',
+            'unknown'    => 'XX'};
 }
 
 1;
