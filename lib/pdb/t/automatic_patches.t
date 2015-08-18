@@ -34,6 +34,7 @@ my %arg
     = ( radius => 8,
         patch_type => 'normal',
         pdb_code => '1qok',
+        pdb_file => '1qok.pdb'
     );
 
 my $auto = automatic_patches->new(%arg);
@@ -106,8 +107,6 @@ my $multiChainAP
                              patch_type => 'contact');
 
 ok(testForMultiChainPatches($multiChainAP), "multi-chain input works ok");
-
-
 
 # Test must be run on automatic_patches initialized with 1djs chains A and B
 sub testForMultiChainPatches {
