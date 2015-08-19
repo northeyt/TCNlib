@@ -49,10 +49,16 @@ warn "WARNING: SKIPPING SOME TESTS RELATED TO XMAS PARSING\n";
 test_labelppHbondedAtoms();
 test_labelSSbondedAtoms();
 
+subtest "planarity" => sub {
+    my $tChain = pdb->new(pdb_file => '1qok.reduced.pdb');
+    is(sprintf("%.3f", $tChain->planarity()), 2.022, "planarity ok");
+};
+
 subtest "resID2secStructHref" => sub {
     my $testPDB = pdb->new(pdb_file => "1qok.pdb");
     ok($testPDB->resID2secStructHref(), "resID2secStrucHref ok");
 };
+
 # Atom object tests
 my $ATOM_line
     = "ATOM     13  CG  LEU A 148      13.227  45.000  23.178  1.00 47.53           C";

@@ -1,4 +1,4 @@
-package rotate2pc;
+package TCNUtil::VectorCalcs;
 
 use strict; 
 use warnings;
@@ -12,9 +12,9 @@ our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
 $VERSION = 1.00;
 @ISA     = qw(Exporter);
 @EXPORT  = ();
-@EXPORT_OK = qw(rotate2pc xyzmean);
-
-
+@EXPORT_OK = qw(rotate2pc xyzmean get_eigenvectors
+                get_rms_difference_of_points_from_bestfit_plane
+                meancenter innerproduct);
 
 use Math::MatrixReal;
 use Math::VectorReal qw(:all);
@@ -55,9 +55,42 @@ sub rotate2pc {
     return $R[0]->multiply($R[1]);
 }
 
+sub get_rms_difference_of_points_from_bestfit_plane {
+    my @points               = @_;
+    @points = meancenter(@points);
+    my @eigenvectors         = get_eigenvectors(@points);
+    my $point_on_bift_plane  = $eigenvectors[0];
+    my $bfit_plane_norm_vect = $eigenvectors[2];
+    return get_rms_difference_of_points_from_plane($bfit_plane_norm_vect,
+                                                   $point_on_bift_plane,
+                                                   @points);
+}
+
+sub get_rms_difference_of_points_from_plane {
+    my ($plane_norm_vect, $point_on_plane, @points_off_plane) = @_;
+
+    my @distances
+        = map {get_distance_of_point_from_plane($_, $plane_norm_vect, $point_on_plane)}
+            @points_off_plane;
+    
+    my @sqdistances = map {$_ * $_} @distances;
+    
+    # distances will never be negative, so do simple mean
+    return sqrt (sum(@sqdistances) / scalar @distances);
+}
+
+sub sum {
+    my $sum = 0;
+    map {$sum += $_} @_;
+    return $sum;
+}
+
+sub get_distance_of_point_from_plane {
+    my ($point_off_plane, $plane_normal_vector, $point_on_plane) = @_;
+    return abs ($plane_normal_vector . ($point_off_plane - $point_on_plane));
+}
 
 sub get_eigenvectors {
-
     my(@vector) = @_;
 
     foreach (@vector) {
@@ -86,36 +119,30 @@ sub get_eigenvectors {
 # Returns x y and z means for mean centering
 sub xyzmean {
     my(@vectors) = @_;
-
     croak "No vectors passed to meancenter" if ! @vectors;
    
     my $N = scalar @vectors;
-    
-    # Means
-    my %total = ( x => 0, y => 0, z => 0 );
+    my %sum = ( x => 0, y => 0, z => 0 );
     
     foreach my $v (@vectors) {
         
         croak "meancenter: passe value $v is not a vector object"
             if ref $v ne 'Math::VectorReal';
         
-        foreach my $coord (keys %total) {
-            $total{$coord} += $v->$coord;
+        foreach my $coord (keys %sum) {
+            $sum{$coord} += $v->$coord;
         }
     }
 
-    my %mean = ( x => $total{x} / $N,
-                 y => $total{y} / $N,
-                 z => $total{z} / $N,
+    my %mean = ( x => $sum{x} / $N,
+                 y => $sum{y} / $N,
+                 z => $sum{z} / $N,
              );
- 
     return %mean;
-    
 }
 
 sub meancenter {
     my(@vectors) = @_;
-
     croak "No vectors passed to meancenter" if ! @vectors;
 
     foreach (@vectors) {
@@ -131,7 +158,6 @@ sub meancenter {
                        } @vectors;
 
     return @centered_v;
-                               
 }
 
 sub innerproduct {

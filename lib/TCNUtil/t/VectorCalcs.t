@@ -24,7 +24,7 @@ use lib ( '..' );
 use Test::More qw( no_plan );
 use Test::Deep;
 
-BEGIN { use_ok( 'rotate2pc' ); }
+BEGIN { use_ok( 'TCNUtil::VectorCalcs' ); }
 
 #########################
 
@@ -34,16 +34,16 @@ BEGIN { use_ok( 'rotate2pc' ); }
 
 my @vector = ( vector(2, 2, 2), vector(-1,-1,-1) );
 
-my @c_vector = rotate2pc::meancenter(@vector);
+my @c_vector = TCNUtil::VectorCalcs::meancenter(@vector);
 
 cmp_deeply( [ $c_vector[0]->x, $c_vector[0]->y, $c_vector[0]->z,
               $c_vector[1]->x, $c_vector[1]->y, $c_vector[1]->z, ],
             [ 1.5, 1.5, 1.5, -1.5, -1.5, -1.5 ],
             "meancenter works ok" );
 
-is(rotate2pc::innerproduct(@vector), -1, "innerproduct works okay");
+is(TCNUtil::VectorCalcs::innerproduct(@vector), -1, "innerproduct works okay");
 
-my $R = rotate2pc::RM_about_vector( Z, pi );
+my $R = TCNUtil::VectorCalcs::RM_about_vector( Z, pi );
 
 my $r_vector = X * $R;
 
@@ -60,18 +60,18 @@ my @point = ( vector(1.5,0,0), vector(-1.5,0,0),
                vector(0,2,0), vector(0,-2,0),
                vector(0,0,1), vector(0,0,-1) );
 
-my @pc = rotate2pc::get_eigenvectors(@point);
+my @pc = TCNUtil::VectorCalcs::get_eigenvectors(@point);
 
 cmp_deeply( [ [ $pc[0]->x, $pc[0]->y, $pc[0]->z, ],
               [ $pc[1]->x, $pc[1]->y, $pc[1]->z, ] ],
             [ [ 0, 1, 0 ], [ 1, 0, 0 ] ],
             "PC1 and 2 correct" );
 
-$R = rotate2pc::rotate2pc(@point);
+$R = TCNUtil::VectorCalcs::rotate2pc(@point);
 
 @point = map { $_ * $R } @point;
 
-@pc = rotate2pc::get_eigenvectors(@point);
+@pc = TCNUtil::VectorCalcs::get_eigenvectors(@point);
 
 cmp_deeply( [ [ $pc[0]->x, $pc[0]->y, $pc[0]->z ],
               [ $pc[1]->x, $pc[1]->y, $pc[1]->z ] ],

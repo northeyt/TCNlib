@@ -33,6 +33,9 @@ use TCNUtil::types;
 use TCNUtil::local::error;
 
 use TCNUtil::GLOBAL qw(&rm_trail &three2one_lc &is_int);
+use TCNUtil::VectorCalcs qw(rotate2pc
+                          get_rms_difference_of_points_from_bestfit_plane
+                     );
 
 use Carp;
 
@@ -46,10 +49,8 @@ use Math::Trig;
 
 use pdb::xmas2pdb;
 use pdb::pdb2xmas;
-use pdb::rotate2pc;
 use pdb::get_files;
 use pdb::solv;
-use pdb::princip;
 use pdb::parseXMAS;
 use pdb::ss;
 use pdb::secstrCalculator;
@@ -2093,7 +2094,7 @@ sub rotate2PCAs {
     # Get rot matrix for transforming x and y unit vectors to
     # centralAtoms PC1 and PC2
     my @vectors = map { vector($_->x, $_->y, $_->z) }  @centralAtoms;
-    my $rotationMatrix = rotate2pc::rotate2pc(@vectors);
+    my $rotationMatrix = rotate2pc(@vectors);
 
     # Rotate all points using matrix
     pdb::pdbFunctions::rotateAtoms($rotationMatrix, $self->atom_array());
@@ -2252,10 +2253,8 @@ sub calcAveragePropensity {
 
 sub planarity {
     my $self = shift;
-
-    my $princip = pdb::princip->new(input => $self);
-
-    return $princip->getPlanarity;
+    my @points = map {vector($_->x, $_->y, $_->z)} @{$self->atom_array()}; 
+    return get_rms_difference_of_points_from_bestfit_plane(@points);
 }
 
 # pp = protein-protein
@@ -3145,8 +3144,6 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use TCNUtil::types;
 use Carp;
-
-use pdb::PatchOrder_v3 qw(&PatchOrder);
 use TCNUtil::GLOBAL qw(&rm_trail);
 
 extends 'pdb';

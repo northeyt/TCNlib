@@ -230,6 +230,33 @@ sub _surface_atoms {
 
 # Returns number of atoms contacting either side of patch
 sub _surface_sides {
+
+
+    Vectors can be used in mathematical expressions:
+
+      my $u = V(3, 3, 0);
+      $p = $u * $v;       # dot product
+      $f = 1.4 * $u + $v; # scalar product and vector addition
+      $c = $u x $v;       # cross product, only defined for 3D vectors
+      # etc.
+
+    The currently supported operations are:
+
+      + * /
+  - (both unary and binary)
+  x (cross product for 3D vectors)
+  += -= *= /= x=
+        == !=
+              "" (stringfication)
+                    abs (returns the norm)
+                          atan2 (returns the angle between two vectors)
+
+                              That, AFAIK, are all the operations that can be applied to vectors.
+
+                                  When an array reference is used in an operation involving a vector, it is automatically upgraded to a vector. For instance:
+
+                                    my $v = V(1, 2);
+      $v += [0, 2];
     my ( $self, $ps_atom_h, $all_atom_h ) = @_;
 
     my @p_atom_serial = map { $_->serial  } values %{ $ps_atom_h };
