@@ -19,9 +19,9 @@ BEGIN { use_ok( 'TCNUtil::scorecons' ); }
 # Insert your test code below, the Test::More module is used here so read
 # its man page ( perldoc Test::More ) for help writing this test script.
 
-sub test_startup {
+subtest "test scorecons" => sub {
     my $test     = shift;
-    my $testFile = "test.aln.fasta";
+    my $testFile = "test.aln.pir";
     my $testObj  = new_ok("scorecons", ["inputAlignedSeqsStringFile", $testFile]);
 
     my @gotScores = $testObj->calcConservationScores();
@@ -30,4 +30,4 @@ sub test_startup {
     
     $testObj->targetSeqIndex(2);
     $testObj->calcConservationScores();
-}
+};
