@@ -38,7 +38,7 @@ has 'string' => (
     builder => '_build_seqString'
 );
 
-has 'type' => (
+has 'seqType' => (
     is => 'rw',
     isa => enum([ qw(protein    protein-frag dna-linear dna-circular
                      rna-linear rna-fragment unknown) ]),
@@ -65,7 +65,7 @@ sub getPIRStr {
 
 sub getPIRCode {
     my $self = shift;
-    return $self->_PIRCodeForSequenceType($self->type());
+    return $self->_PIRCodeForSequenceType($self->seqType());
 }
 
 # Allows lazy object creation: SeqStringAdapter->($myString)
