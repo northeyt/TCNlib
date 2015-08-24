@@ -3,10 +3,9 @@ use Moose;
 use TCNPerlVars;
 use TCNUtil::write2tmp;
 use Carp;
-use TCNUtil::roles::consScoreCalculating;
 
 with 'TCNUtil::roles::fileExecutor';
-with 'roles::consScoreCalculating';
+with 'TCNUtil::roles::consScoreCalculating';
 
 has 'inputAlignedSeqsString' => (
     isa => 'Str',
@@ -31,6 +30,8 @@ sub _buildStrFromSeqs {
 sub _writeSeqsStr2File {
     my $self = shift;
 
+    print "DEBUG: seq string\n" . $self->inputAlignedSeqsString();
+    
     # Write string to temporary file
     return write2tmp->new(data => [$self->inputAlignedSeqsString])->file_name();
 }
@@ -44,12 +45,7 @@ sub cmdStringFromInputs {
 
     my $inputFile = $self->inputAlignedSeqsStringFile();
     my $exec      = $self->execFilePath();
-    my $flags     = $self->getFlags();
-
-    if ($self->hasTargetSeqIndex) {
-        $self->opts->{"--focus"} = $self->targetSeqIndex();
-    }
-    
+    my $flags     = $self->getFlags();        
     my $opts      = $self->getOpts();
     
     return "$exec $flags $opts $inputFile";
@@ -66,11 +62,61 @@ sub calcConservationScores {
 }
 
 sub parseConservationScores {
-    my $self = shift;
+    my $self            = shift;
+    my @lines           = split("\n", $self->stdout);
+    my @results         = map {PositionResult->new($_)}  @lines;
+    my @filteredResults = grep {$self->_resultPassesFilter($_)} @results; 
+    return map {$_->score} @filteredResults; 
+}
 
-    my @lines = split("\n", $self->stdout);
+sub _resultPassesFilter {
+    my $self   = shift;
+    my $result = shift;
+    return ! $self->hasTargetSeqIndex ? 1
+        :  $result->doesMapToTargetWithIndex($self->hasTargetSeqIndex)
+}
 
-    return map {/^([0-9.-]+)/} @lines
+package PositionResult;
+use Moose;
+use TCNUtil::GLOBAL qw(rm_trail);
+
+has 'score' => (
+    isa => 'Num',
+    is => 'rw',
+    required => 1
+);
+
+has '_sequencePositionStr' => (
+    isa => 'Str',
+    is => 'rw',
+    required => 1
+);
+
+sub doesMapToTargetWithIndex {
+    my $self  = shift;
+    my $index = shift;
+    return substr($self->_sequencePositionStr(), $index, 1) eq '-' ? 0 : 1;
+}
+
+# Allows lazy object creation: PositionResult->new($myString)
+around BUILDARGS => sub {
+    my $orig  = shift;
+    my $class = shift;
+    
+    if (@_ == 1) {
+        my ($score, $seqPosStr) = _parseString($_[0]);
+        return $class->$orig(score => $score,
+                             _sequencePositionStr => $seqPosStr);
+    }
+    else {
+        return $class->$orig(@_);
+    }
+};
+
+sub _parseString {
+    my $string = rm_trail(shift);
+    my ($position, $score, $seqPositionString) = split(/\s+/, $string);
+    return ($score, $seqPositionString);
 }
 
 1;
