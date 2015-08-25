@@ -75,7 +75,7 @@ has 'inputSeqsStr' => (
 
 has 'consScoreCalculator' => (
     is => 'rw',
-    does => 'roles::consScoreCalculating', # Can do consScoreCalculator
+    does => 'TCNUtil::roles::consScoreCalculating', # Can do consScoreCalculator
     predicate => 'hasConsScoreCalculator',
 );
 
@@ -349,7 +349,8 @@ sub _buildExecPath {
 
 sub getAlignedSeqStringAref {
     my $self = shift;
-    croak "alignment was not successful" if ! $self->success();
+    croak "alignment was not successful. STDERR" . $self->stderr()
+        if ! $self->success();
     return $self->_parseOrderedAlignedSeqStringArefFromString($self->stdout());
 }
 

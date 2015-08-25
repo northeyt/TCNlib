@@ -22,12 +22,20 @@ BEGIN { use_ok( 'TCNUtil::scorecons' ); }
 subtest "test scorecons" => sub {
     my $test     = shift;
     my $testFile = "test.aln.pir";
-    my $testObj  = new_ok("scorecons", ["inputAlignedSeqsStringFile", $testFile]);
+    my $testObj  = new_ok("scorecons", [inputAlignedSeqsStringFile => $testFile]);
 
     my @gotScores = $testObj->calcConservationScores();
     is(scalar @gotScores, 209, "all scores parsed");
-    is($gotScores[0], 0.149, "score is correct");
-    
-    $testObj->targetSeqIndex(2);
-    $testObj->calcConservationScores();
+    is(sprintf("%.2f", $gotScores[0]), 0.15, "score is correct");
+};
+
+subtest "test target seq index" => sub {
+    my $test     = shift;
+    my $testFile = "test.aln.pir";
+    my $testObj  = new_ok("scorecons", [inputAlignedSeqsStringFile => $testFile,
+                                        targetSeqIndex             => 0]);
+
+    my @gotScores = $testObj->calcConservationScores();
+    is(scalar @gotScores, 189, "only scores that map to first sequence are parsed");
+    is(sprintf("%.2f", $gotScores[-1]), 0.220, "final score is correct");
 };

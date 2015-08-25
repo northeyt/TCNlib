@@ -65,7 +65,7 @@ sub getPIRStr {
 
 sub getPIRCode {
     my $self = shift;
-    return $self->_PIRCodeForSequenceType($self->seqType());
+    return $self->_PIRCodeForSequenceType->{$self->seqType()};
 }
 
 # Allows lazy object creation: SeqStringAdapter->($myString)
