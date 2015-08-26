@@ -1504,7 +1504,6 @@ sub read_ASA {
     my $solv = pdb::solv->new(input => $self);
     my $atomSerial2ASARadHref = $solv->getOutput();
     
-    # Use xmas2pdb object if it has been passed, otherwise create one
     if (@_) {
         $xmas2pdb = shift;
         
