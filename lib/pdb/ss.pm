@@ -32,7 +32,8 @@ sub getssArray {
     croak "Error while running exec" . $self->execFilePath().  ": " . $self->stderr()
         if ! $self->runExec();
 
-    return map {$self->_getssFromLine($_)} split("\n", $self->stdout());
+    return $self->stdout ? map {$self->_getssFromLine($_)} split("\n", $self->stdout())
+        : ();
 }
 
 sub _getssFromLine {
