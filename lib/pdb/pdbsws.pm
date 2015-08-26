@@ -112,7 +112,7 @@ sub _getHashFromEntryString {
 package pdb::pdbsws::Local;
 
 use Moose;
-use types;
+use TCNUtil::types;
 use DBI;
 use TCNPerlVars;
 use Carp;
