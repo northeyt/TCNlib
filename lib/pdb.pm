@@ -1858,25 +1858,42 @@ CHAIN_ID_ARRAY = array of chain identifiers
 
 Method to create chain objects from pdb object. Returns array of chains.
 An array of chain ids can be passed to the method; if this is the case then
-the returned chains will be in the order specified in the passed array
+the returned chains will be in the order specified in the passed array.
+
+If CHAIN_ID_ARRAY contains a hyphen, then all chains present in the pdb
+that do have chain ids corresponding to the chain ids following the hyphen
+will be returned. e.g,
+
+    ('-', 'A')
+
+will return all chains except A.
 
 =cut
     
 sub create_chains {
     my $self = shift;
     my @passed_chain_ids = @_;
-
+    my @return_chain_ids = ();
+    my @except_chain_ids = ();
+    
     # If chain ids have been passed, check that all chain ids are found in
     # this pdb
     if (@passed_chain_ids) {
         my %chain_ids = map { $_ => 1 } @{$self->get_chain_ids()};
-        
-        foreach my $chain_id (@passed_chain_ids) {
-            croak "Passed chain_id $chain_id was not found in pdb!"
-                if ! exists $chain_ids{$chain_id};
+        while (@passed_chain_ids) {
+            my $chain_id = shift @passed_chain_ids;
+            if ($chain_id eq '-') {
+                @except_chain_ids = @passed_chain_ids;
+                last;
+            }
+            else {
+                croak "Passed chain_id $chain_id was not found in pdb!"
+                    if ! exists $chain_ids{$chain_id};
+                push(@return_chain_ids, $chain_id);
+            }
         }
     }
-    
+        
     my %atoms = map { $_ => [] } @{$self->get_chain_ids()};
 
     # Hash atoms by chain id
@@ -1895,19 +1912,22 @@ sub create_chains {
 
         $chains{$chain->chain_id()} = $chain;
     }
-
+        
     my @return_chains = ();
     
     # If chain_ids have been specified, return chains in specified order
-    if (@passed_chain_ids) {
-        foreach my $chain_id (@passed_chain_ids) {
+    if (@return_chain_ids) {
+        foreach my $chain_id (@return_chain_ids) {
             push(@return_chains, $chains{$chain_id});
         }
     }
-    else {
-        @return_chains = values %chains;
+    if (@except_chain_ids) {
+        foreach my $chain_id (keys %chains) {
+            push(@return_chains, $chains{$chain_id})
+                if ! grep {$_ eq $chain_id} @except_chain_ids;
+        }
     }
-    return @return_chains;
+    return @return_chains ? @return_chains : values %chains;
 }
 
 =item C<get_chain_ids>
@@ -1918,9 +1938,7 @@ Returns ref to array containing chainIDs found in pdb
 
 sub get_chain_ids {
     my $self = shift;
-
     my @chain_ids = keys (%{$self->atom_index()});
-
     return \@chain_ids;
 }
 

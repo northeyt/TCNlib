@@ -309,6 +309,11 @@ my @chains = $pdb->create_chains();
 
 ok(testChains($pdb, @chains), "Create chains works okay");
 
+my @chainAndExceptionChains = $pdb->create_chains(qw(A - A));
+cmp_deeply([map {$_->chain_id} @chainAndExceptionChains],
+           ['A', 'B'],
+           "create_chains works with exception args");
+
 # Test createOtherChains
 
 my @otherChains = $chains[0]->createOtherChains();
