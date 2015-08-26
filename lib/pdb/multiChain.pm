@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Carp;
 
-use pdb::asurf64;
+use pdb::solv;
 
 # This method will assign ASAb values to the atoms of the input chains,
 # where ASAb values are based on the surface accessibility values of the atoms
@@ -16,9 +16,9 @@ sub readASAb {
     my $chainAref = shift;
     # Get array of all atoms from all chains
     my $atomAref = pdb::pdbFunctions::generateAtomAref(@{$chainAref});
-    my $asurf = pdb::asurf64->new(input => $atomAref);
+    my $solv = pdb::solv->new(input => $atomAref);
     
-    my $atomSerial2ASARadHref = $asurf->getOutput();
+    my $atomSerial2ASARadHref = $solv->getOutput();
     
     foreach my $atom (@{$atomAref}) {
         next if $atom->is_solvent()
@@ -30,13 +30,13 @@ sub readASAb {
         $atom->radius($radius);
     }
 
-    # Set each chain object's resid2relASAHref to asurf output
+    # Set each chain object's resid2relASAHref to solv output
     my %chainID2chain = map {$_->chain_id() => $_} @{$chainAref};
     
-    foreach my $resid (keys %{$asurf->resid2RelASAHref()}) {
+    foreach my $resid (keys %{$solv->resid2RelASAHref()}) {
         my ($chainID, $resSeq) = split(/\./, $resid);
         
-        my $relASA = $asurf->resid2RelASAHref()->{$resid};
+        my $relASA = $solv->resid2RelASAHref()->{$resid};
 
         $chainID2chain{$chainID}->resid2RelASAHref->{$resid} = $relASA;
     }
