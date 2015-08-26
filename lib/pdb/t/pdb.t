@@ -59,6 +59,13 @@ subtest "resID2secStructHref" => sub {
     ok($testPDB->resID2secStructHref(), "resID2secStrucHref ok");
 };
 
+subtest "readAtomRadii" => sub {
+    my $testPDB = pdb->new(pdb_file => '1qok.reduced.pdb');
+    $testPDB->readAtomRadii();
+    is($testPDB->atom_array->[0]->radius(), '1.65',
+       "an atom of pdb has expected radius set");
+};
+
 # Atom object tests
 my $ATOM_line
     = "ATOM     13  CG  LEU A 148      13.227  45.000  23.178  1.00 47.53           C";
@@ -239,7 +246,6 @@ my $test_atom = $pdb->atom_array->[1];
 
 $pdb->read_ASA();
 
-ok($test_atom->radius(), "Radius read from xmas2pdb object" );
 ok($test_atom->ASAc(), "Multimer ASA read from xmas2pdb object" );
 
 warn "WARNING: SKIPPING TEST RELATED TO ASAm READING\n";

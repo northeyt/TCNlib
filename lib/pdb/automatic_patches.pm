@@ -259,6 +259,8 @@ sub get_patches {
     }
     
     foreach my $pdb_obj (@{$pdb_obj_aref}) {
+        $pdb_obj->readAtomRadii();
+            
         if (! $pdb_obj->has_read_ASA()) {
             
             my @ASA_read_err = ();

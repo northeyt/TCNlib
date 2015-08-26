@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/usr/bin/env perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl asurf64.t'
@@ -28,8 +28,8 @@ my $testObj = new_ok('pdb::solv', [input => "1djs.pdb"]);
 
 ok(my $atomASAHref = $testObj->getOutput(), "getOutput works ok");
 
-cmp_deeply($atomASAHref->{1}, ["44.61", "1.00"],
-           "atom radii and ASA values correct");
+cmp_deeply($atomASAHref->{1}, 44.61,
+           "atom ASA value is correct");
 
 is($testObj->resid2RelASAHref->{"A.147"}->{allAtoms}, "118.003",
    "getResid2RelASAHash works ok")

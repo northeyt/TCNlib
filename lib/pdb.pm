@@ -55,6 +55,7 @@ use pdb::parseXMAS;
 use pdb::ss;
 use pdb::secstrCalculator;
 use pdb::hbondFinder;
+use pdb::RadiusFinder;
 
 =head1 Methods
 
@@ -464,7 +465,13 @@ has 'resID2secStructHref' => (
     lazy => 1,
     builder => '_build_resID2secStructHref',
 );
-    
+
+has 'radiusFinder' => (
+    is      => 'rw',
+    isa     => 'pdb::RadiusFinder',
+    default => sub {pdb::RadiusFinder->new()},
+);
+
 # Consume antigen role
 with 'pdb::antigen';
 
@@ -1502,7 +1509,7 @@ sub read_ASA {
 
     # solv must also be run in order to get relative ASAs
     my $solv = pdb::solv->new(input => $self);
-    my $atomSerial2ASARadHref = $solv->getOutput();
+    my $atomSerial2ASAHref = $solv->getOutput();
     
     if (@_) {
         $xmas2pdb = shift;
@@ -1519,12 +1526,9 @@ sub read_ASA {
         # Use solv per atom output
         foreach my $atom (@{$self->atom_array()}) {
             next if $atom->is_solvent()
-                || ! $atomSerial2ASARadHref->{$atom->serial()};
+                || ! $atomSerial2ASAHref->{$atom->serial()};
             
-            my ($ASA, $radius) = @{$atomSerial2ASARadHref->{$atom->serial()}};
-            
-            $atom->$ASAType($ASA);
-            $atom->radius($radius);
+            $atom->$ASAType($atomSerial2ASAHref->{$atom->serial()});
         }
     }
     
@@ -2340,6 +2344,11 @@ sub getResNames {
     # For each resID, get first atom from resid_index then get that atom's
     # name
     return map { [values %{$self->resid_index->{$_}}]->[0]->resName() } @resIDs;
+}
+
+sub readAtomRadii {
+    my $self = shift;
+    map {$_->readRadius($self->radiusFinder)} @{$self->atom_array};
 }
 
 __PACKAGE__->meta->make_immutable;
@@ -3510,6 +3519,7 @@ use Moose::Util::TypeConstraints;
 use TCNUtil::types;
 use Math::Trig;
 use TCNUtil::GLOBAL qw(&rm_trail);
+use TryCatch;
 
 use Carp;
 
@@ -3766,6 +3776,26 @@ sub contacting {
     else {
         return 0;
     }
+}
+
+sub readRadius {
+    my $self         = shift;
+    my $radiusFinder = shift;
+    my $radius;
+    
+    try {
+        $radius = $radiusFinder->findRadiusOfAtomFromNames($self->resName, $self->name);
+    }
+    catch {
+        try {
+            $radius = $radiusFinder->findRadiusOfAtomFromElement($self->element);
+        }
+        catch {
+            $radius = 1.80;
+        }
+    };
+    
+    $self->radius($radius);
 }
 
 __PACKAGE__->meta->make_immutable;

@@ -109,21 +109,18 @@ sub getAtomSerialHash {
 
     while (my $line = <$fh>) {
         next unless $line =~ /^(ATOM|HETATM)/;
-        my($serial, $ASA, $radius) = $self->parseLine($line);
-        $atomSerialHash{$serial} = [$ASA, $radius];
+        my($serial, $ASA) = $self->parseLine($line);
+        $atomSerialHash{$serial} = $ASA;
     }
     return %atomSerialHash;
 }
 
 sub parseLine {
-    my $self = shift;
-    my $line = shift;
-    
+    my $self   = shift;
+    my $line   = shift;
     my $serial = rm_trail(substr($line,  6, 5));
-    my $radius = rm_trail(substr($line, 54, 6));
     my $ASA    = rm_trail(substr($line, 60, 6));
-
-    return ($serial, $ASA, $radius);
+    return ($serial, $ASA);
 }
 
 sub runExec {
