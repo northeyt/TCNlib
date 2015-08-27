@@ -189,6 +189,8 @@ sub _tableFromLines {
     
     foreach my $line (@{$lineAref}) {
         chomp $line;
+        next if ! $line;
+        
         if (! $reachedHeader) {
             if ($line =~ /^inst#/) {
                 $reachedHeader = 1;
@@ -234,9 +236,7 @@ sub _instanceFromLine {
 
     # If this instance's value is unlabelled then we cannot add this
     # to a table, so do not return an instance
-    if ($valueLabel eq $self->undefLabel) {
-        return 0;
-    }
+    return 0 if $valueLabel eq $self->undefLabel;
     
     my $labelTest
         = eval{$self->_checkLabels([$valueLabel, $predLabel], $labelMapHref)};
