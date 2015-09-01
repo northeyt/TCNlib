@@ -161,7 +161,7 @@ sub add_datum {
 sub metrics_array {
     my $self = shift;
 
-    return qw(sensitivity specificity accuracy FPR PPV MCC FDR);
+    return qw(sensitivity specificity accuracy FPR PPV MCC FDR total);
 }
 
 
