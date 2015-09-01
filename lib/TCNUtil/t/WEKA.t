@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/usr/bin/env perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl WEKA.t'
@@ -91,4 +91,56 @@ subtest 'testTest' => sub {
 
     like($gotCmdStr,
          qr/.* -Xmx.* -cp .* -T .*\.arff -l $model .*/, "buildTestCmd ok");
+};
+
+subtest 'parseTableFromOutput, CSV output' => sub {
+    my $testObj   = WEKA->new(posLabel => 'I', negLabel => 'S', undefLabel => '?');
+    no warnings 'qw';
+    my $testLines = [qw(inst#,actual,predicted,error,prediction
+                        1,1:I,1:I,,0.879,
+                        2,1:I,2:S,+,0.638,
+                        3,2:S,1:I,+,0.507,
+                        4,2:S,2:S,,0.507,
+                        5,1:?,1:I,,0.520)];
+    my $table = $testObj->parseTableFromOutput($testLines, 'CSV');
+    is($table->total,     4, "expected number of instances in parsed table");
+    is($table->true_pos,  1, "expected number of true positives");
+    is($table->true_neg,  1, "expected number of true negatvies");
+    is($table->false_pos, 1, "expected number of false positives");
+    is($table->false_neg, 1, "expected number of false negatives");
+};
+
+subtest 'parseTableFromOutput, default output' => sub {
+    my $testObj   = WEKA->new(posLabel => 'I', negLabel => 'S', undefLabel => '?');
+    no warnings 'qw';
+    my $testLines = [('     1        1:I        1:I       0.896 (2dd8:S:437)',
+                      '     2        2:S        2:S       0.758 (1rvf:1:201)',
+                      '     3        1:I        2:S   +   0.514 (3grw:A:322)',
+                      '     4        2:S        1:I   +   0.782 (2xtj:A:292)')];
+    
+    my $table = $testObj->parseTableFromOutput($testLines, 'DEF');
+    is($table->total,     4, "expected number of instances in parsed table");
+    is($table->true_pos,  1, "expected number of true positives");
+    is($table->true_neg,  1, "expected number of true negatvies");
+    is($table->false_pos, 1, "expected number of false positives");
+    is($table->false_neg, 1, "expected number of false negatives");
+};
+
+
+subtest 'translating unlabelled class labels' => sub {
+    my $testObj   = WEKA->new(posLabel   => 'I', negLabel => 'S',
+                              undefLabel => '?', translateUndefLabelTo => 'posLabel');
+    no warnings 'qw';
+    my $testLines = [qw(inst#,actual,predicted,error,prediction
+                        1,1:I,1:I,,0.879,
+                        2,1:I,2:S,+,0.638,
+                        3,2:S,1:I,+,0.507,
+                        4,2:S,2:S,,0.507,
+                        5,1:?,1:I,,0.520)];
+    my $table = $testObj->parseTableFromOutput($testLines);
+    is($table->total,     5, "expected number of instances in parsed table");
+    is($table->true_pos,  2, "expected number of true positives");
+    is($table->true_neg,  1, "expected number of true negatvies");
+    is($table->false_pos, 1, "expected number of false positives");
+    is($table->false_neg, 1, "expected number of false negatives");
 };

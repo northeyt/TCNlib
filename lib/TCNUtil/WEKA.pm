@@ -15,8 +15,10 @@ package WEKA;
 =cut
 
 use Moose;
+use Moose::Util::TypeConstraints;
 use TCNPerlVars;
 use TCNUtil::types;
+use TCNUtil::GLOBAL qw(rm_trail);
 use Carp;
 use TCNUtil::confusion_table;
 use IO::CaptureOutput qw(qxx);
@@ -97,6 +99,20 @@ foreach my $label (qw(posLabel negLabel undefLabel)) {
     );
 }
 
+has 'translateUndefLabelTo' => (
+    is        => 'rw',
+    isa       => enum([qw[ posLabel negLabel ]]),
+    predicate => 'has_translateUndefLabelTo',
+    clearer   => 'clear_translateUndefLabelTo',
+);
+
+has '_labelMap' => (
+    is => 'rw',
+    isa => 'HashRef',
+    lazy => 1,
+    builder => '_buildLabelMap',
+);
+
 ### METHODS ####################################################################
 ################################################################################
 
@@ -161,89 +177,101 @@ sub standardizeArffFiles {
 }
 
 sub parseTableFromOutput {
-    my $self = shift;
-    my $output = shift;
+    my $self    = shift;
+    my $output  = shift;
+    my $outForm = shift;
 
+    $outForm = 'CSV' if ! $outForm;
+    
     # If output in array ref form, use this - otherwise,
     # split output into lines
     my $outputAref = ref $output eq 'ARRAY' ? $output :
         [split /(?<=\n)/, $output]; # Split output into lines (keeping newline)
-
-    # Create map of labels to boolean values, e.g Pos => 1, Neg => 0
-    my %labelMap = $self->_createLabelMap();
     
     # Get confusion table from output
-    my $table = $self->_tableFromLines($outputAref, \%labelMap);
+    my $table = $self->_tableFromLines($outputAref, $outForm);
 }
 
 sub _tableFromLines {
-    my $self = shift;
-    my $lineAref     = shift;
-    my $labelMapHref = shift;
+    my $self     = shift;
+    my $lineAref = shift;
+    my $outForm  = shift;
     
-    my $table = confusion_table->new(item_class => 'instance');
-    
-    my $reachedHeader = 0;
+    my @instances
+        = $outForm eq 'CSV' ? $self->_getInstancesFromCSVLines($lineAref)
+        : $self->_getInstancesFromDefaultOutputLines($lineAref);
+        
+    my $table     = confusion_table->new(item_class => 'instance');
+    map {$table->add_datum($_)} @instances;
+    return $table;
+}
 
-    my @fieldTitles = ();
+sub  _getInstancesFromDefaultOutputLines {
+    my $self         = shift;
+    my $lineAref     = shift;
+    my @fieldTitles  = qw(inst actual predicted score id);
+    my @instances
+        = map {$self->_instanceFromLine($_, \@fieldTitles, 'DEF')}
+        @{$lineAref};
+    return @instances;
+}
+
+sub _getInstancesFromCSVLines {
+    my $self         = shift;
+    my $lineAref     = shift;
+    
+    my @instances     = ();
+    my @fieldTitles   = ();
+    my $reachedHeader = 0;
     
     foreach my $line (@{$lineAref}) {
         chomp $line;
         next if ! $line;
         
-        if (! $reachedHeader) {
+        if (! $reachedHeader || $line =~ /^\n$/) {
             if ($line =~ /^inst#/) {
                 $reachedHeader = 1;
                 @fieldTitles = split(",", $line);
             }
             next;
         }
-        
-        next if $line =~ /^\n$/;
-        
-        my $instance
-            = $self->_instanceFromLine($line, $labelMapHref, \@fieldTitles);
-
-        if ($instance) {
-            $table->add_datum($instance);  
-        }
+                
+        my $instance = $self->_instanceFromLine($line, \@fieldTitles, 'CSV');
+        push(@instances, $instance) if $instance; 
     }
-    return $table;
-}
-
-sub _createLabelMap {
-    my $self = shift;
-
-    my %labelMap = ();
-
-    croak "posLabel must be set to create a label map!"
-        if ! $self->has_posLabel;
-
-    croak "negLabel must be set to create a label map!"
-        if ! $self->has_negLabel;
-    
-    return ($self->posLabel => 1, $self->negLabel => 0);
+    return @instances;
 }
 
 sub _instanceFromLine {
     my $self           = shift;
     my $line           = shift;
-    my $labelMapHref   = shift;
     my $fieldTitleAref = shift;
+    my $lineForm       = shift;
     
     my ($instNum, $valueLabel, $predLabel, $predValue, @remainingFields)
-        = $self->_parseLine($line);
+        = $lineForm eq 'CSV' ? $self->_parseCSVLine($line)
+        : $self->_parseDefaulOutputLine($line);
 
-    # If this instance's value is unlabelled then we cannot add this
-    # to a table, so do not return an instance
-    return 0 if $valueLabel eq $self->undefLabel;
+    # Remove numeric label identifier from value and prediction
+    # label, e.g. 1:I => I
+    ($valueLabel, $predLabel)
+        = map {[split(":", $_)]->[1]} ($valueLabel, $predLabel);
+    
+    if ($valueLabel eq $self->undefLabel) {
+        if ($self->has_translateUndefLabelTo) {
+            my $labelType = $self->translateUndefLabelTo;
+            $valueLabel = $self->$labelType;
+        }
+        else {
+            # If this instance's value is unlabelled then we cannot add this
+            # to a table, so do not return an instance
+            return 0;
+        }
+    }
     
     my $labelTest
-        = eval{$self->_checkLabels([$valueLabel, $predLabel], $labelMapHref)};
-    
-    if (! $labelTest) {
-        croak $@;
-    }
+        = eval{$self->_checkLabels([$valueLabel, $predLabel])};
+    croak $@ if ! $labelTest;
 
     my %valueForField = ();
     @valueForField{@{$fieldTitleAref}} = ($instNum, $valueLabel, $predLabel,
@@ -251,32 +279,42 @@ sub _instanceFromLine {
     
     my $obj = bless \%valueForField, 'instance';
     my $instance = datum->new(object => $obj,
-                              value => $labelMapHref->{$valueLabel},
-                              prediction => $labelMapHref->{$predLabel});
+                              value => $self->_labelMap->{$valueLabel},
+                              prediction => $self->_labelMap->{$predLabel});
     
     return $instance;
 }
 
-sub _parseLine {
+sub _parseDefaulOutputLine {
+    my $self = shift;
+    my $line = rm_trail(shift);
+
+    # example line:      1        2:S        2:S   +   0.9 (2qqk:A:415)
+    # Remove + that indicates error, but is not present otherwise
+    $line    =~ s/\+//;
+    # Remove brackets around patch ID if it is present
+    $line    =~ s/[()]//;
+
+    my ($instNum, $valueLabel, $predLabel, $predValue, @remainingFields)
+        = split(/\s+/, $line);
+    
+    return ($instNum, $valueLabel, $predLabel, $predValue, @remainingFields);
+}
+
+sub _parseCSVLine {
     my $self = shift;
     my $line = shift;
     
     # example line: 2857,1:I,2:S,+,0.887
     my($instNum, $valueLabel, $predLabel, $err, $predValue, @remainingFields)
         = split(",", $line);
-    
-    # Remove numeric label identifier from value and prediction
-    # label, e.g. 1:I => I
-    ($valueLabel, $predLabel)
-        = map {[split(":", $_)]->[1]} ($valueLabel, $predLabel);
-    
-    return ($instNum, $valueLabel, $predLabel, $err, $predValue, @remainingFields);
+
+    return ($instNum, $valueLabel, $predLabel, $predValue, @remainingFields);
 }
    
 sub _checkLabels {
-    my $self = shift;
-    my $labelAref    = shift;
-    my $labelMapHref = shift;
+    my $self      = shift;
+    my $labelAref = shift;
     
     # Check that passed labels are defined and match the labels specified in
     # the map
@@ -284,13 +322,19 @@ sub _checkLabels {
         if (! defined $label) {
             croak "Label is not defined!\n";
         }
-        elsif (! exists $labelMapHref->{$label}) {
+        elsif (! exists $self->_labelMap->{$label}) {
             croak "label '$label' does not match user-input labels!\n";
         }
     }
     return 1;
 }
 
+sub _buildLabelMap {
+    my $self     = shift;
+    croak "posLabel must be set to create a label map!" if ! $self->has_posLabel;
+    croak "negLabel must be set to create a label map!" if ! $self->has_negLabel;
+    return {$self->posLabel => 1, $self->negLabel => 0};
+}
 
 __PACKAGE__->meta->make_immutable;
 
