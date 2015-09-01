@@ -210,9 +210,15 @@ sub  _getInstancesFromDefaultOutputLines {
     my $self         = shift;
     my $lineAref     = shift;
     my @fieldTitles  = qw(inst actual predicted score id);
-    my @instances
-        = map {$self->_instanceFromLine($_, \@fieldTitles, 'DEF')}
-        @{$lineAref};
+
+    my @instances = ();
+    foreach my $line (@{$lineAref}) {
+        chomp $line;
+        next if ! $line || $line =~ /^\n$/;
+        
+        my $instance = $self->_instanceFromLine($line, \@fieldTitles, 'DEF');
+        push(@instances, $instance) if $instance;
+    }
     return @instances;
 }
 
@@ -308,7 +314,6 @@ sub _parseCSVLine {
     # example line: 2857,1:I,2:S,+,0.887
     my($instNum, $valueLabel, $predLabel, $err, $predValue, @remainingFields)
         = split(",", $line);
-
     return ($instNum, $valueLabel, $predLabel, $predValue, @remainingFields);
 }
    
