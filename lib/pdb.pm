@@ -6,7 +6,7 @@ pdb - A class for creating pdb objects from pdb files.
 
 =cut
 
-=head1 SYNOPSIS
+=Head SYNOPSIS
 
 use pdb;
 $pdbObject = pdb->new(pdb_code => '1adjs',
@@ -1945,6 +1945,28 @@ sub get_chain_ids {
     return \@chain_ids;
 }
 
+=item C<getResIDs>
+
+Returns an array of all the resIDs of the chain
+    include_missing : include resIDs of missing residues. DEFAULT = TRUE
+
+=cut
+
+sub getResIDs {
+    my $self = shift;
+    my %opt  = (@_);
+
+    my @resIDs = keys %{$self->resid_index}; 
+    my $includeMissing
+        = exists $opt{include_missing} && ! $opt{include_missing} ? 0
+        : 1;
+        
+    if (! $includeMissing) {
+        @resIDs = grep {! exists $self->missing_resid_index->{$_}} @resIDs;
+    }
+    return @resIDs;
+}
+
 =item C<getAbPairs(CHAIN_ARRAY)>
 
 Determines antibody pairs found within pdb.
@@ -2318,17 +2340,6 @@ sub labelSSbondedAtoms {
     }
 }
 
-=item C<getResIDs>
-
-Returns an array of all the resIDs of the chain
-
-=cut
-
-sub getResIDs {
-    my $self = shift;
-
-    return keys %{$self->resid_index};
-}
 
 =item C<getResNames(resIDS)>
 
@@ -2820,7 +2831,7 @@ sub labelInterfaceAtoms {
 Returns an array of all the resSeqs of the chain
 
 Opts:
-    include_missing : include resSeqs missing residues. DEFAULT = TRUE
+    include_missing : include resSeqs of missing residues. DEFAULT = TRUE
 
 =cut
 
@@ -3095,6 +3106,7 @@ sub labelAtomsWithClusterSeq {
         }
         else {
             $atom->clusterSeq($cluster_id . "." . $atom->alnSeq());
+            
         }
     }
 }
