@@ -192,6 +192,21 @@ sub parseTableFromOutput {
     my $table = $self->_tableFromLines($outputAref, $outForm);
 }
 
+sub parseInstancesFromOutput {
+    my $self    = shift;
+    my $output  = shift;
+    my $outForm = shift;
+    
+    $outForm = 'CSV' if ! $outForm;
+    # If output in array ref form, use this - otherwise,
+    # split output into lines
+    my $outputAref = ref $output eq 'ARRAY' ? $output :
+        [split /(?<=\n)/, $output]; # Split output into lines (keeping newline)
+
+    return $outForm eq 'CSV' ? $self->_getInstancesFromCSVLines($outputAref)
+        :  $self->_getInstancesFromDefaultOutputLines($outputAref);
+}
+
 sub _tableFromLines {
     my $self     = shift;
     my $lineAref = shift;
@@ -202,7 +217,9 @@ sub _tableFromLines {
         : $self->_getInstancesFromDefaultOutputLines($lineAref);
         
     my $table     = confusion_table->new(item_class => 'instance');
-    map {$table->add_datum($_)} @instances;
+
+    # Only add data where a value label is defined
+    map {$table->add_datum($_)} grep {$_->value() ne ''} @instances;
     return $table;
 }
 
@@ -255,24 +272,17 @@ sub _instanceFromLine {
     my $lineForm       = shift;
     
     my ($instNum, $valueLabel, $predLabel, $predValue, @remainingFields)
-        = $lineForm eq 'CSV' ? $self->_parseCSVLine($line)
-        : $self->_parseDefaulOutputLine($line);
+        = $lineForm eq 'CSV' ? $self->parseCSVLine($line)
+        : $self->parseDefaultOutputLine($line);
 
     # Remove numeric label identifier from value and prediction
     # label, e.g. 1:I => I
     ($valueLabel, $predLabel)
         = map {[split(":", $_)]->[1]} ($valueLabel, $predLabel);
     
-    if ($valueLabel eq $self->undefLabel) {
-        if ($self->has_translateUndefLabelTo) {
-            my $labelType = $self->translateUndefLabelTo;
-            $valueLabel = $self->$labelType;
-        }
-        else {
-            # If this instance's value is unlabelled then we cannot add this
-            # to a table, so do not return an instance
-            return 0;
-        }
+    if ($valueLabel eq $self->undefLabel && $self->has_translateUndefLabelTo) {
+        my $labelType = $self->translateUndefLabelTo;
+        $valueLabel = $self->$labelType;
     }
     
     my $labelTest
@@ -291,7 +301,7 @@ sub _instanceFromLine {
     return $instance;
 }
 
-sub _parseDefaulOutputLine {
+sub parseDefaultOutputLine {
     my $self = shift;
     my $line = rm_trail(shift);
 
@@ -299,7 +309,7 @@ sub _parseDefaulOutputLine {
     # Remove + that indicates error, but is not present otherwise
     $line    =~ s/\+//;
     # Remove brackets around patch ID if it is present
-    $line    =~ s/[()]//;
+    $line    =~ s/[()]//g;
 
     my ($instNum, $valueLabel, $predLabel, $predValue, @remainingFields)
         = split(/\s+/, $line);
@@ -307,7 +317,7 @@ sub _parseDefaulOutputLine {
     return ($instNum, $valueLabel, $predLabel, $predValue, @remainingFields);
 }
 
-sub _parseCSVLine {
+sub parseCSVLine {
     my $self = shift;
     my $line = shift;
     
@@ -338,7 +348,7 @@ sub _buildLabelMap {
     my $self     = shift;
     croak "posLabel must be set to create a label map!" if ! $self->has_posLabel;
     croak "negLabel must be set to create a label map!" if ! $self->has_negLabel;
-    return {$self->posLabel => 1, $self->negLabel => 0};
+    return {$self->posLabel => 1, $self->negLabel => 0, $self->undefLabel => ''};
 }
 
 __PACKAGE__->meta->make_immutable;
