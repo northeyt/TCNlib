@@ -1,15 +1,15 @@
-#!/usr/bin/env perl -s
-
+#!/usr/bin/env perl
 use strict;
 use warnings;
+use Getopt::Long;
 
+my $file;
+GetOptions("f=s", \$file);
 my $string = "";
 
-if ($::f) {
+if ($file) {
     # Read from file
-    die "File name must be supplied with -f option!\n" if ! @ARGV;
-    open(my $IN, "<", $ARGV[0]) or die "Cannot open file $ARGV[0], $!\n";
-
+    open(my $IN, "<", $file) or die "Cannot open file $file, $!\n";
     $string = join("", <$IN>);
 }
 else {
@@ -18,7 +18,5 @@ else {
 }
 
 my ($subStr) = $string =~ /(?:=== Stratified cross-validation)* .* === Confusion Matrix === (.*)/g;
-
 my ($tp, $fn, $fp, $tn) = $subStr =~ /[^=](?= (\d+))/g;
-
 print `MCC.pl $tp $tn $fp $fn`;
