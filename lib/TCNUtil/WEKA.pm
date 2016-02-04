@@ -275,6 +275,8 @@ sub _instanceFromLine {
         = $lineForm eq 'CSV' ? $self->parseCSVLine($line)
         : $self->parseDefaultOutputLine($line);
 
+    my $error = $valueLabel eq $predLabel ? '' : '+';
+    
     # Remove numeric label identifier from value and prediction
     # label, e.g. 1:I => I
     ($valueLabel, $predLabel)
@@ -288,10 +290,10 @@ sub _instanceFromLine {
     my $labelTest
         = eval{$self->_checkLabels([$valueLabel, $predLabel])};
     croak $@ if ! $labelTest;
-
+    
     my %valueForField = ();
     @valueForField{@{$fieldTitleAref}} = ($instNum, $valueLabel, $predLabel,
-                                          $predValue, @remainingFields);
+                                          $error, $predValue, @remainingFields);
     
     my $obj = bless \%valueForField, 'instance';
     my $instance = datum->new(object => $obj,
