@@ -339,7 +339,7 @@ Experimental method of structure determination, parsed from pdb data.
 
 has 'experimental_method' => (
     is => 'rw',
-    isa => enum([ ('X-RAY DIFFRACTION', 'NMR') ]),
+    isa => enum([ ('X-RAY DIFFRACTION', 'NMR', 'ELECTRON MICROSCOPY') ]),
     predicate => 'has_experimental_method',
     lazy => 1,
     builder => '_build_experimental_method',
@@ -2927,7 +2927,7 @@ sub getInterfaceResidues {
         
         my $complexRelASA   = $complexResid2RelASAHref->{$resid}->{allAtoms};
         my $monomericRelASA = $self->resid2RelASAHref->{$resid}->{allAtoms};
-
+        
         confess "Undefined in complex relASA for value for "
             . $self->pdb_code() . $self->chain_id() . " $resid!\n"
                 if ! defined $complexRelASA;
