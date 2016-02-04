@@ -32,4 +32,9 @@ cmp_deeply($atomASAHref->{1}, 44.61,
            "atom ASA value is correct");
 
 is($testObj->resid2RelASAHref->{"A.147"}->{allAtoms}, "118.003",
-   "getResid2RelASAHash works ok")
+   "getResid2RelASAHash works ok");
+
+my $pdbWithiCodes =  pdb::solv->new(input => "1f11.reduced.pdb");
+$pdbWithiCodes->getOutput();
+is($pdbWithiCodes->resid2RelASAHref->{"A.27D"}->{allAtoms}, "71.864",
+   "icode correctly caught and added to resID key");
