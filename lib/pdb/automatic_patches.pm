@@ -91,6 +91,12 @@ has surf_min => (
     default => 0,
 );
 
+has 'patch_centre_relASA_minimum' => (
+    is => 'rw',
+    isa => 'Num',
+    default => 25,
+);
+
 has 'ASA_type' => (
     is => 'rw',
     isa => 'Str',
@@ -327,7 +333,8 @@ sub _get_patch_centres {
     my @all_patch_centres = ();
     foreach my $pdb_obj (@{$self->pdb_object()}) {
         my($pc_errors, $patch_centres)
-            = $pdb_obj->patch_centres(type => $self->ASA_type());
+            = $pdb_obj->patch_centres(type => $self->ASA_type(),
+                                      threshold => $self->patch_centre_relASA_minimum);
         
         push(@all_patch_centres, @{$patch_centres});
     }
