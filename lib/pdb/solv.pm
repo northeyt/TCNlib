@@ -89,8 +89,8 @@ sub getResid2RelASAHash {
        chomp $line;
        
        my $chainID = rm_trail(substr($line, 8,  2));
-       my $resSeq  = rm_trail(substr($line, 10, 4));
-                                                     
+       my $resSeq  = rm_trail(substr($line, 10, 6));
+       $resSeq =~ s{\s}{}xmsg;
        my $resid   = $chainID . "." . $resSeq;
 
        $resid2RelASA{$resid} = {allAtoms => rm_trail(substr($line, 30, 7))};
