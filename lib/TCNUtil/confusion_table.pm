@@ -160,26 +160,26 @@ sub add_datum {
 
 sub metrics_array {
     my $self = shift;
-
     return qw(sensitivity specificity accuracy FPR PPV MCC FDR total);
 }
 
-
 sub print_all {
     my $self = shift;
-    
     $self->print_table();
     print "\n";
-    
+
     foreach my $metric ($self->metrics_array()) {
         my $value;
-        my $ret = eval {$value = $self->$metric(); 1};
-        
-        print "$metric: ", $ret ? $value : "???", "\n"; 
+        my $ret = eval {$value = _formatAnyDecimal($self->$metric); 1};
+        print "$metric: ", $ret ? $value : "???", "\n";
     }
     return 1;
 }
     
+sub _formatAnyDecimal {
+    return $_[0] =~ /\./ ? sprintf("%.5f", $_[0]) : $_[0];
+}    
+
 sub hash_all {
     my $self = shift;
 
