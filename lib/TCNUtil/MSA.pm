@@ -134,7 +134,8 @@ with ('TCNUtil::roles::fileExecutor', 'MSAligner');
 
 sub align {
     my $self = shift;
-    return $self->runExec();
+    $self->runExec() ? return 1
+        : croak "Alignment unsuccesful. STDERR: " . $self->stderr() . "\n";
 }
 
 has 'inputSeqsFile' => (
@@ -222,14 +223,15 @@ sub getTmpOutputFile {
 sub getAlignedSeqStringAref {
     my $self = shift;
 
-    if (! eval {$self->align}) {
+    my $success = eval {$self->align; 1};
+    if (! $success) {
         if ($@ =~ /Only one sequence supplied/) {
             # Only one sequence has been supplied, so simply parse sequence
             # from input file
             return [map {$_->string()} @{$self->seqs()}];
         }
         else {
-            croak $@;
+            confess "Unable to get aligned seq strings: $@";
         }
     }
     else {
@@ -243,7 +245,7 @@ sub getAlignedSeqStringsFromOutFile {
 
     my $file2parse = $self->getTmpOutputFile();
     open(my $FH, "<", $file2parse)
-        or croak "Cannot open file $file2parse";
+        or die "Cannot open file $file2parse, $!";
 
     my %id2AlnStr = ();
     
