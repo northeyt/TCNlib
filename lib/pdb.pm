@@ -472,8 +472,11 @@ has 'radiusFinder' => (
     default => sub {pdb::RadiusFinder->new()},
 );
 
-# Consume antigen role
-with 'pdb::antigen';
+has 'atomRadiiAreAssigned' => (
+    is => 'rw',
+    isa => 'Bool',
+    default => 0,
+);
 
 ### Attribute Builder Methods ##################################################
 ################################################################################
@@ -2360,6 +2363,7 @@ sub getResNames {
 sub readAtomRadii {
     my $self = shift;
     map {$_->readRadius($self->radiusFinder)} @{$self->atom_array};
+    $self->atomRadiiAreAssigned(1);
 }
 
 __PACKAGE__->meta->make_immutable;

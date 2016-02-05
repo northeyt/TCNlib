@@ -9,7 +9,7 @@ use Math::VectorReal qw(:all);
 use Math::MatrixReal;
 use Statistics::PCA;
 
-use pdb::rotate2pc qw(:all);
+use TCNUtil::VectorCalcs qw(rotate2pc);
 use pdb::pdbFunctions;
 
 use TCNPerlVars;
@@ -72,9 +72,13 @@ sub patch_order {
     croak "This method requires a parent pdb or chain object"
         if ! $self->has_parent;
 
+    # Ensure parent and patch atom radii are (required for determining contacts)
+    map {$_->readAtomRadii() if ! $_->atomRadiiAreAssigned}
+        ($self->patch, $self->parent);
+    
     # Get surface, non-solvent atoms of chain   
     my ($surface_errors, $surface_atoms) = $self->_surface_atoms;
-
+    
     # Return error if any patch atoms do not have ASA defined
     my %no_ASA_atom = _getNoASAAtomsHash(@{$surface_errors});
    
@@ -82,7 +86,7 @@ sub patch_order {
     my %all_atom
         = map { $_->serial => $_ }
             grep { ! $_->is_solvent() } @{ $self->parent->atom_array };
-
+    
     # Hash all atoms of patch
     my %patch_atom
         = map { $_->serial => $all_atom{$_->serial} }
@@ -90,7 +94,6 @@ sub patch_order {
 
     # Return error if a patch atom has no ASA value
     my $ASACheck = $self->_checkPatchASAsError(\%patch_atom, \%no_ASA_atom);
-
     return $ASACheck if $ASACheck;
     
     # Get patch surface atoms
@@ -176,7 +179,7 @@ sub centrePatch {
     $self->centralAtom2Origin($allAtomAref);
 
     # Get rot matrix for transforming x and y unit vectors to patch PC1 and PC2
-    my $RM = rotate2pc::rotate2pc( map { vector($_->x, $_->y, $_->z) }
+    my $RM = rotate2pc( map { vector($_->x, $_->y, $_->z) }
                             @{$pSurfAtomAref} );
 
     # Transform all atoms using rotation matrix
@@ -210,18 +213,18 @@ sub _surface_atoms {
     }
     
     foreach my $atom (@{$self->parent->atom_array}) {
-        if (! $atom->has_ASAm()){
+        if (! $atom->has_ASAb()){
             my $message
-                = "atom " . $atom->serial() . " does not have ASAm assigned";
+                = "atom " . $atom->serial() . " does not have ASAb assigned";
             
             my $error = local::error->new(message => $message,
-                                          type => 'atom_no_ASAm',
+                                          type => 'atom_no_ASAb',
                                           data => {atom => $atom});
             push(@errors, $error);
             next;
         }
         
-        if ($atom->ASAm > 0 && ! $atom->is_solvent()) {
+        if ($atom->ASAb > 0 && ! $atom->is_solvent()) {
             push(@surface_atoms, $atom);
         }
     }
@@ -230,43 +233,13 @@ sub _surface_atoms {
 
 # Returns number of atoms contacting either side of patch
 sub _surface_sides {
-
-
-    Vectors can be used in mathematical expressions:
-
-      my $u = V(3, 3, 0);
-      $p = $u * $v;       # dot product
-      $f = 1.4 * $u + $v; # scalar product and vector addition
-      $c = $u x $v;       # cross product, only defined for 3D vectors
-      # etc.
-
-    The currently supported operations are:
-
-      + * /
-  - (both unary and binary)
-  x (cross product for 3D vectors)
-  += -= *= /= x=
-        == !=
-              "" (stringfication)
-                    abs (returns the norm)
-                          atan2 (returns the angle between two vectors)
-
-                              That, AFAIK, are all the operations that can be applied to vectors.
-
-                                  When an array reference is used in an operation involving a vector, it is automatically upgraded to a vector. For instance:
-
-                                    my $v = V(1, 2);
-      $v += [0, 2];
-    my ( $self, $ps_atom_h, $all_atom_h ) = @_;
-
+    my ($self, $ps_atom_h, $all_atom_h) = @_;
     my @p_atom_serial = map { $_->serial  } values %{ $ps_atom_h };
+    my %limit = (xmin => 0, xmax => 0, ymin => 0, ymax => 0);
     
-    my %limit = ( xmin => 0, xmax => 0, ymin => 0, ymax => 0 );
-
     # Get patch x and y limits
     foreach my $ps_atom ( values %{ $ps_atom_h } ) {
         my $radius = $ps_atom->radius();
-
         foreach my $axis ('x', 'y') {
             if ( ($ps_atom->$axis - $radius) < $limit{$axis.'min'} ) {
                 $limit{$axis.'min'} = $ps_atom->$axis;
@@ -285,10 +258,9 @@ sub _surface_sides {
         my $serial = $atom->serial;
         next if grep ( /^$serial$/, @p_atom_serial );
         
-        if ( ! $atom->has_radius  || ! defined $atom->radius ) {
+        if (! $atom->has_radius  || ! defined $atom->radius) {
             my $message
-                =  "non-patch atom " . $atom->serial
-                 . " has no radius set";
+                =  "non-patch atom " . $atom->serial . " has no radius set";
 
             my $error = local::error->new( message => $message,
                                            type => 'no_radius_attribute',
@@ -302,11 +274,9 @@ sub _surface_sides {
                    && $atom->y > $limit{ymin};
 
         foreach my $ps_atom ( values %{ $ps_atom_h } ) {
-
-            if ( ! $ps_atom->has_radius || ! defined $atom->radius) {
+            if (! $ps_atom->has_radius || ! defined $atom->radius) {
                 my $message
-                    =  "patch atom " . $atom->serial
-                        . " has no radius set";
+                    =  "patch atom " . $atom->serial . " has no radius set";
                 
                 my $error
                     = local::error->new( message => $message,
@@ -316,15 +286,13 @@ sub _surface_sides {
             }
             
             my $dist_thresh =  $atom->radius + $ps_atom->radius;
-
             my $distance = sqrt (   ( $atom->x - $ps_atom->x )**2
                                   + ( $atom->y - $ps_atom->y )**2
                                   + ( $atom->z - $ps_atom->z )**2 );
             
             if ($distance < $dist_thresh) {
-                
                 $atom->z > $ps_atom->z ? push(@zpos, $atom) 
-                                               : push(@zneg, $atom);
+                    : push(@zneg, $atom);
             }
         }
     }
@@ -526,14 +494,14 @@ sub _build_orig_coords {
 }
 
 # Given an array of errors returned by _surface_atoms, this sub returns a hash
-# of form serial -> atom where atoms have no ASAm value
+# of form serial -> atom where atoms have no ASAb value
 sub _getNoASAAtomsHash {
     my @surface_atoms_errors = @_;
 
     my %no_ASA_atom = ();
     
     foreach my $error (@surface_atoms_errors) {
-        if ( $error->type() eq 'atom_no_ASAm' ) {
+        if ( $error->type() eq 'atom_no_ASAb' ) {
             my $atom = $error->data->{atom};
             $no_ASA_atom{ $atom->serial() } = $atom;
         }
