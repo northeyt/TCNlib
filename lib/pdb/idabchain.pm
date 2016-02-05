@@ -214,8 +214,10 @@ sub _parseOutput {
     
     my @lines = split("\n", $inputStr);
     foreach my $line (@lines) {
+        next if $line =~ /not found in matrix/; # Don't need these lines
         chomp $line;
         my($chainID, $chainType) = $line =~ /^Chain \d+, (\w+): (.*)$/;
+        $chainType = 'scFv' if $chainType eq 'Heavy/Light';
         $hash{$chainID} = $chainType;
     }
     return \%hash;
