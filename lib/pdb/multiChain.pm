@@ -24,10 +24,7 @@ sub readASAb {
         next if $atom->is_solvent()
             || ! $atomSerial2ASARadHref->{$atom->serial()};
 
-        my ($ASA, $radius) = @{$atomSerial2ASARadHref->{$atom->serial()}};
-        
-        $atom->ASAb($ASA);
-        $atom->radius($radius);
+        $atom->ASAb($atomSerial2ASARadHref->{$atom->serial()});
     }
 
     # Set each chain object's resid2relASAHref to solv output
