@@ -26,18 +26,6 @@ my $class = 'pdb::idabchain';
 
 my $testObj = new_ok($class);
 
-### Test _runExec
-$testObj->input("notFilePath");
-throws_ok{ $testObj->_runExec() } qr/Input file .* not exist/,
-    'File does not exist thrown with bad input file';
-
-my $expString = <<EOF;
-Chain 1, A: Antigen
-Chain 2, B: Antigen
-EOF
-
-$testObj->input("1djs.pdb");
-is($testObj->_runExec(), $expString, "_runExec works ok");
 
 $testObj->input(createDummyFile());
 # Commented for now because it idabchain sends nasty output
