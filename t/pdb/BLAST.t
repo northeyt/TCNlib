@@ -30,8 +30,9 @@ BEGIN { use_ok( 'pdb::BLAST' ); }
 # its man page ( perldoc Test::More ) for help writing this test script.
 
 subtest "BLAST local" => sub {
+    $ENV{'BLASTDB'} = "testDB";
     my $testObj = pdb::BLAST::Local->new(query         => _getTestChain(),
-                                         db            => "testDB/pdbaa",
+                                         db            => "1za7",
                                          reportHandler => pdb::BLAST::Report::PDBseq->new());
     can_ok($testObj, "runBlast");
     my $gotBlastReport = $testObj->runBlast();
@@ -64,8 +65,7 @@ subtest "BLAST PDBseq" => sub {
                            pdb_file => "1za7.pdb",
                            chain_id => "A");
     
-    my $testObj = pdb::BLAST::Factory->new(db     => "testDB/pdbaa",
-                                           dbType => 'pdb')->getBlaster();
+    my $testObj = pdb::BLAST::Factory->new(dbType => 'pdb')->getBlaster();
     $testObj->setQuery($chain);
     
     can_ok($testObj, "runBlast");
