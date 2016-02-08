@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/usr/bin/env perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl chaincontacts.t'
@@ -38,7 +38,7 @@ cmp_bag($testResObj->chain2chainContacts(['A'], ['B']),
 ### Subroutines ################################################################
 
 sub getExpContacts {
-    return [qw(B.17 B.58)];
+    return [qw(B.21 B.60)];
 }
 
 
