@@ -4,7 +4,7 @@
 # make_patch calls
 use strict;
 use warnings;
-use pdb::pdb;
+use pdb;
 use pdb::automatic_patches;
 use Benchmark;
 

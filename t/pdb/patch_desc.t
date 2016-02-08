@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/usr/bin/env perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl patch_desc.t'
@@ -23,7 +23,7 @@ use Math::VectorReal;
 use Test::More qw( no_plan );
 use Test::Deep;
 
-BEGIN { use_ok( 'patch_desc' ); }
+BEGIN { use_ok( 'pdb::patch_desc' ); }
 
 #########################
 
@@ -94,7 +94,8 @@ my %nonpatch_atom
     grep( ! defined $patch_atom{$_}, keys %all_atom );
 
 
-is( [$patch_desc->patch_order]->[0], 'ALRETQ', "patch order works okay" );
+is( [$patch_desc->patch_order]->[0], 'ALRETQ', "patch order works okay" )
+    or diag explain $patch_desc->patch_order;
 
 my $file = 'fullrun.pdb';
 
