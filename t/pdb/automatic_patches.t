@@ -22,7 +22,7 @@ use pdb;
 
 use Test::More qw( no_plan );
 use Test::Deep;
-BEGIN { use_ok( 'automatic_patches' ); }
+BEGIN { use_ok( 'pdb::automatic_patches' ); }
 
 #########################
 
