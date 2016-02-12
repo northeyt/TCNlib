@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/usr/bin/env perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl remote_file_getter.t'
@@ -29,7 +29,7 @@ $test->pdb_code("1qok");
 
 subtest 'Test get_pdb_file_data' => sub {
     my $test_pdb_code = "1qok";
-    my $test_obj      = pdb::remote_file_getter->new(pdb_qcode => $test_pdb_code);
+    my $test_obj      = pdb::remote_file_getter->new(pdb_code => $test_pdb_code);
     my $exp_data      = _get_exp_data();
 
     my $got_data = $test_obj->get_pdb_file_data();
