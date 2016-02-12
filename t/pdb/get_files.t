@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/usr/bin/env perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl get_files.t'
@@ -30,6 +30,12 @@ subtest 'get file from local depo' => sub {
     my $got_file      = $test_obj->pdb_file();
 
     is($got_file, $expected_file, "file found in local depo as expected");
+};
+
+subtest 'get pqs file' => sub {
+    my $test_obj =  pdb::get_files->new(pdb_code => "1ndm",
+                                        pqsdir => $test_depo_dir);
+    ok($test_obj->pqs_file());
 };
 
 subtest 'get file from local cache' => sub {

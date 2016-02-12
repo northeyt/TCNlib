@@ -15,7 +15,7 @@ has 'pdb_code' => (
     isa => 'ValidPDB',
 );
 
-foreach my $name ('pdb', 'xmas') { 
+foreach my $name ('pdb', 'xmas', 'pqs') { 
     my $att_name = $name . '_file';
     my $builder = "_build_$name" . "_fname";
     
@@ -33,6 +33,10 @@ has 'pdbext'      => (is => 'rw', isa => 'Str',
                       default => $TCNPerlVars::pdbext);
 has 'pdbdir'      => (is => 'rw', isa => 'Str',
                       default => $TCNPerlVars::pdbdir);
+has 'pqsext'      => (is => 'rw', isa => 'Str',
+                      default => $TCNPerlVars::pqsext);
+has 'pqsdir'      => (is => 'rw', isa => 'Str',
+                      default => $TCNPerlVars::pqsdir);
 
 # Attributes for finding local pdb files
 has 'xmasprep' => (is => 'rw', isa => 'Str', default => $TCNPerlVars::xmasprep);
@@ -77,6 +81,11 @@ sub _build_xmas_fname {
         if ! -e $fname;
     
     return $fname; 
+}
+
+sub _build_pqs_fname {
+    my $self = shift;
+    return $self->pqsdir . "/" . lc($self->pdb_code) . $self->pqsext;
 }
 
 sub _fileFromLocalDepo {
