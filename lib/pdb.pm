@@ -1761,8 +1761,8 @@ sub highestASA {
 
     my @atoms = values %{ $self->resid_index->{$resid} };
 
-    # Avoid hydrogen atoms
-    @atoms = grep {$_->element() ne 'H'} @atoms;
+    # If element is defined, use to avoid hydrogen
+    @atoms = grep {! defined $_->element || $_->element() ne 'H'} @atoms;
     
     foreach my $atom (@atoms) {        
         my $predicate = "has_$ASA_type";
@@ -3549,7 +3549,7 @@ has 'ATOM_line' => (
 
 has [qw(name resName element charge resSeq kabatSeq chothiaSeq ichothiaSeq
         alnSeq clusterSeq) ]
-    => ( is => 'rw', isa => 'Str' );
+    => (is => 'rw', isa => 'Str');
 
 foreach my $name ('altLoc', 'chainID', 'iCode') {
     my $predicate = 'has_'   . $name;
