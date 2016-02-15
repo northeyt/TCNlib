@@ -27,11 +27,11 @@ pdb::multiChain::readASAb(\@complexChains);
 use Data::Dumper;
 
 is($complexChains[0]->resid2RelASAHref->{"L.130"}->{allAtoms},
-   84.2,
+   85.009,
    "resid2RelASAHref assigned correctly to chain");
 
 my $testAtom = $complexChains[0]->atom_array()->[0];
-is($testAtom->ASAb(), 42.473, "readASAb works ok");
+is($testAtom->ASAb(), 43.76, "readASAb works ok");
 sub getComplexChains {
     my $pdb = pdb->new(pdb_file => "1afv.pdb",
                             pdb_code => "1afv");
