@@ -21,6 +21,8 @@ use warnings;
 use pdb;
 
 BEGIN { use_ok( 'pdb::idabchain' ); }
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
 
 my $class = 'pdb::idabchain';
 

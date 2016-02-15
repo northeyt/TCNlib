@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/usr/bin/env perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl ARFF.t'
@@ -19,6 +19,8 @@ use Test::Deep;
 use Test::Exception;
 
 BEGIN { use_ok(qw(TCNUtil::ARFF)); };
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
 
 use File::Basename;
 my ($testFile, $testDir, $suffix) = fileparse($0);

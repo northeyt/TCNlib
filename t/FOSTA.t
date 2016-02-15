@@ -19,6 +19,8 @@ use Test::Exception;
 use Carp;
 
 BEGIN { use_ok( 'TCNUtil::FOSTA' ); }
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
 
 #########################
 

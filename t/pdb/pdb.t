@@ -13,11 +13,6 @@
 
 use strict;
 use warnings;
-
-use File::Basename;
-my ($testFile, $testDir, $suffix) = fileparse($0);
-chdir($testDir);
-
 use Data::Dumper;
 
 
@@ -29,6 +24,8 @@ use Test::Exception;
 use pdb::pdbFunctions;
 
 BEGIN { use_ok('pdb'); }
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
 
 #########################
 

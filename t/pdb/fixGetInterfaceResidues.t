@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/usr/bin/env perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl fixGetInterfaceResidues.t'
@@ -14,6 +14,9 @@
 use strict;
 use warnings;
 use Test::More qw( no_plan );
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
+
 use pdb;
 
 my $errChain = chain->new(pdb_code => '2iff', chain_id => 'Y',

@@ -23,6 +23,8 @@ my ($testFile, $testDir, $suffix) = fileparse($0);
 chdir($testDir);
 
 BEGIN { use_ok( 'TCNUtil::WEKA' ); }
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
 
 #########################
 

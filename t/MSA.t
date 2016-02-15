@@ -15,6 +15,8 @@ use strict;
 use warnings;
 use Test::More qw( no_plan );
 BEGIN { use_ok( 'TCNUtil::MSA' ); }
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
 
 use TCNUtil::sequence;
 use TCNUtil::scorecons;

@@ -17,6 +17,8 @@ use Test::More qw( no_plan );
 use pdb;
 
 BEGIN { use_ok( 'pdb::multiChain' ); }
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
 
 #########################
 

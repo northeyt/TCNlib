@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/usr/bin/env perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl file_cache.t'
@@ -16,6 +16,8 @@ use warnings;
 
 use Test::More qw( no_plan );
 BEGIN { use_ok( 'pdb::file_cache' ); }
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
 
 #########################
 

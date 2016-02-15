@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/usr/bin/env perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl write2tmp.t'
@@ -21,6 +21,8 @@ use Test::Deep;
 
 use lib ( '..' );
 BEGIN { use_ok( 'TCNUtil::write2tmp' ); }
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
 
 #########################
 

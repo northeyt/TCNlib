@@ -18,6 +18,8 @@ use Test::Deep;
 use File::Basename;
 
 BEGIN { use_ok( 'pdb::solv' ); }
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
 
 #########################
 

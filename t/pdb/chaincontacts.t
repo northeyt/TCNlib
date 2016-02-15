@@ -17,6 +17,8 @@ use warnings;
 use Test::More qw( no_plan );
 use Test::Deep;
 BEGIN { use_ok( 'pdb::chaincontacts' ); }
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
 use pdb;
 
 ### Tests ######################################################################

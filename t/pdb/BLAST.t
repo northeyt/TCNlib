@@ -23,6 +23,8 @@ use Test::MockObject::Extends;
 use pdb;
 
 BEGIN { use_ok( 'pdb::BLAST' ); }
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
 
 #########################
 

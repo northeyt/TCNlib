@@ -15,6 +15,8 @@ use strict;
 use warnings;
 use Test::More qw( no_plan );
 BEGIN { use_ok( 'pdb::secstrCalculator' ); }
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
 
 #########################
 

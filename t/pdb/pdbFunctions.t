@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -Iblib/lib -Iblib/arch -I../blib/lib -I../blib/arch
+#!/usr/bin/env perl
 # 
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl pdbFunctions.t'
@@ -17,6 +17,8 @@ use Test::More qw( no_plan );
 use Test::Deep;
 
 BEGIN { use_ok( 'pdb::pdbFunctions' ); }
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
 
 #########################
 
