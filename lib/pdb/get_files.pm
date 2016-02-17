@@ -15,7 +15,7 @@ has 'pdb_code' => (
     isa => 'ValidPDB',
 );
 
-foreach my $name ('pdb', 'xmas', 'pqs') { 
+foreach my $name ('pdb', 'pqs') { 
     my $att_name = $name . '_file';
     my $builder = "_build_$name" . "_fname";
     
@@ -37,11 +37,6 @@ has 'pqsext'      => (is => 'rw', isa => 'Str',
                       default => $TCNPerlVars::pqsext);
 has 'pqsdir'      => (is => 'rw', isa => 'Str',
                       default => $TCNPerlVars::pqsdir);
-
-# Attributes for finding local pdb files
-has 'xmasprep' => (is => 'rw', isa => 'Str', default => $TCNPerlVars::xmasprep);
-has 'xmasext'  => (is => 'rw', isa => 'Str', default => $TCNPerlVars::xmasext);
-has 'xmasdir'  => (is => 'rw', isa => 'Str', default => $TCNPerlVars::xmasdir);
 
 has 'local_cache' => (
     is      => 'rw',
@@ -65,22 +60,6 @@ sub _build_pdb_fname {
     };
 
     return $fname;
-}
-
-sub _build_xmas_fname {
-    my $self = shift;
-        
-    my $xmasprep = $TCNPerlVars::xmasprep;
-    my $xmasext  = $TCNPerlVars::xmasext;
-    my $xmasdir  = $TCNPerlVars::xmasdir;
-    
-    my $pdb_code = $self->pdb_code();
-
-    my $fname = $xmasprep . lc $pdb_code . $xmasext;
-    croak "No file for $pdb_code was found in $xmasdir. File name: $fname"
-        if ! -e $fname;
-    
-    return $fname; 
 }
 
 sub _build_pqs_fname {
@@ -118,7 +97,7 @@ __END__
 
 =head1 NAME
 
-pdb::get_files - Simple class to obtain locally stored pdb and xmas files for
+pdb::get_files - Simple class to obtain locally stored pdb and pqs  files for
 a given pdb code.
 
 =head1 SYNOPSIS
@@ -128,7 +107,6 @@ a given pdb code.
    $get_my_file = pdb::get_files->new( pdb_code => $my_pdb_code );
 
    $pdb_file_name   = $get_my_file->pdb_code();
-   $xmas_file_name  = $get_my_file->xmas_code();
 
 =head1 DESCRIPTION
 

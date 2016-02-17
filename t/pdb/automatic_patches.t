@@ -72,21 +72,10 @@ foreach my $summ (@exp_summary) {
 cmp_deeply(\%summ_hash, \%exp_hash,
            "get_patches produces correct patch summaries");
 
-# Test to see if tmp xmas file write works
-$arg{pdb_code} = '1nox';
-my $noxmas = automatic_patches->new(%arg);
-
-# Directly access pdb_file and pdb code  attr for testing purposes
-$noxmas->{pdb_code} = '1noxm'; # Will not be found in xmas dir
-$noxmas->{pdb_file} = '1nox.pdb';
-
-ok($noxmas->xmas_file, "xmas file created when not found in xmas dir");
-
 print "Testing  BUILDARGS for when given a pdb object ...\n";
 
-my $chain = chain->new( pdb_code => '1djs', chain_id => 'A',
-                        pdb_file => '1djs.pdb', xmas_file => '1djs.xmas',
-                    );
+my $chain = chain->new(pdb_code => '1djs', chain_id => 'A',
+                       pdb_file => '1djs.pdb');
 
 my $ap_from_pdb = new_ok('automatic_patches', [ pdb_object => $chain,
                                                 radius => 8,

@@ -4,7 +4,6 @@ use Moose::Util::TypeConstraints;
 use Carp;
 use pdb;
 use pdb::makepatch;
-use pdb::pdb2xmas;
 use pdb::pdbFunctions;
 use pdb::multiChain;
 use Parallel::ForkManager;
@@ -36,17 +35,8 @@ coerce 'ArrayRefOfValidPDBObjects',
 my $pdbprep = $TCNPerlVars::pdbprep;
 my $pdbext  = $TCNPerlVars::pdbext;
 my $pdbdir  = $TCNPerlVars::pdbdir;
-
-my $xmasprep = $TCNPerlVars::xmasprep;
-my $xmasext  = $TCNPerlVars::xmasext;
-my $xmasdir  = $TCNPerlVars::xmasdir;
-
 my $makepatch = $TCNPerlVars::makepatch;
-my $xmas2pdb  = $TCNPerlVars::xmas2pdb;
 my $radii_file = $TCNPerlVars::radii_file;
-
-my $pdb2xmas = $TCNPerlVars::pdb2xmas;
-
 my $tmpdir = $TCNPerlVars::tmpdir . '/automatic_patches' ;
 
 # Attributes
@@ -104,7 +94,7 @@ has 'ASA_type' => (
     lazy => 1,
 );
 
-for my $name (qw(pdb xmas)) {
+for my $name (qw(pdb)) {
     my $att_name = $name . '_file';
     my $builder = "_build_$name" . "_fname";
     
@@ -150,7 +140,7 @@ around BUILDARGS => sub {
         $arg{pdb_code} = $pdb_obj->pdb_code;
         $arg{chain_id} = $pdb_obj->chain_id if ref $pdb_obj eq 'chain';
         
-        foreach my $type ( 'pdb', 'xmas' ) {
+        foreach my $type ( 'pdb' ) {
             my $attribute = $type . '_file';
             my $predicate = 'has_' . $attribute;
             if ($pdb_obj->$predicate) {
@@ -200,33 +190,6 @@ sub _build_pdb_fname {
     return $fname;
     
 }
-sub _build_xmas_fname {
-    my $self = shift;
-
-     if (@_) {
-        return $_[0];
-    }
-    
-    my $pdb_code = $self->pdb_code();
-    my $fname = $xmasprep . lc $pdb_code . $xmasext;
-
-    # Attempt to build xmas file from pdb file if xmas file not found
-    if ( ! -e $fname) {
-        my $pdb_file = $self->pdb_file();
-
-        my $pdb2xmas = pdb::pdb2xmas->new(pdb_file => $pdb_file);
-        
-        my @output = $pdb2xmas->output();
-        
-        my $tmp
-            = write2tmp->new( data => [ @output ],
-                               SUFFIX => '.xmas',
-                          );
-
-    $fname = $tmp->file_name;
-    }
-    return $fname;
-}
 
 sub _build_pdb_object {
     my $self = shift;
@@ -236,7 +199,6 @@ sub _build_pdb_object {
     my %pdb_arg
         = ( pdb_code => $self->pdb_code,
             pdb_file => $self->pdb_file(),
-            xmas_file => $self->xmas_file(),
             hydrogen_cleanup => 1,
             altLoc_cleanup => 1,
             solvent_cleanup => 1,
@@ -286,7 +248,7 @@ sub get_patches {
         }
     }
         
-    # Create tmp pdb file with modified atom lines ala xmas2pdb output
+    # Create tmp pdb file with modified atom lines
     my $ASA_type = $self->ASA_type();
     my $predicate = 'has_' . $ASA_type;
     

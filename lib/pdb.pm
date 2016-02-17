@@ -47,11 +47,8 @@ use Math::VectorReal qw(:all);
 use Math::MatrixReal;
 use Math::Trig;
 
-use pdb::xmas2pdb;
-use pdb::pdb2xmas;
 use pdb::get_files;
 use pdb::solv;
-use pdb::parseXMAS;
 use pdb::ss;
 use pdb::secstrCalculator;
 use pdb::hbondFinder;
@@ -84,24 +81,18 @@ has 'pdb_code' => (
 Returns pdb filename of object. This can be automatically assigned by
 pdb::get_files if pdb_code is supplied by user during object construction.
 
-=item C<xmas_file>
-
-Returns the xmas filename of object. This can also be assigned automatically
-by pdb::get_files if pdb_code is supplied by user during object construction.
+=cut
 
 =item C<pdb_data>
 
 Ref to array of lines from object's pdb file.
 
-=item C<xmas_data>
-
-Ref to array of lines from object's xmas file.
-
 =cut
 
 # pdb_file, pdb_data, xmas_file, xmas_data atributes. If any are not supplied,
 # builder methods will attempt to find files using pdb::get_files
-for my $name ( 'pdb', 'xmas' ) {
+
+for my $name ( 'pdb' ) {
     
     my $att_file = $name . '_file';
     my $att_data   = $name . '_data'  ;
@@ -452,13 +443,6 @@ has 'threelc2hydrophobicValueFile' => (
     default => $TCNPerlVars::hydroPhoValueFile,
 );
 
-has 'parseXMAS' => (
-    isa => 'pdb::parseXMAS',
-    is => 'rw',
-    lazy => 1,
-    builder => '_build_parseXMAS'
-);
-
 has 'resID2secStructHref' => (
     isa => 'HashRef',
     is  => 'rw',
@@ -506,36 +490,9 @@ sub _get_pdb_file {
     return $fName;
 }
 
-sub _get_xmas_file {
-    my $self = shift;
-
-    my $pdbCode = $self->pdb_code();
-    my $fName = eval {pdb::get_files->new(pdb_code => $pdbCode)->xmas_file()};
-
-    if (! $fName) {
-        croak "No xmas file specified: "
-            . "Attempted to get xmas file from pdb code '$pdbCode', $@";
-    }
-    
-    return $fName;
-}
-
 sub _build_pdb_data {
     my $self = shift;
     return $self->_build_data_from_file('pdb');
-}
-
-sub _build_xmas_data {
-    my $self = shift;
-
-    # Attempt to get xmas data from file
-    my $attempt = eval {$self->_build_data_from_file('xmas')};
-    return $attempt if $attempt;
-
-    # Build xmas file from pdb data
-    my $pdb2xmas = pdb::pdb2xmas->new(input => $self);
-
-    return [$pdb2xmas->output];
 }
 
 sub _build_data_from_file {
@@ -1116,15 +1073,6 @@ sub _buildHydroPhoHrefFromFile {
     return \%threelc2hydrophovalue;
 }
 
-sub _build_parseXMAS {
-    my $self = shift;
-
-    my $parser = pdb::parseXMAS->new(xmasData => $self->xmas_data);
-    $parser->parseXMAS();
-    
-    return $parser;
-}
-
 sub _build_resID2secStructHref {
     my $self = shift;
 
@@ -1506,89 +1454,25 @@ taken in context of full complex.
 sub read_ASA {
 
     my $self = shift;
-    my $xmas2pdb;
-
     my @errors = ();
 
     # solv must also be run in order to get relative ASAs
     my $solv = pdb::solv->new(input => $self);
     my $atomSerial2ASAHref = $solv->getOutput();
     
-    if (@_) {
-        $xmas2pdb = shift;
-        
-        croak "read_ASA must be passed an xmas2pdb object"
-            if ref $xmas2pdb ne 'xmas2pdb';
-        
-        @errors = $self->_parseXmas2PDBOutput($xmas2pdb);
-    }
-    else {
-
-        my $ASAType = ref $self eq 'pdb' ? 'ASAc' : 'ASAb' ;
-        
-        # Use solv per atom output
-        foreach my $atom (@{$self->atom_array()}) {
-            next if $atom->is_solvent()
-                || ! $atomSerial2ASAHref->{$atom->serial()};
-            
-            $atom->$ASAType($atomSerial2ASAHref->{$atom->serial()});
-        }
-    }
+    my $ASAType = ref $self eq 'pdb' ? 'ASAc' : 'ASAb' ;
     
+    # Use solv per atom output
+    foreach my $atom (@{$self->atom_array()}) {
+        next if $atom->is_solvent()
+                || ! $atomSerial2ASAHref->{$atom->serial()};
+        
+        $atom->$ASAType($atomSerial2ASAHref->{$atom->serial()});
+    }    
     $self->resid2RelASAHref($solv->resid2RelASAHref());    
     $self->has_read_ASA(1);
     
     return \@errors;
-}
-
-sub _parseXmas2PDBOutput {
-    my $self = shift;
-    my $xmas2pdb = shift;
-
-    
-    my $form = $xmas2pdb->form();
-
-    my $attribute = 'ASA' . ( $form eq 'monomer' ? 'm' : 'c' ) ;
-    
-    my  %ASAs  = ();
-    my  %radii = ();
-    
-    foreach my $line ( @{ $xmas2pdb->output() } ){
-        next unless $line =~ /^(?:ATOM|HETATM) /;
-
-        my $serial = rm_trail( substr($line, 6, 5) );
-        my $radius = rm_trail( substr($line, 54, 6) );
-        my $ASA    = rm_trail( substr($line, 60, 6) );
-
-        $ASAs{$serial} = $ASA;
-        $radii{$serial}= $radius;
-    }
-
-    croak "Nothing parsed from xmas2pdb output!" if ! ( %ASAs && %radii );
-
-    my @errors = ();
-    
-    foreach my $atom ( @{ $self->atom_array() } ) {
-        my $serial = $atom->serial();
-
-        if ( ! exists $ASAs{$serial} ) {
-            my $message =  "Nothing from xmas2pdb object for atom "
-                          . $atom->serial();
-            
-            my $error
-                = local::error->new( message => $message,
-                                     type => 'ASA_read',
-                                     data => { xmas2pdb => $xmas2pdb,
-                                               atom     => $atom, },
-                                 );
-            push(@errors, $error);
-            
-            next;
-        }   
-        $atom->radius( $radii{$serial} );
-        $atom->$attribute( $ASAs{$serial} );
-    }
-    return @errors;
 }
 
 =item C<patch_centres(%args)>
