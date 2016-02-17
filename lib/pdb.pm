@@ -92,29 +92,21 @@ Ref to array of lines from object's pdb file.
 # pdb_file, pdb_data, xmas_file, xmas_data atributes. If any are not supplied,
 # builder methods will attempt to find files using pdb::get_files
 
-for my $name ( 'pdb' ) {
-    
-    my $att_file = $name . '_file';
-    my $att_data   = $name . '_data'  ;
-    
-    has $att_file => (
-        isa => 'FileReadable',
-        coerce => 1,
-        # See types.pm for FileReadable coercion from ArrayRef[Str]
-        is => 'rw',
-        predicate => 'has_' . $att_file,
-        builder => "_get_$att_file",
-        lazy => 1,
-    );
+has 'pdb_file' => (
+    isa => 'FileReadable',
+    is  => 'rw',
+    predicate => 'has_pdb_file',
+    builder => '_get_pbd_file',
+    lazy => 1,
+);
 
-    has $att_data => (
-        isa => 'ArrayRef',
-        is => 'rw',
-        lazy => 1,
-        builder => '_build_' . $att_data,
-        predicate => 'has_' . $att_data,
-    );
-}
+has 'pdb_data' => (
+    isa => 'ArrayRef',
+    is => 'rw',
+    builder => '_build_pdb_data',
+    predicate => 'has_pdb_data',
+    lazy => 1,
+);
 
 =item C<remark_hash>
 

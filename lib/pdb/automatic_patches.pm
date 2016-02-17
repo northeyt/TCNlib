@@ -94,15 +94,12 @@ has 'ASA_type' => (
     lazy => 1,
 );
 
-for my $name (qw(pdb)) {
-    my $att_name = $name . '_file';
-    my $builder = "_build_$name" . "_fname";
-    
-    has $att_name => (is => 'rw',
-                      isa => 'FileReadable',
-                      builder => $builder,
-                      lazy => 1);
-}
+has 'pdb_file' => (
+    is => 'rw',
+    isa => 'FileReadable',
+    builder => '_build_pdb_fname',
+    lazy => 1,
+);
 
 has 'build_patches_from_parent' => (
     is => 'rw',
