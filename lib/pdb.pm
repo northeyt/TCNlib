@@ -89,14 +89,14 @@ Ref to array of lines from object's pdb file.
 
 =cut
 
-# pdb_file, pdb_data, xmas_file, xmas_data atributes. If any are not supplied,
-# builder methods will attempt to find files using pdb::get_files
+# If pdb file not supplied, builder method will attempt to find files
+# using pdb::get_files.
 
 has 'pdb_file' => (
     isa => 'FileReadable',
     is  => 'rw',
     predicate => 'has_pdb_file',
-    builder => '_get_pbd_file',
+    builder => '_get_pdb_file',
     lazy => 1,
 );
 
@@ -3120,8 +3120,6 @@ has 'parent_pdb' => (
     is => 'rw',
     predicate => 'has_parent_pdb',
 );
-
-
 
 has 'ASAb_hash' => (
     is => 'ro',
