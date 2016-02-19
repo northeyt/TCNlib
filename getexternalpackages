@@ -1,0 +1,27 @@
+#!/bin/bash
+packPage=http://www.bioinf.org.uk/intpred/packages
+blastTar=blast-2.2.22-x64-linux.tar.gz
+muscleTar=muscle3.8.31_i86linux64.tar.gz
+wekaTar=weka-3-7-10.tar.gz
+cdhitTar=cd-hit-4.6.1.tar.gz
+clustalw=clustalw1.8.UNIX.tar.gz
+clustalo=clustalo-1.2.0-Ubuntu-x86_64.tar.gz
+
+exPackDir=extpackages
+mkdir -p $exPackDir
+cd $exPackDir
+for i in $blastTar $muscleTar $wekaTar; do
+    curl -O $packPage/$i && tar -zxvf $i && rm $i
+done
+
+# create symlink for muscle binary
+ln -s $(basename $muscleTar .tar.gz) muscle
+
+# create symlink for clustalo binary
+ln -s $(basename $muscleTar .tar.gz) clustalo
+
+# run make for clustalw
+cd clustalw1.8
+make
+make clean
+
