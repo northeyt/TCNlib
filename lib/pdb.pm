@@ -3582,10 +3582,10 @@ sub stringify {
          : length $ordered_attr[1] == 3 ? ' ' . $ordered_attr[1] 
          : $ordered_attr[1];
 
-    unshift (@ordered_attr, ( $self->is_het_atom ? 'HETATM' : 'ATOM' ) );
+    unshift (@ordered_attr, ($self->is_het_atom ? 'HETATM' : 'ATOM'));
 
-    for my $i ( 0 .. @ordered_attr) {
-        if ( ! defined $ordered_attr[$i] ) {
+    for my $i (0 .. @ordered_attr - 1) {
+        if (! defined $ordered_attr[$i]) {
             $ordered_attr[$i] = '';
         }
     }
