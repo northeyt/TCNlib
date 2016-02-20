@@ -13,17 +13,22 @@
 
 use Test::More qw( no_plan );
 use Test::Deep;
+use Getopt::Long;
 BEGIN { use_ok( 'pdb::pdbsws' ); }
 use FindBin qw($RealBin);
 chdir($RealBin); # So test data files can be found
+
+my $runLocalTests = 0;
+GetOptions("l" => \$runLocalTests);
+my $skipMessage = "Requires local db (supply -l opt to run)";
 
 #########################
 
 # Insert your test code below, the Test::More module is used here so read
 # its man page ( perldoc Test::More ) for help writing this test script.
 
-
 subtest "test pdbsws locally" => sub {
+    plan skip_all => $skipMessage unless $runLocalTests;
     my $pdbsws = pdb::pdbsws::Factory->new(remote => 0)->getpdbsws();
     testpdbsws($pdbsws);    
 };

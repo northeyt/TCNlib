@@ -16,11 +16,16 @@ use warnings;
 use Test::More qw( no_plan );
 use Test::Deep;
 use Test::Exception;
+use Getopt::Long;
 use Carp;
 
 BEGIN { use_ok( 'TCNUtil::FOSTA' ); }
 use FindBin qw($RealBin);
 chdir($RealBin); # So test data files can be found
+
+my $runLocalTests = 0;
+GetOptions("l" => \$runLocalTests);
+my $skipMessage = "Requires local db (supply -l opt to run)";
 
 #########################
 
@@ -28,6 +33,7 @@ chdir($RealBin); # So test data files can be found
 # its man page ( perldoc Test::More ) for help writing this test script.
 
 subtest "test getFOSTAFamIDAndReliability" => sub {
+    plan skip_all => $skipMessage unless $runLocalTests;
     my $testObj = FOSTA::Factory->new(remote => 0)->getFOSTA();
     my $testReliableID = "CNTD1_HUMAN";
     cmp_deeply([$testObj->getFOSTAFamIDAndReliability($testReliableID)], [1, 13],
@@ -39,6 +45,7 @@ subtest "test getFOSTAFamIDAndReliability" => sub {
 };
 
 subtest "test getFEPIDsFromFamID" => sub {
+    plan skip_all => $skipMessage unless $runLocalTests;
     my $testObj = FOSTA::Factory->new(remote => 0)->getFOSTA();
     my $famID = "CNTD1_HUMAN";
     cmp_deeply([$testObj->getFEPIDsFromFamID($famID, 13)], ["CNTD1_MOUSE"],
@@ -46,6 +53,7 @@ subtest "test getFEPIDsFromFamID" => sub {
 };
 
 subtest "test getSequenceFromID" => sub {
+    plan skip_all => $skipMessage unless $runLocalTests;
     my $testObj = FOSTA::Factory->new(remote => 0)->getFOSTA();
     my $famID = "CNTD1_HUMAN";
     my $gotSeq  = $testObj->getSequenceFromID($famID);
@@ -53,6 +61,7 @@ subtest "test getSequenceFromID" => sub {
 };
 
 subtest "test getReliableFEPSequencesFromSwissProtID" => sub {
+    plan skip_all => $skipMessage unless $runLocalTests;
     my $testObj = FOSTA::Factory->new(remote => 0)->getFOSTA();
     my $famID = "CNTD1_HUMAN";    
     cmp_deeply([$testObj->getReliableFEPSequencesFromSwissProtID($famID)],
