@@ -24,12 +24,12 @@ chdir($RealBin); # So test data files can be found
 
 
 subtest "test pdbsws locally" => sub {
-    my $pdbsws = new_ok('pdb::pdbsws::Local');
+    my $pdbsws = pdb::pdbsws::Factory->new(remote => 0)->getpdbsws();
     testpdbsws($pdbsws);    
 };
 
 subtest "test pdbsws remote" => sub {
-    my $pdbsws = new_ok('pdb::pdbsws::Remote');
+    my $pdbsws = pdb::pdbsws::Factory->new(remote => 0)->getpdbsws();
     testpdbsws($pdbsws);
 };
 
