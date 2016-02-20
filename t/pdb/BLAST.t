@@ -94,7 +94,7 @@ subtest "BLAST SwissProt" => sub {
     my $testChain = chain->new(pdb_code => "1afv", pdb_file => "1afv.pdb",
                                chain_id => "A");
     my $testObj
-        = pdb::BLAST::Factory->new(dbType => 'swsprot')->getBlaster();
+        = pdb::BLAST::Factory->new(dbType => 'swsprot', remote => 1)->getBlaster();
     $testObj->setQuery($testChain);
 
     $testObj->runBlast();
