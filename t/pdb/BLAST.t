@@ -20,11 +20,17 @@ use Test::Exception;
 use Bio::SearchIO::blast;
 use IO::CaptureOutput qw(capture);
 use Test::MockObject::Extends;
+use Getopt::Long;
+
 use pdb;
 
 BEGIN { use_ok( 'pdb::BLAST' ); }
 use FindBin qw($RealBin);
 chdir($RealBin); # So test data files can be found
+
+my $runLocalTests = 0;
+GetOptions("l" => \$runLocalTests);
+my $skipMessage = "Requires local db (supply -l opt to run)";
 
 #########################
 
@@ -63,6 +69,7 @@ subtest "BLAST Report" => sub {
 };
 
 subtest "BLAST PDBseq" => sub {
+    plan skip_all => $skipMessage unless $runLocalTests;
     my $chain = chain->new(pdb_code => "1za7", pdb_file => "1za7.pdb",
                            chain_id => "A");
     
