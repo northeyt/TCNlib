@@ -28,7 +28,7 @@ chdir($RealBin); # So test data files can be found
 # its man page ( perldoc Test::More ) for help writing this test script.
 
 subtest "test getFOSTAFamIDAndReliability" => sub {
-    my $testObj = FOSTA::Local->new();
+    my $testObj = FOSTA::Factory->new(remote => 0)->getFOSTA();
     my $testReliableID = "CNTD1_HUMAN";
     cmp_deeply([$testObj->getFOSTAFamIDAndReliability($testReliableID)], [1, 13],
                "getFOSTAFamIDAndReliability returns reliable family id");
@@ -39,21 +39,21 @@ subtest "test getFOSTAFamIDAndReliability" => sub {
 };
 
 subtest "test getFEPIDsFromFamID" => sub {
-    my $testObj = FOSTA::Local->new();
+    my $testObj = FOSTA::Factory->new(remote => 0)->getFOSTA();
     my $famID = "CNTD1_HUMAN";
     cmp_deeply([$testObj->getFEPIDsFromFamID($famID, 13)], ["CNTD1_MOUSE"],
                "getFEPIDsFromFamID returns correct FEPIDs");
 };
 
 subtest "test getSequenceFromID" => sub {
-    my $testObj = FOSTA::Local->new();
+    my $testObj = FOSTA::Factory->new(remote => 0)->getFOSTA();
     my $famID = "CNTD1_HUMAN";
     my $gotSeq  = $testObj->getSequenceFromID($famID);
     is($gotSeq->string(), expSeqStr(), "getSequenceFromID retuns sequence ok");
 };
 
 subtest "test getReliableFEPSequencesFromSwissProtID" => sub {
-    my $testObj = FOSTA::Local->new();
+    my $testObj = FOSTA::Factory->new(remote => 0)->getFOSTA();
     my $famID = "CNTD1_HUMAN";    
     cmp_deeply([$testObj->getReliableFEPSequencesFromSwissProtID($famID)],
                array_each(isa("sequence")),
@@ -61,13 +61,12 @@ subtest "test getReliableFEPSequencesFromSwissProtID" => sub {
 };
 
 subtest "test FOSTA::Remote" => sub {
-    my $testObj = FOSTA::Remote->new();
+    my $testObj = FOSTA::Factory->new(remote => 1)->getFOSTA();
     my $famID   = "CNTD1_HUMAN";
     cmp_deeply([$testObj->getReliableFEPSequencesFromSwissProtID($famID)],
                array_each(isa("sequence")),
                "run remotely, getReliableFEPSequencesFromSwissProtID returns sequences");
 };
-
 
 sub expSeqStr {
     my $seq = <<EOF;
