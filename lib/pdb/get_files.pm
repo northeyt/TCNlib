@@ -28,15 +28,20 @@ foreach my $name ('pdb', 'pqs') {
 
 # Attributes for finding pdb file in local depo
 has 'pdbprepname' => (is => 'rw', isa => 'Str',
-                      default => $TCNPerlVars::pdbprepname);
+                      default => $TCNPerlVars::pdbprepname,
+		      lazy => 1);
 has 'pdbext'      => (is => 'rw', isa => 'Str',
-                      default => $TCNPerlVars::pdbext);
+                      default => $TCNPerlVars::pdbext,
+		      lazy => 1);
 has 'pdbdir'      => (is => 'rw', isa => 'Str',
-                      default => $TCNPerlVars::pdbdir);
+                      default => $TCNPerlVars::pdbdir,
+		      lazy => 1);
 has 'pqsext'      => (is => 'rw', isa => 'Str',
-                      default => $TCNPerlVars::pqsext);
+                      default => $TCNPerlVars::pqsext,
+		      lazy => 1);
 has 'pqsdir'      => (is => 'rw', isa => 'Str',
-                      default => $TCNPerlVars::pqsdir);
+                      default => $TCNPerlVars::pqsdir,
+		      lazy => 1);
 
 has 'local_cache' => (
     is      => 'rw',
