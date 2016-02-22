@@ -27,9 +27,6 @@ chdir($RealBin); # So test data files can be found
 # Insert your test code below, the Test::More module is used here so read
 # its man page ( perldoc Test::More ) for help writing this test script.
 
-my $makepatch_file = `which makepatch`;
-chomp $makepatch_file;
-
 my $pdb_file       = '1djs.pdb';
 my $radius         = 8;
 my $patch_type     = 'contact';
@@ -38,8 +35,7 @@ my $atom_line = "ATOM     31  CD  PRO A 150      16.450  43.163  16.346  1.00 44
 
 my $atom = atom->new( ATOM_line => $atom_line );
 
-my $makepatch = makepatch->new( makepatch_file => $makepatch_file,
-                                pdb_file       => $pdb_file,
+my $makepatch = makepatch->new( pdb_file       => $pdb_file,
                                 patch_type     => $patch_type,
                                 radius         => $radius,
                                 central_atom   => $atom, );
@@ -59,8 +55,7 @@ my $dir_patch = new_ok( 'patch' => [ $makepatch ] );
 
 my $pdbObject = pdb->new(pdb_file => $pdb_file);
 
-$makepatch = makepatch->new( makepatch_file => $makepatch_file,
-                             pdb_file       => $pdb_file,
+$makepatch = makepatch->new( pdb_file       => $pdb_file,
                              patch_type     => $patch_type,
                              radius         => $radius,
                              central_atom   => $atom,
