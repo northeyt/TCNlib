@@ -19,13 +19,18 @@ use Data::Dumper;
 use Test::More qw( no_plan );
 use Test::Deep;
 use Carp;
-
+use Getopt::Long;
 use Test::Exception;
 use pdb::pdbFunctions;
 
 BEGIN { use_ok('pdb'); }
 use FindBin qw($RealBin);
 chdir($RealBin); # So test data files can be found
+
+my $runKabatTest = 0;
+my $runidabchainTest = 0;
+GetOptions("k" => \$runKabatTest,
+	   "i" => \$runidabchainTest);
 
 #########################
 
@@ -40,9 +45,6 @@ test_get_sequence();
 test_resid2ModResAref();
 test_calcAverageHydrophobicity();
 
-warn "WARNING: SKIPPING SOME TESTS RELATED TO XMAS PARSING\n";
-#test_build_xmas_data();
-#test_build_parseXMAS();
 test_labelppHbondedAtoms();
 test_labelSSbondedAtoms();
 
@@ -221,44 +223,11 @@ is($chain->chain_length, 206, "chain length determined ok");
 #is( $chain->accession_codes()->[0], 'P21802',
 #    "Accession codes from pdbsws" );
 
-# reading ASAs and radii from xmas2pdb object
-
-=xmas
-
-my $xmas2pdb_file = 'xmas2pdb';
-my $xmas_file     = '1djs.xmas';
-my $radii_file    = 'radii.dat';
-my $form          = 'multimer';
-
-my %arg = (xmas2pdb_file => $xmas2pdb_file,
-           xmas_file     => $xmas_file,
-           radii_file    => $radii_file,
-           form          => $form,
-       );
-
-my $x2p = xmas2pdb->new(%arg);
-
-=cut 
 my $test_atom = $pdb->atom_array->[1];
 
 $pdb->read_ASA();
 
 ok($test_atom->ASAc(), "Multimer ASA read from xmas2pdb object" );
-
-warn "WARNING: SKIPPING TEST RELATED TO ASAm READING\n";
-
-=xmas
-
-$arg{form} = 'monomer';
-
-my $mono_x2p = xmas2pdb->new(%arg);
-
-
-$pdb->read_ASA();
-
-ok($test_atom->ASAm(), "Monomer ASA read from xmas2pdb object" );
-
-=cut
 
 # test highestASA method
 
@@ -324,45 +293,49 @@ my @otherChains = $chains[0]->createOtherChains();
 ok(testOtherChains($pdb, $chains[0], @otherChains),
    "createOtherChains works ok");
 
-# test isAbVariable
-my $abComplex = pdb->new(pdb_code => '1afv',
-                         pdb_file => '1afv.pdb');
-
-# test compareResSeqs
-my $rsA = "52";
-my $rsB = "52A";
-
-is(pdb::pdbFunctions::compare_resSeqs($rsA, $rsB), -1, "compareResSeqs works okay");
-
-# test sorted_atom_arrays
-ok(testSortedAtomArray($pdb->sorted_atom_arrays()), "sorted_atoms works okay");
-
-# Test isAbVariable
-@chains = $abComplex->create_chains('A', 'L', 'H');
-
-my %return = map { $_->chain_id() => $_->isAbVariable()  } @chains;
-
-cmp_deeply(\%return, ExpChains(),
-           "isAbVariable works okay");
-
 # Test seq_range_atoms
 testSeqRangeAtoms();
 
 # test $atom->contacting()
 testAtomContacting();
 
-warn "WARNING: SKIPPING TESTS THAT RELY ON RUNNING kabatnum.pl";
+# test sorted_atom_arrays
+ok(testSortedAtomArray($pdb->sorted_atom_arrays()), "sorted_atoms works okay");
 
-=skip
+# test compareResSeqs
+my $rsA = "52";
+my $rsB = "52A";
+is(pdb::pdbFunctions::compare_resSeqs($rsA, $rsB), -1, "compareResSeqs works okay");
 
-# test chain->determineEpitope
-ok(testDetermineEpitope(@chains),
-   "determineEpitope identifies epitope residues ok");
+my $abComplex = pdb->new(pdb_code => '1afv',
+			 pdb_file => '1afv.pdb');
+@chains = $abComplex->create_chains('A', 'L', 'H');
 
-# Test getAbPairs()
-testGetAbPairs($abComplex);
+subtest "idabchain related" => sub {
+  plan skip_all => "Skipping tests reliant on kabatnum - use opt -i to run"
+    unless $runidabchainTest;
 
-=cut
+  # Test isAbVariable
+  my %return = map {$_->chain_id() => $_->isAbVariable()} @chains;
+
+  cmp_deeply(\%return, ExpChains(),
+	     "isAbVariable works okay");
+
+  # Test getAbPairs()
+  testGetAbPairs($abComplex);
+
+  subtest "kabatnum related" => sub {
+    plan skip_all => "Skipping tests reliant on kabatnum - use opt -k to run"
+      unless $runKabatTest;
+
+    my $abComplex = pdb->new(pdb_code => '1afv',
+			     pdb_file => '1afv.pdb');
+
+    # test chain->determineEpitope
+    ok(testDetermineEpitope(@chains),
+       "determineEpitope identifies epitope residues ok");
+  };
+};
 
 # Test isInContact
 testIsInContact($abComplex);
@@ -617,7 +590,7 @@ sub testDetermineEpitope {
 
     # This will label antigen epitope atoms via flag $atom->is_epitope()
     $antigen->determineEpitope([$light, $heavy], 4, 4);
-    
+
     my @epitopeResSeqs = coreEpitope();
 
     return checkEpitopeLabels($antigen, @epitopeResSeqs) ? 1 : 0;
