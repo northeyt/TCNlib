@@ -34,7 +34,7 @@ subtest "test pdbsws locally" => sub {
 };
 
 subtest "test pdbsws remote" => sub {
-    my $pdbsws = pdb::pdbsws::Factory->new(remote => 0)->getpdbsws();
+    my $pdbsws = pdb::pdbsws::Factory->new(remote => 1)->getpdbsws();
     testpdbsws($pdbsws);
 };
 
