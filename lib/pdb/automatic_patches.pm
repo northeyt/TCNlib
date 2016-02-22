@@ -37,7 +37,6 @@ my $pdbext  = $TCNPerlVars::pdbext;
 my $pdbdir  = $TCNPerlVars::pdbdir;
 my $makepatch = $TCNPerlVars::makepatch;
 my $radii_file = $TCNPerlVars::radii_file;
-my $tmpdir = $TCNPerlVars::tmpdir . '/automatic_patches' ;
 
 # Attributes
 
