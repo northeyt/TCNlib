@@ -9,8 +9,9 @@ clustalo=clustalo-1.2.0-Ubuntu-x86_64.tar.gz
 
 exPackDir=extpackages
 mkdir -p $exPackDir
+
 cd $exPackDir
-for i in $blastTar $muscleTar $wekaTar; do
+for i in $blastTar $muscleTar $wekaTar $cdhitTar $clustalw $clustalo; do
     curl -O $packPage/$i && tar -zxvf $i && rm $i
 done
 
@@ -18,10 +19,9 @@ done
 ln -s $(basename $muscleTar .tar.gz) muscle
 
 # create symlink for clustalo binary
-ln -s $(basename $muscleTar .tar.gz) clustalo
+ln -s $(basename $clustalo .tar.gz) clustalo
 
 # run make for clustalw
 cd clustalw1.8
 make
 make clean
-
