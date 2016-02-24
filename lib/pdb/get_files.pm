@@ -12,7 +12,7 @@ use pdb::file_cache;
 
 has 'pdb_code' => (
     is => 'rw',
-    isa => 'ValidPDB',
+    isa => 'Str',
 );
 
 foreach my $name ('pdb', 'pqs') { 
