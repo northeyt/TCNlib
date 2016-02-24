@@ -1642,7 +1642,7 @@ sub highestASA {
     
     foreach my $atom (@atoms) {        
         my $predicate = "has_$ASA_type";
-        croak 'atom ' . $atom->serial() . " has no $ASA_type value\n"
+        confess 'atom ' . $atom->serial() . " has no $ASA_type value\n"
             . $atom . "\n"
                 if ! $atom->$predicate();
     }
