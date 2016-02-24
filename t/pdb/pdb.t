@@ -123,8 +123,14 @@ $pdb->_parse_atoms();
 is( scalar @{ $pdb->atom_array() }, 3066,
     "all ATOM and HETATM lines parsed and included in atom_array" );
 
-# _parse_ter
+subtest "unique serials are assigned" => sub {
+    my $pdb = pdb->new(pdb_file => "nonunique_serials.pdb");
+    is($pdb->atom_serial_hash->{10000}->serial(), 10000,
+       "serial reassigned from 1 to 10000");
+};
 
+
+# _parse_ter
 my $ter_line = "TER    2725      SO4 A 407 \n";
 
 my($serial, $chainID) = pdb::_parse_ter($ter_line);

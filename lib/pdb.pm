@@ -524,7 +524,9 @@ sub _parse_atoms {
     
     # Used to cache terminal labelled atoms
     my %ter = ();
-        
+
+    my $prevAtom;
+    
     foreach my $line (@ATOM_lines) {
 
         # Process TER lines to label atoms as terminal
@@ -542,7 +544,15 @@ sub _parse_atoms {
 
         # Parse atom line to create atom object
         my $atom = atom->new(ATOM_line => $line);
-        
+
+        # Some PDB files contain non-unique serial sequences,
+        # where serial = 1 after serial 9999. For these assign
+        # new serial, as unique serials are required for many functions.
+        if ($prevAtom && $prevAtom->serial > $atom->serial) {
+            $atom->serial($prevAtom->serial + 1);
+        }
+        $prevAtom = $atom;
+     
         # Skip this atom if type is flagged to avoid
         next if ($self->hydrogen_cleanup && $atom->element eq 'H'
                      || $self->het_atom_cleanup && $atom->is_het_atom);
@@ -835,6 +845,8 @@ sub _build_atom_serial_hash {
     my %atomSerialHash = ();
 
     foreach my $atom (@{$self->atom_array()}) {
+        croak "Two atoms have the same serial!:\n" . $atomSerialHash{$atom->serial}
+            . $atom->serial if exists $atomSerialHash{$atom->serial};
         $atomSerialHash{$atom->serial} = $atom;
     }
 
