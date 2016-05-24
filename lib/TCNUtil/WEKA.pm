@@ -177,10 +177,10 @@ sub standardizeArffFiles {
 }
 
 sub parseTableFromOutput {
-    my $self    = shift;
-    my $output  = shift;
-    my $outForm = shift;
-
+    my $self     = shift;
+    my $output   = shift;
+    my $outForm  = shift;
+    my $noHeader = shift;
     $outForm = 'CSV' if ! $outForm;
     
     # If output in array ref form, use this - otherwise,
@@ -189,7 +189,7 @@ sub parseTableFromOutput {
         [split /(?<=\n)/, $output]; # Split output into lines (keeping newline)
     
     # Get confusion table from output
-    my $table = $self->_tableFromLines($outputAref, $outForm);
+    my $table = $self->_tableFromLines($outputAref, $outForm, $noHeader);
 }
 
 sub parseInstancesFromOutput {
@@ -211,9 +211,10 @@ sub _tableFromLines {
     my $self     = shift;
     my $lineAref = shift;
     my $outForm  = shift;
+    my $noHeader = shift;
     
     my @instances
-        = $outForm eq 'CSV' ? $self->_getInstancesFromCSVLines($lineAref)
+        = $outForm eq 'CSV' ? $self->_getInstancesFromCSVLines($lineAref, $noHeader)
         : $self->_getInstancesFromDefaultOutputLines($lineAref);
         
     my $table     = confusion_table->new(item_class => 'instance');
@@ -242,23 +243,26 @@ sub  _getInstancesFromDefaultOutputLines {
 sub _getInstancesFromCSVLines {
     my $self         = shift;
     my $lineAref     = shift;
+    my $noHeader     = shift;
     
     my @instances     = ();
     my @fieldTitles   = ();
-    my $reachedHeader = 0;
+    @fieldTitles = qw(inst actual predicted score id) if $noHeader;
+    
+    my $reachedHeader = $noHeader ? 1 : 0;
     
     foreach my $line (@{$lineAref}) {
         chomp $line;
         next if ! $line;
         
         if (! $reachedHeader || $line =~ /^\n$/) {
-            if ($line =~ /^inst#/) {
+            if ($line =~ /^inst/) {
                 $reachedHeader = 1;
                 @fieldTitles = split(",", $line);
             }
             next;
         }
-                
+        
         my $instance = $self->_instanceFromLine($line, \@fieldTitles, 'CSV');
         push(@instances, $instance) if $instance; 
     }
@@ -275,6 +279,10 @@ sub _instanceFromLine {
         = $lineForm eq 'CSV' ? $self->parseCSVLine($line)
         : $self->parseDefaultOutputLine($line);
 
+    if (@{$fieldTitleAref} == 4) {
+        @remainingFields = ();
+    }
+    
     my $error = $valueLabel eq $predLabel ? '' : '+';
     
     # Remove numeric label identifier from value and prediction
@@ -662,7 +670,7 @@ sub buildTrainCmd {
         # Quotes required for cmd to work
         my $filterWOpts =  "-F \"$rAttrClass -R $rAttrStr\"";
         my $rfClassStr = "-W $rfClass";
-        my $csvOutputStr = "-classifications \"weka.classifiers.evaluation.output.prediction.CSV -p first \"";
+        my $csvOutputStr = '-classifications "weka.classifiers.evaluation.output.prediction.CSV -p first "';
         
         $cmd = "$cmdBase $metaClass $dataIn $filterWOpts"
             . " $classAttrStr $csvOutputStr $rfClassStr -- $rfOptsStr"; 
