@@ -3272,11 +3272,13 @@ sub _build_summary {
             @chainIDAndResSeqs;
 
     my $cA = $self->central_atom();
-
+    my $cAResSeq = $cA->resSeq();
+    $cAResSeq .= $cA->iCode if $cA->has_iCode;
+    
     my $resSeqListStr
         = join(" ", map {$_->[0] . ":" . $_->[1]} @chainIDAndResSeqs);
     
-    my $summary = "<patch " . $cA->chainID() . "." . $cA->resSeq()
+    my $summary = "<patch " . $cA->chainID() . "." . $cAResSeq
         . "> $resSeqListStr\n";
 
     return $summary;
