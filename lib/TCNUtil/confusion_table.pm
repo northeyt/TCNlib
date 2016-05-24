@@ -46,6 +46,11 @@ sub predicted {
     return $self->true_pos + $self->false_pos;
 }
 
+sub prediction_rate {
+    my $self = shift;
+    return $self->predicted / $self->total;
+}
+
 sub actual {
     my $self = shift;
     return $self->true_pos + $self->false_neg;
@@ -160,20 +165,28 @@ sub add_datum {
 
 sub metrics_array {
     my $self = shift;
-    return qw(sensitivity specificity accuracy FPR PPV MCC FDR total);
+    return qw(true_pos true_neg false_pos false_neg predicted actual
+              prediction_rate sensitivity specificity accuracy FPR PPV MCC FDR
+              total);
 }
 
 sub print_all {
     my $self = shift;
     $self->print_table();
     print "\n";
-
+    
     foreach my $metric ($self->metrics_array()) {
-        my $value;
-        my $ret = eval {$value = _formatAnyDecimal($self->$metric); 1};
-        print "$metric: ", $ret ? $value : "???", "\n";
+        print  "$metric: ", $self->_printableValueForMetric($metric), "\n";
     }
     return 1;
+}
+    
+sub _printableValueForMetric {
+    my $self   = shift;
+    my $metric = shift;
+    my $value;
+    my $ret = eval {$value = _formatAnyDecimal($self->$metric); 1};
+    return $ret ? $value : "???";   
 }
     
 sub _formatAnyDecimal {
@@ -182,13 +195,14 @@ sub _formatAnyDecimal {
 
 sub hash_all {
     my $self = shift;
-
-    my @methods = $self->metrics_array();
-
+    my %arg  = @_;
+    $arg{printable} = 0 if ! exists $arg{printable};
+    my @metrics = $self->metrics_array();
     my %hash = ();
-    
-    foreach (@methods) {
-        $hash{$_} = $self->$_;
+    foreach my $metric (@metrics) {
+        $hash{$metric}
+            = $arg{printable} ? $self->_printableValueForMetric($metric)
+            : $self->$metric;
     }
 
     return %hash;
