@@ -3551,6 +3551,10 @@ sub BUILD {
     }
     
     delete $record{ATOM};
+
+    if (! $record{chainID}) {
+        $record{chainID} = '?';
+    }
     
     foreach my $value (keys %record) {
         next if $record{$value} eq '';
