@@ -3416,7 +3416,7 @@ sub parseSummaryLine {
 
     # example summary line : <patch G.409> G:335 G:397 G:398 G:407 G:408 G:409
     # parse all resids
-    my @resids = $summaryLine =~ /(\w+[\.:]-*\w+)/g;
+    my @resids = $summaryLine =~ /([\w?]+[\.:]-*[\w?]+)/g;
     
     # change any : separators to .
     map {s/:/./} @resids;
