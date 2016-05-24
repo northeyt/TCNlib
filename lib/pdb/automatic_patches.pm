@@ -68,7 +68,7 @@ has 'pdb_code' => (
 
 has 'chain_id' => (
     is => 'rw',
-    isa => 'ValidChar',
+    isa => 'Str',
     predicate => 'has_chain_id'
 );
 

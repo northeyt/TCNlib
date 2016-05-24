@@ -2325,7 +2325,7 @@ Chain identifier of chain
 =cut
 
 has 'chain_id' => (
-    isa => 'ValidChar',
+    isa => 'Str',
     is => 'rw',
     required => 1,
 );
