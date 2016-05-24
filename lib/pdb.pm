@@ -322,7 +322,9 @@ Experimental method of structure determination, parsed from pdb data.
 
 has 'experimental_method' => (
     is => 'rw',
-    isa => enum([ ('X-RAY DIFFRACTION', 'NMR', 'ELECTRON MICROSCOPY') ]),
+    isa => enum([ ('X-RAY DIFFRACTION', 'NMR', 'SOLUTION NMR',
+                   'ELECTRON MICROSCOPY', 'SOLUTION SCATTERING',
+                   'THEORETICAL MODEL') ]),
     predicate => 'has_experimental_method',
     lazy => 1,
     builder => '_build_experimental_method',
