@@ -404,6 +404,14 @@ is($testPatchFomSummary->central_atom(), $retCentralAtomStr,
 is($testPatchFomSummary->summary(), $testSummaryLine,
    "patch built from summary: input summary returned after build");
 
+subtest "getAtomFromResSeqAndAtomName" => sub {
+    my $chain = chain->new(pdb_code => '1qok',
+                           pdb_file => '1qok.reduced.pdb',
+                           chain_id => 'A');
+    my $gotAtom = $chain->getAtomFromResSeqAndAtomName(qw(43 OG));
+    is($gotAtom->serial(), 124, "getAtomFromResSeqAndAtomName returns expected atom");
+};
+
 ### Subroutines ################################################################
 
 sub test_labelppHbondedAtoms {

@@ -3035,6 +3035,21 @@ sub createOtherChains {
     return @chains;
 }
 
+sub getAtomFromResSeqAndAtomName {
+    my $self = shift;
+    my ($resSeq, $atomName) = @_;
+    croak "No atom was found with resSeq $resSeq, atomName $atomName!"
+        if ! exists $self->atom_index->{$self->chain_id}->{$resSeq}->{$atomName};
+    return $self->atom_index->{$self->chain_id}->{$resSeq}->{$atomName};
+}
+
+sub doesResSeqHaveCA {
+    my $self   = shift;
+    my $resSeq = shift;
+    return $self->doesResIDHaveCA(join(".", $self->chain_id, $resSeq));
+}
+
+
 __PACKAGE__->meta->make_immutable;
 
 ################################ END OF PACKAGE ################################
