@@ -1,4 +1,4 @@
-package patch_desc;
+package pdb::patch_desc;
 
 use Moose;
 use Moose::Util::TypeConstraints;
