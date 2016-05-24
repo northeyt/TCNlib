@@ -348,7 +348,10 @@ sub forkMakePatch {
         my @atomSerials = ();
         
         foreach my $atomLine (@{$mkpObj->output()}) {
-            # Get atom serial
+            if (ref $atomLine eq 'local::error') {
+                print "WARNING: automatic_patches : " . $atomLine->message() . "\n";
+                next;
+            }
             my $atomSerial = rm_trail(substr($atomLine, 6, 5));
             push(@atomSerials, $atomSerial);
         }
