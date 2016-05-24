@@ -2258,6 +2258,13 @@ sub readAtomRadii {
     $self->atomRadiiAreAssigned(1);
 }
 
+sub doesResIDHaveCA {
+    my $self  = shift;
+    my $resID = shift;
+    my ($chainID, $resSeq) = split(/\./, $resID);
+    return exists $self->atom_index->{$chainID}->{$resSeq}->{CA};
+}
+
 __PACKAGE__->meta->make_immutable;
 
 ################################ END OF PACKAGE ################################
