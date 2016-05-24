@@ -631,6 +631,10 @@ sub _determineSolventAtoms {
     my %chain = ();
     foreach my $atom (@{$atomAref}) {
         my $chainID = $atom->chainID();
+
+        if (! defined $chainID) {
+            croak "Atom $atom has no chainID!";
+        }
         
         if (! exists $chain{$chainID}) {
             $chain{$chainID} = {$atom->serial => $atom};
