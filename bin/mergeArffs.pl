@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -w
+#!/usr/bin/env perl
 # mergeArffs.pl --- merge multiple arff files into a single arff file
 # Author: Tom Northey <zcbtfo4@acrm18>
 # Created: 27 Mar 2015
@@ -6,7 +6,7 @@
 
 use warnings;
 use strict;
-use arff;
+use TCNUtil::ARFF;
 use Getopt::Long;
 
 my $outputFile = "";
@@ -19,7 +19,7 @@ my @arffs = @ARGV;
 my $firstArff = "";
 
 foreach my $arffFile (@arffs) {
-    my $arff = arff->new(file => $arffFile);
+    my $arff = ARFF->new(file => $arffFile);
     if (! $firstArff) {
         $firstArff = $arff;
         next;
