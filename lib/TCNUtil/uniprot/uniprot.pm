@@ -4,7 +4,7 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use TCNUtil::types;
 
-use local::error;
+use TCNUtil::local::error;
 
 use LWP::Simple;
 use Carp;
@@ -55,7 +55,7 @@ has 'organism_NCBI_TaxID' => (
     lazy => 1,
 );
 
-with 'local::can_error';
+with 'TCNUtil::local::can_error';
 
 # Methods
 

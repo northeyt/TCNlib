@@ -1,4 +1,4 @@
-package local::can_error;
+package TCNUtil::local::can_error;
 
 use Moose::Role;
 use Carp;
