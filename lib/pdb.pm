@@ -1656,8 +1656,8 @@ sub highestASA {
 
     my @atoms = values %{ $self->resid_index->{$resid} };
 
-    # If element is defined, use to avoid hydrogen
-    @atoms = grep {! defined $_->element || $_->element() ne 'H'} @atoms;
+    # Remove hydrogen atoms, makepatch doesn't like them
+    @atoms = grep {! _isAtomHydrogen($_)} @atoms;
     
     foreach my $atom (@atoms) {        
         my $predicate = "has_$ASA_type";
@@ -1671,6 +1671,17 @@ sub highestASA {
     my $top_ASA_atom = $sorted[0];
     
     return $top_ASA_atom;
+}
+
+sub _isAtomHydrogen {
+    my $atom = shift;
+    if (defined $atom->element() && $atom->element() ne 'H'
+            || $atom->name() !~ /^\d*H/) {
+        return 0;
+    }
+    else {
+        return 1;
+    }
 }
 
 =item C<map_resSeq2chainSeq(chain_id => CHAIN_ID, include_missing => BOOL)>
