@@ -117,6 +117,11 @@ sub accuracy {
     return (($tp + $tn) / $total);
 }
 
+sub balanced_accuracy {
+    my $self = shift;
+    return ($self->sensitivity + $self->specificity) / 2;
+}
+
 sub MCC {
     my $self = shift;
     my $tp = $self->true_pos;
@@ -166,8 +171,8 @@ sub add_datum {
 sub metrics_array {
     my $self = shift;
     return qw(true_pos true_neg false_pos false_neg predicted actual
-              prediction_rate sensitivity specificity accuracy FPR PPV MCC FDR
-              total);
+              prediction_rate sensitivity specificity accuracy balanced_accuracy
+              FPR PPV MCC FDR total);
 }
 
 sub print_all {
