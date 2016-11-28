@@ -70,8 +70,8 @@ sub _addDelimiterToResID {
     my $resID = shift;
     
     croak "Delimiter is already present in resID!" if $resID =~ /\./;
-    my ($chainID, $resSeq) = $resID =~ /([A-Za-z]+)([0-9a-zA-Z]+)/;
-
+    my $chainID = substr($resID, 0, 1);
+    my $resSeq  = substr($resID, 1);
     return "$chainID.$resSeq";
 }
 
