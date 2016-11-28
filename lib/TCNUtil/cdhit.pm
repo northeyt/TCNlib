@@ -23,6 +23,12 @@ has 'clstr2xmlExecPath' => (
     default => $TCNPerlVars::clstr2xml,
 );
 
+has 'clstrRevPath' => (
+    is => 'rw',
+    isa => 'FileExecutable',
+    default => $TCNPerlVars::clstrRev,    
+);
+
 has 'input' => (
     is => 'rw',
 );
@@ -37,7 +43,7 @@ has 'wordLength' => (
     isa => 'Num',
     is => 'rw',
     lazy => 1,
-    builder => '_buildWordLength'
+    builder => '_buildWordLength',
 );
 
 ### Attribute Builders
@@ -45,7 +51,7 @@ has 'wordLength' => (
 sub _buildWordLength {
     my $self = shift;
 
-    # Base world length for algorithm on seqID specified
+    # Base word length for algorithm on seqID specified
     # These are taken from the cd-hit guide
     my $seqID = $self->seqIDThreshold();
     
@@ -147,16 +153,28 @@ sub _runExec {
     
     my $outFile = '/tmp/' . $FASTAFileBName . ".out";
     my $outClusterFile = $outFile . ".clstr";
-    
-    my $cmd = "$execPath -n $wordLength -c $seqThresh -i $FASTAFile -o $outFile";
 
+    $self->_runCmd("$execPath -n $wordLength -c 0.9 -i $FASTAFile -o $outFile");
+        
+    if ($seqThresh < 0.9) {
+        my $secondOutFile     = "$outFile.2";
+        my $secondClusterFile = $secondOutFile . ".clstr"; 
+        $self->_runCmd("$execPath -n $wordLength -c $seqThresh -i $outFile -o $secondOutFile");
+        my $outClusterString = $self->_runCmd($self->clstrRevPath . " $outClusterFile $secondClusterFile");
+        $outClusterFile = write2tmp->new(data => [$outClusterString])->file_name();
+    }
+    return $outClusterFile;
+}
+
+sub _runCmd {
+    my $self = shift;
+    my $cmd  = shift;
     my($stdout, $stderr, $success, $exit_code) = capture_exec($cmd);
-
     if (! $success) {
         my $err = "cdhit run failed.\nCommand run: $cmd\nSTDERR: $stderr";
         croak $err;
     }
-    return $outClusterFile;
+    return $stdout;
 }
 
 __PACKAGE__->meta->make_immutable;
