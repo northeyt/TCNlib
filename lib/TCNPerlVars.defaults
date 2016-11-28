@@ -38,6 +38,7 @@ $radii_file = "$bioplibDataDir/radii.dat";
 # CDhit and related
 $cdhit = "$extPackDir/cd-hit-4.6.1/cd-hit";
 $clstr2xml = "$extPackDir/cd-hit-4.6.1/clstr2xml.pl";
+$clstrRev='/home/bsm3/zcbtfo4/cd-hit-4.6.1/clstr_rev.pl';
 
 # Clustal and Muscle (MSAs)
 $clustalw = "$extPackDir/clustalw1.8/clustalw";
