@@ -42,6 +42,7 @@ sub findRadiusOfAtomFromNames {
 sub findRadiusOfAtomFromElement {
     my $self    = shift;
     my $element = shift;
+    croak "Element is not defined!" if ! defined $element;
     croak "No radius defined for atom of element $element!"
         if ! exists $self->_defaultRadiusHref->{$element};
     return $self->_defaultRadiusHref->{$element};
