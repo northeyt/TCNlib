@@ -138,9 +138,18 @@ sub removeAttributeWithName {
 
 sub arff2File {
     my $self = shift;
+    my $fName = shift;
+    if ($fName) {
+        open(my $OUT, ">", $fName) or die "Cannot open file $fName, $!";
+        print {$OUT} $self->arff2String;
+        close $OUT;
+        return $fName;
+    }
+    else {
+        return write2tmp->new(data => [$self->arff2String],
+                              suffix => '.arff')->file_name();
+    }
 
-    return write2tmp->new(data => [$self->arff2String],
-                          suffix => '.arff')->file_name();
 }
 
 sub arff2String {
