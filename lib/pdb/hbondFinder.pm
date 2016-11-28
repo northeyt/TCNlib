@@ -44,6 +44,11 @@ sub getHbonds {
 
 sub _parseHydrogenBondsFromOutput {
     my $self = shift;
+
+    if (! $self->stdout) {
+        croak "hbondFinder: executable produced no output. stderr: " . $self->stderr();
+    }
+    
     my @lines = split("\n", $self->stdout);
 
     my @hbs = ();
