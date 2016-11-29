@@ -16,6 +16,9 @@ $pdbprep      = "";
 $pdbprepname  = "pdb";
 $pdbext       = ".ent";
 
+$pqsdir = "";
+$pqsext = ".mmol";
+
 # pdb file cache
 $pdb_file_cache_dir = $ENV{HOME} . '/pdb-cache';
 
@@ -38,11 +41,11 @@ $radii_file = "$bioplibDataDir/radii.dat";
 # CDhit and related
 $cdhit = "$extPackDir/cd-hit-4.6.1/cd-hit";
 $clstr2xml = "$extPackDir/cd-hit-4.6.1/clstr2xml.pl";
-$clstrRev='/home/bsm3/zcbtfo4/cd-hit-4.6.1/clstr_rev.pl';
+$clstrRev="$extPackDir/cd-hit-4.6.1/clstr_rev.pl";
 
 # Clustal and Muscle (MSAs)
 $clustalw = "$extPackDir/clustalw1.8/clustalw";
-$clustalO = '$expPackDir/clustalo';
+$clustalO = "$extPackDir/clustalo";
 $muscle   = "$extPackDir/muscle";
 
 # SACS Antibody-containing PDB XML File 
