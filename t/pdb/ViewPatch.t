@@ -9,12 +9,15 @@ use Test::More qw( no_plan );
 use Test::Deep;
 BEGIN { use_ok( 'pdb::ViewPatch' ); }
 
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
+
 #########################
 
 new_ok("pdb::ViewPatch");
 
 subtest "patchDescriptions" => sub {
-    my $tViewer = pdb::ViewPatch->new(patchDir => "t/pdb/test-patchdir/");
+    my $tViewer = pdb::ViewPatch->new(patchDir => "test-patchdir/");
     my $tID = "1a2y:C:47";
     ok(exists $tViewer->patchDescriptionLookup->{$tID},
        "test patch ID is present in patchDescriptionLookup");

@@ -8,6 +8,9 @@ use pdb;
 use pdb::automatic_patches;
 use Benchmark;
 
+use FindBin qw($RealBin);
+chdir($RealBin); # So test data files can be found
+
 # 1afv is a large PDB file containing 9000 atom lines
 my $testPdbCode = "1afv";
 my $testPdbFile = "$testPdbCode.pdb";

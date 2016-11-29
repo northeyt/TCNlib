@@ -38,16 +38,16 @@ print "Testing _true_angle_from_x\n";
 
 my @v = ( vector(1,1,0), vector(-1,1,0), vector(-1,-1,0), vector(1,-1,0) );
 
-is(patch_desc->_true_angle_from_x($v[0]) *  180 / pi, 45,
+is(pdb::patch_desc->_true_angle_from_x($v[0]) *  180 / pi, 45,
    "1st quad angles okay");
 
-is(patch_desc->_true_angle_from_x($v[1]) *  180 / pi, 135,
+is(pdb::patch_desc->_true_angle_from_x($v[1]) *  180 / pi, 135,
    "2nd quad angles okay");
 
-is(patch_desc->_true_angle_from_x($v[2]) * 180 / pi, 225,
+is(pdb::patch_desc->_true_angle_from_x($v[2]) * 180 / pi, 225,
    "3rd quad angles okay");
 
-is(patch_desc->_true_angle_from_x($v[3]) * 180 / pi, 315,
+is(pdb::patch_desc->_true_angle_from_x($v[3]) * 180 / pi, 315,
    "4th quad angles okay");
 
 
@@ -71,10 +71,10 @@ my $data;
 
 my $patch = eval $data;
 
-my $patch_desc = patch_desc->new( patch => $patch,
+my $patch_desc = pdb::patch_desc->new( patch => $patch,
                                   parent => $chain );
 
-isa_ok( $patch_desc, 'patch_desc' );
+isa_ok( $patch_desc, 'pdb::patch_desc' );
 
 # Hashes created internally by patch order method
 my ( $surface_error, $surface_atoms ) = $patch_desc->_surface_atoms;
