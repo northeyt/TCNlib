@@ -103,7 +103,9 @@ sub _parsePatchID {
 }
 
 sub _getPymolPipe {
-    open(my $OUT, "|/usr/bin/pymol -p > /dev/null") or die "Pipe failed\n";
+    my $pymol = `which pymol`;
+    chomp $pymol;
+    open(my $OUT, "|$pymol -p > /dev/null") or die "Pipe failed\n";
     return $OUT;
 }
 
