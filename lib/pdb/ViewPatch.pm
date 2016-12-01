@@ -165,11 +165,15 @@ sub _selectionStringFromResID {
 }
 
 sub prepareChainObject {
-    my $self = shift;
+    my $self  = shift;
     my $pdbID = shift;
+    my %arg   = @_;
+    
     if (! exists $self->chainObjectLookup->{$pdbID}) {
         my ($pdbCode, $chainID) = split(/:/, $pdbID);
-        my $chain = chain->new(pdb_code => $pdbCode, chain_id => $chainID);
+	my %chainArg = (pdb_code => $pdbCode, chain_id => $chainID);
+	$chainArg{pdb_file} = $arg{pdb_file} if exists $arg{pdb_file};
+        my $chain = chain->new(%chainArg);
         my $file = write2tmp->new(data => [map {"$_"} @{$chain->atom_array}])->file_name();
         my $objectID = $pdbID;
         $objectID =~ s/:/_/;

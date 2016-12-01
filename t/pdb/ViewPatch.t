@@ -33,5 +33,5 @@ subtest "pymolPipe" => sub {
 
 subtest "prepareObject" => sub {
     my $tViewer = pdb::ViewPatch->new();
-    ok($tViewer->prepareChainObject("1a2y:C"));
+    ok($tViewer->prepareChainObject("1a2y:C", pdb_file => "1a2y.pdb"));
 }
