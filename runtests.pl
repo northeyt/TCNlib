@@ -1,8 +1,12 @@
 #!/usr/bin/env perl
 use TAP::Harness;
-my %args = (lib => ['lib']);
-my $harness = TAP::Harness->new(\%args);
+use Cwd;
 
+# Set these so that tests can find modules and external packages
+$ENV{'TCNlib'} = getcwd();
+$ENV{'PERL5LIB'} = $ENV{'TCNlib'} . "/lib:" . $ENV{'PERL5LIB'};
+
+my $harness = TAP::Harness->new(\%args);
 my @tests 
     = qw(ARFF.t  cdhit.t  FOSTA.t  MSA.t  scorecons.t  VectorCalcs.t  WEKA.t  write2tmp.t
 pdb/automatic_patches.t        pdb/hbondFinder.t  pdb/pdbFunctions.t        pdb/solv.t
