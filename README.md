@@ -4,10 +4,10 @@ This github is home to a bunch of perl modules and scripts that were written dur
 
 # Prerequisites
 
-These prerequisites are required for TCNUtils
+These prerequisites are required for TCNlib
 
 * Get submodules
-TCNUtils is currently dependent on a handful of modules in the [SAAP package](https://github.com/ACRMGroup/SAAP). SAAP is a submodule of TCNUtils, so can be obtained by running `git submodule update --init --recursive` on the command line.
+TCNlib is currently dependent on a handful of modules in the [SAAP package](https://github.com/ACRMGroup/SAAP). SAAP is a submodule of TCNlib, so can be obtained by running `git submodule update --init --recursive` on the command line.
 
 * Install bioptools
 Available via [github](https://github.com/ACRMGroup/bioptools).
@@ -30,7 +30,7 @@ Run `getperldeps.pl` to check for perl dependencies - any missing dependencies w
 Run `runtests.pl`.
 
 * Create `TCNPerlVars.pm`
-Defaults for variables used by all TCNUtils modules are found in `TCNPerlVars.defaults`. This has to be copied to `TCNPerlVars.pm` for TCNUtils to work. At the command-line, run `cp lib/TCNPerlVars.defaults lib/TCNPerlVars.pm`.
+Defaults for variables used by all TCNlib modules are found in `TCNPerlVars.defaults`. This has to be copied to `TCNPerlVars.pm` for TCNlib to work. At the command-line, run `cp lib/TCNPerlVars.defaults lib/TCNPerlVars.pm`.
 
 * Get swissprot for blast searches (not necessary, but recommended!)
 Running blast searches remotely is implemented in this library, but the NCBI cgi server can be unreliable and is always slow. To run blast searches against a local version of the swissprot database, run setup-blastdb (found in /bin). This will grab the latest version of swissprot from the NCBI FTP server and create the required database files so that blastall can be run. The files will be created at the location specified by the $TCNPerlVars::blastdbDir variable, found in TCNPerlVars.pm. Alternatively, if you already have a local version of the database, point the $TCNPerlVars::swissProtDB towards it.
