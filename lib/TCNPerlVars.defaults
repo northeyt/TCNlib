@@ -20,7 +20,7 @@ $pqsdir = "";
 $pqsext = ".mmol";
 
 # pdb file cache
-$pdb_file_cache_dir = $ENV{TCNlib_DATADIR} . '/pdb-cache';
+$pdb_file_cache_dir = $datadir . '/pdb-cache';
 
 # Command-line program paths for pdb and related classes
 $makepatch     = "$bioptoolsBin/pdbmakepatch";

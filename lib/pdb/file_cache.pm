@@ -35,6 +35,9 @@ sub get_file {
 
 sub _build_file_name {
     my $self = shift;
+    if(! -d $self->cache_dir){
+	mkdir $self->cache_dir;
+    }
     return $self->cache_dir . '/' . $self->file_prefix . lc ($self->pdb_code) . $self->file_ext;
 }
 
