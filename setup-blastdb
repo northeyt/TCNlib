@@ -1,8 +1,11 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
+use lib 'lib/';
 use TCNPerlVars;
 use Getopt::Long;
+use Cwd;
+$TCNPerlVars::extPackDir = getcwd() . '/extpackages';
 
 my $force = 0;
 GetOptions("f" => \$force);
@@ -13,7 +16,7 @@ if($?){
 }
 
 if(-e $TCNPerlVars::blastdbDir . "/swissprot.phr" && ! $force){
-  print <<EOF;
+    print <<EOF;
 It looks like a swissprot db has already been set up in $TCNPerlVars::blastdbDir, so I won't continue.
 Use the -f option to download and format the latest swissprot file from the NCBI. You may want to save the old version of the database if you so need!
 EOF
@@ -21,7 +24,7 @@ exit(1);
 }
 
 print "Getting swissprot file from NCBI FTP server ...\n";
-system("wget -P $TCNPerlVars::blastdbDir ftp://ftp.ncbi.nlm.nih.gov/blast/db/FASTA/swissprot.gz");
+system("wget -O $TCNPerlVars::blastdbDir/swissprot.gz ftp://ftp.ncbi.nlm.nih.gov/blast/db/FASTA/swissprot.gz");
 
 chdir($TCNPerlVars::blastdbDir);
 print "Decompressing file ...\n";
