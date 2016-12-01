@@ -69,7 +69,8 @@ $wekaLib     = "$extPackDir/weka-3-7-10/weka.jar";
 $javaForWeka = "/usr/bin/java";
 
 # seq dbs formatted for blast searching
-$swissProtDB  = $ENV{'HOME'} . '/data/blast/swissprot';
-$pdb_db       = $ENV{'HOME'} . '/data/blast/pdbaa';
+$blastdbDir = $datadir . "/blastdb";
+$swissProtDB  = $blastdbDir . '/swissprot';
+$pdb_db       = $blastdbDir . '/pdbaa';
 
 1;
