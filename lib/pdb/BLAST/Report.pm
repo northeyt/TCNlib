@@ -168,7 +168,7 @@ package pdb::BLAST::Report::SwissProt;
 use Moose;
 use UNIPROT;
 use TCNUtil::sequence;
-
+use Carp;
 with 'pdb::BLAST::ReportHandler';
 
 # If reliable option has been passed, filter hits using isHitReliable.
@@ -202,7 +202,6 @@ sub isHitReliable {
 sub swissProtSeqFromHit {
     my $self = shift;
     my $hit  = shift;
-    
     my $ac       = $self->parseACFromHit($hit);
     my $FASTAStr = UNIPROT::GetFASTA($ac, -remote => 1);
     return sequence->new($FASTAStr);
@@ -213,6 +212,14 @@ sub parseACFromHit {
     my $hit     = shift;
 
     my ($ac) = $hit->name =~ /sp\|(\S{6})/;
+    if(! $ac){
+	# Hit name may be formatted like so: F1RRT2.3
+	# check if this is the case and grab the whole name if so
+	if($hit->name =~ /^\S{6}(\.\S)*$/){
+	    $ac = $hit->name;
+	}
+    }
+    croak "An ac could not be parsed from the hit (name = " . $hit->name . ")" if ! $ac;
     return $ac;
 }
 
