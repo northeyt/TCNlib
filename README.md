@@ -31,3 +31,6 @@ Run `runtests.pl`.
 
 * Create `TCNPerlVars.pm`
 Defaults for variables used by all TCNUtils modules are found in `TCNPerlVars.defaults`. This has to be copied to `TCNPerlVars.pm` for TCNUtils to work. At the command-line, run `cp lib/TCNPerlVars.defaults lib/TCNPerlVars.pm`.
+
+* Get swissprot for blast searches (not necessary, but recommended!)
+Running blast searches remotely is implemented in this library, but the NCBI cgi server can be unreliable and is always slow. To run blast searches against a local version of the swissprot database, run setup-blastdb (found in /bin). This will grab the latest version of swissprot from the NCBI FTP server and create the required database files so that blastall can be run. The files will be created at the location specified by the $TCNPerlVars::blastdbDir variable, found in TCNPerlVars.pm. Alternatively, if you already have a local version of the database, point the $TCNPerlVars::swissProtDB towards it.
