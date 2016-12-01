@@ -18,7 +18,7 @@ LWP::Protocol::https
 # Currently installed with versions specified - this can be
 # changed in the future if needs be
 my $build = Module::Build->new(
-    module_name => 'tcnutils',
+    module_name => 'TCNlib',
     requires => {map {$_ => 0} @deps},
     );
 $build->dispatch('installdeps');
