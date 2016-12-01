@@ -49,6 +49,7 @@ subtest "BLAST local" => sub {
 };
 
 subtest "BLAST remote" => sub {
+    plan skip_all => "Skipping due to problems with remote BLAST and BioPerl ...\n";
     my $testObj = pdb::BLAST::Remote->new(query         => _getTestChain(),
                                           db            => "swissprot",
                                           reportHandler => pdb::BLAST::Report::SwissProt->new());
@@ -91,6 +92,7 @@ subtest "BLAST PDBseq" => sub {
 };
 
 subtest "BLAST SwissProt" => sub {
+    plan skip_all => "Skipping due to problems with remote BLAST and BioPerl ...\n" if ! $runLocalTests;
     my $testChain = chain->new(pdb_code => "1afv", pdb_file => "1afv.pdb",
                                chain_id => "A");
     my $remote = $runLocalTests ? 0 : 1;
