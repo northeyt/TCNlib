@@ -19,8 +19,10 @@ These prerequisites are required for TCNlib
 6. Add the following lines to your .bashrc:
 
 ```
-export TCNlib=~/software/TCNlib
+export TCNlib=/path/to/TCNlib
 export PERL5LIB=$TCNlib/lib:$PERL5LIB
 ```
+
+Where `/path/to/TCNlib/` is replaced with the real path!
 
 7. Get swissprot for blast searches (not necessary, but recommended!). Running blast searches remotely is implemented in this library, but the NCBI cgi server can be unreliable and is always slow. To run blast searches against a local version of the swissprot database, run setup-blastdb. This will grab the latest version of swissprot from the NCBI FTP server and create the required database files so that blastall can be run. The files will be created at the location specified by the $TCNPerlVars::blastdbDir variable, found in TCNPerlVars.pm. Alternatively, if you already have a local version of the database, point the $TCNPerlVars::swissProtDB towards it.
