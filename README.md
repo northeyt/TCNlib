@@ -6,9 +6,9 @@ This github is home to a bunch of perl modules and scripts that were written dur
 
 These prerequisites are required for TCNlib
 
-1. Install bioptools. Available via [github](https://github.com/ACRMGroup/bioptools).
+1. Install bioptools, available via [github](https://github.com/ACRMGroup/bioptools).
 
-2. Install BioPerl. See the [BioPerl website](http://bioperl.org/INSTALL.html) for instructions.
+2. Install BioPerl. See the [BioPerl website](http://bioperl.org/INSTALL.html) for instructions. I recommend opening the cpan client on the command line and typing `d /bioperl/`. This will return a list of available BioPerl packages. Pick the most recent version and use force to install (it is likely that some tests will fail) by running `force install CJFIELDS/BioPerl-1.6.924.tar.gz`.
 
 3. Install Module::Build, which is required to check for and install perl dependecies. Run `cpan Module::Build` on the command-line to install it.
 
@@ -16,11 +16,10 @@ These prerequisites are required for TCNlib
 
 5. Run tests using `runtests.pl`.
 
-6. Add these to your .bashrc:
+6. Add the following lines to your .bashrc:
 
 ```
 export TCNlib=~/software/TCNlib
-export TCNlib_DATADIR=$DATADIR
 export PERL5LIB=$TCNlib/lib:$PERL5LIB
 ```
 
