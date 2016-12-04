@@ -455,13 +455,15 @@ has 'model' => (
 
 =item C<trainArff>
 
-Path to training set .arff file.
+ARFF object containing the training set. A file path to an .arff
+file can also be passed.
 
 =cut
 
 =item C<testArff>
 
-Path to test set .arff file.
+ARFF object containing the test set. A file path to an .arff
+file can also be passed.
 
 =cut
 
