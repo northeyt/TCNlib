@@ -21,7 +21,7 @@ my $file =  $fileType eq 'pdb' ? $pdbGetFile->pdb_file()
     :  croak "Input from file type " . $fileType . " not implemented!";
 
 my $chain = chain->new(pdb_code => $pdbCode, chain_id => $chainID,
-                       pdb_file => $file);
+                       pdb_file => $file, het_atom_cleanup => 1);
 my $ap = automatic_patches->new(pdb_object => $chain, patch_type => 'normal',
                                 radius => 14, ASA_type => 'ASAb',
                                 build_patches_from_parent => 1);
