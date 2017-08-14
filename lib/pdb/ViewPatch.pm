@@ -1,10 +1,12 @@
 package pdb::ViewPatch;
 use Moose;
+use Moose::Util::TypeConstraints;
 use Carp;
 use TCNUtil::types;
 use TCNUtil::ARFF;
 use TCNUtil::write2tmp;
 use pdb;
+use pdb::get_files;
 
 has 'pymolPipe' => (
     is => 'rw',
@@ -36,6 +38,12 @@ has 'arff' => (
     is => 'rw',
     isa => 'ARFF',
     predicate => 'has_arff',
+);
+
+has 'structureDataType' => (
+    is => 'rw',
+    isa => enum(["pdb", "pqs"]),
+    default => "pdb",
 );
 
 sub view {
@@ -171,7 +179,13 @@ sub prepareChainObject {
     
     if (! exists $self->chainObjectLookup->{$pdbID}) {
         my ($pdbCode, $chainID) = split(/:/, $pdbID);
-	my %chainArg = (pdb_code => $pdbCode, chain_id => $chainID);
+
+        my $getFile = pdb::get_files->new(pdb_code => $pdbCode);
+        my $pdbFile = $self->structureDataType eq 'pdb' ? $getFile->pdb_file
+            : $getFile->pqs_file;
+        print $pdbFile . "\n";
+	my %chainArg = (pdb_code => $pdbCode, chain_id => $chainID,
+                        pdb_file => $pdbFile);
 	$chainArg{pdb_file} = $arg{pdb_file} if exists $arg{pdb_file};
         my $chain = chain->new(%chainArg);
         my $file = write2tmp->new(data => [map {"$_"} @{$chain->atom_array}])->file_name();
