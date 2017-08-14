@@ -1,5 +1,5 @@
 #!/bin/bash
-packPage=http://www.bioinf.org.uk/intpred/packages
+packPage=http://www.bioinf.org.uk/intpred/src/packages
 blastTar=blast-2.2.22-x64-linux.tar.gz
 muscleTar=muscle3.8.31_i86linux64.tar.gz
 wekaTar=weka-3-7-10.tar.gz
