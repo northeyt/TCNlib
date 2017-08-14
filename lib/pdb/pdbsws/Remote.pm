@@ -27,6 +27,9 @@ sub getACsFromPDBCodeAndChainID {
     my ($pdbCode, $chainID) = @_;
     my $queryString = "pdb&id=$pdbCode&chain=$chainID";
     my $responseString = $self->_query($queryString);
+    if (! $responseString) {
+        croak "pdbsws failed to return anything for query pdb $pdbCode, chain $chainID\n"
+    }
     return map {$_->{AC}}
         $self->_getEntryHashesFromResponseString($responseString)
 }
